@@ -32,12 +32,13 @@ interface MemberTabsProps {
   messagesThisMonth: number;
   messagesLastMonth: number;
   canManageAccounts?: boolean;
+  canManageMessages?: boolean;
   readOnly?: boolean;
 }
 
 export function MemberTabs({
   memberId, currentTab, member, accounts, messages, notes, activity,
-  bestService, messagesThisMonth, messagesLastMonth, canManageAccounts, readOnly,
+  bestService, messagesThisMonth, messagesLastMonth, canManageAccounts, canManageMessages, readOnly,
 }: MemberTabsProps) {
   const growth = messagesLastMonth > 0
     ? Math.round((messagesThisMonth - messagesLastMonth) / messagesLastMonth * 100)
@@ -188,9 +189,29 @@ export function MemberTabs({
       )}
 
       {currentTab === "messages" && (
-        <div className="responsive-table">
+        <div className="space-y-4">
+          {!readOnly && canManageMessages && (
+            <div className="flex justify-end">
+              <Link href="/my-messages/new">
+                <Button variant="secondary">
+                  <Plus className="h-4 w-4" />
+                  Record Message
+                </Button>
+              </Link>
+            </div>
+          )}
+          <div className="responsive-table">
           {messages.length === 0 ? (
-            <p className="text-neutral-500">No messages recorded.</p>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-neutral-500 mb-4">No messages recorded.</p>
+                {canManageMessages && !readOnly && (
+                  <Link href="/my-messages/new">
+                    <Button variant="secondary">Record Your First Message</Button>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
           ) : (
             <table className="w-full text-sm bg-white rounded-xl border">
               <thead>
@@ -199,6 +220,7 @@ export function MemberTabs({
                   <th className="p-3 font-medium">Account</th>
                   <th className="p-3 font-medium">Service</th>
                   <th className="p-3 font-medium">Status</th>
+                  {canManageMessages && !readOnly && <th className="p-3 font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -208,11 +230,21 @@ export function MemberTabs({
                     <td className="p-3">{(msg.fiverr_account as { username: string })?.username ?? "—"}</td>
                     <td className="p-3">{getMessageServiceLabel(msg)}</td>
                     <td className="p-3"><Badge variant="neutral">{MESSAGE_STATUS_LABELS[msg.status]}</Badge></td>
+                    {canManageMessages && !readOnly && (
+                      <td className="p-3">
+                        <Link href={`/my-messages/${msg.id}/edit`}>
+                          <Button variant="ghost" size="sm">
+                            <Pencil className="h-4 w-4" /> Edit
+                          </Button>
+                        </Link>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          </div>
         </div>
       )}
 

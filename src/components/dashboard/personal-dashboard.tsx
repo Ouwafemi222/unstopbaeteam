@@ -32,8 +32,9 @@ interface PersonalDashboardProps {
   sponsorName?: string | null;
   showEditLink?: boolean;
   showAddAccount?: boolean;
-  /** Link target for add/view accounts (default: team-members profile path) */
+  showAddMessage?: boolean;
   accountsBasePath?: string;
+  messagesBasePath?: string;
   subtitle?: string;
   preloaded?: PreloadedData;
 }
@@ -80,12 +81,16 @@ export async function PersonalDashboard({
   sponsorName,
   showEditLink,
   showAddAccount,
+  showAddMessage,
   accountsBasePath,
+  messagesBasePath,
   subtitle,
   preloaded,
 }: PersonalDashboardProps) {
   const accountsPath = accountsBasePath ?? `/team-members/${member.id}/accounts`;
   const accountsTabHref = accountsBasePath ?? `/team-members/${member.id}?tab=accounts`;
+  const messagesPath = messagesBasePath ?? `/team-members/${member.id}/messages`;
+  const messagesTabHref = messagesBasePath ?? `/team-members/${member.id}?tab=messages`;
   const supabase = await createClient();
   const thisMonth = getDateRange("this_month");
   const lastMonth = getDateRange("last_month");
@@ -340,16 +345,33 @@ export async function PersonalDashboard({
               <MessageSquare className="h-4 w-4 text-brand-orange" />
               Recent Messages
             </CardTitle>
-            <Link
-              href={`/team-members/${member.id}?tab=messages`}
-              className="text-sm font-medium text-brand-green hover:underline"
-            >
-              View all ({messageList.length})
-            </Link>
+            <div className="flex items-center gap-3">
+              {showAddMessage && (
+                <Link href={`${messagesPath}/new`}>
+                  <Button size="sm" variant="secondary" className="h-8">
+                    <Plus className="h-3.5 w-3.5" />
+                    Record
+                  </Button>
+                </Link>
+              )}
+              <Link
+                href={messagesBasePath ?? messagesTabHref}
+                className="text-sm font-medium text-brand-green hover:underline"
+              >
+                View all ({messageList.length})
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {recentMessages.length === 0 ? (
-              <p className="p-6 text-sm text-neutral-500">No messages synced yet.</p>
+              <div className="p-6 text-center">
+                <p className="text-sm text-neutral-500 mb-3">No messages yet.</p>
+                {showAddMessage && (
+                  <Link href={`${messagesPath}/new`}>
+                    <Button size="sm" variant="secondary">Record Your First Message</Button>
+                  </Link>
+                )}
+              </div>
             ) : (
               <div className="divide-y divide-neutral-100">
                 {recentMessages.map((msg) => (

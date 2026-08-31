@@ -100,7 +100,9 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         sponsorName={sponsor?.full_name}
         showEditLink={!scope.isScopedMember && isOwnProfile}
         showAddAccount={isOwnProfile}
+        showAddMessage={isOwnProfile}
         accountsBasePath={isOwnProfile ? "/my-accounts" : undefined}
+        messagesBasePath={isOwnProfile ? "/my-messages" : undefined}
         subtitle={
           isOwnProfile
             ? scope.isScopedMember
@@ -130,6 +132,7 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         messagesThisMonth={messagesThisMonth ?? 0}
         messagesLastMonth={messagesLastMonth ?? 0}
         canManageAccounts={isOwnProfile}
+        canManageMessages={isOwnProfile}
         readOnly={isSponsorView}
       />
     </div>

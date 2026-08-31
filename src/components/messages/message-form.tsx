@@ -17,14 +17,26 @@ import type { TeamMember, FiverrAccount, Service, Message } from "@/types/databa
 interface MessageFormProps {
   mode: "create" | "edit";
   message?: Message;
+  lockedTeamMemberId?: string;
+  lockedTeamMemberName?: string;
+  returnTo?: string;
 }
 
-export function MessageForm({ mode, message }: MessageFormProps) {
+export function MessageForm({
+  mode,
+  message,
+  lockedTeamMemberId,
+  lockedTeamMemberName,
+  returnTo,
+}: MessageFormProps) {
+  const isSelfService = !!lockedTeamMemberId;
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [accounts, setAccounts] = useState<FiverrAccount[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [selectedMember, setSelectedMember] = useState(message?.team_member_id ?? "");
+  const [selectedMember, setSelectedMember] = useState(
+    lockedTeamMemberId ?? message?.team_member_id ?? ""
+  );
   const [quickMode, setQuickMode] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -32,14 +44,20 @@ export function MessageForm({ mode, message }: MessageFormProps) {
   useEffect(() => {
     async function load() {
       const [{ data: m }, { data: s }] = await Promise.all([
-        supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
+        isSelfService
+          ? Promise.resolve({ data: null })
+          : supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
         supabase.from("services").select("*").eq("is_active", true).order("name"),
       ]);
-      setMembers(m ?? []);
+      if (m) setMembers(m ?? []);
       setServices(s ?? []);
     }
     load();
-  }, [supabase]);
+  }, [supabase, isSelfService]);
+
+  useEffect(() => {
+    if (lockedTeamMemberId) setSelectedMember(lockedTeamMemberId);
+  }, [lockedTeamMemberId]);
 
   useEffect(() => {
     if (!selectedMember) { setAccounts([]); return; }
@@ -56,8 +74,12 @@ export function MessageForm({ mode, message }: MessageFormProps) {
     const form = new FormData(e.currentTarget);
     const { data: { user } } = await supabase.auth.getUser();
 
+    const teamMemberId = (isSelfService
+      ? lockedTeamMemberId
+      : (form.get("team_member_id") as string)) as string;
+
     const payload = {
-      team_member_id: form.get("team_member_id") as string,
+      team_member_id: teamMemberId,
       fiverr_account_id: (form.get("fiverr_account_id") as string) || null,
       service_id: (form.get("service_id") as string) || null,
       received_date: form.get("received_date") as string,
@@ -70,7 +92,10 @@ export function MessageForm({ mode, message }: MessageFormProps) {
     };
 
     if (mode === "create") {
-      const { error } = await supabase.from("messages").insert(payload);
+      const { error } = await supabase.from("messages").insert({
+        ...payload,
+        message_source: isSelfService ? "member" : "manual",
+      });
       if (error) { toast.error(error.message); setLoading(false); return; }
       toast.success("Message recorded");
       if (quickMode) {
@@ -79,12 +104,12 @@ export function MessageForm({ mode, message }: MessageFormProps) {
         (e.target as HTMLFormElement).querySelector<HTMLTextAreaElement>('[name="notes"]')!.value = "";
         return;
       }
-      router.push("/messages");
+      router.push(returnTo ?? "/messages");
     } else if (message) {
       const { error } = await supabase.from("messages").update(payload).eq("id", message.id);
       if (error) { toast.error(error.message); setLoading(false); return; }
       toast.success("Message updated");
-      router.push("/messages");
+      router.push(returnTo ?? "/messages");
     }
     setLoading(false);
   }
@@ -106,16 +131,25 @@ export function MessageForm({ mode, message }: MessageFormProps) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="team_member_id">Team Member *</Label>
-              <Select
-                id="team_member_id"
-                name="team_member_id"
-                required
-                value={selectedMember}
-                onChange={(e) => setSelectedMember(e.target.value)}
-              >
-                <option value="">Select member...</option>
-                {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-              </Select>
+              {isSelfService ? (
+                <>
+                  <p className="text-sm font-medium text-neutral-900 rounded-lg border bg-neutral-50 px-3 py-2.5">
+                    {lockedTeamMemberName ?? "Your profile"}
+                  </p>
+                  <input type="hidden" name="team_member_id" value={lockedTeamMemberId} />
+                </>
+              ) : (
+                <Select
+                  id="team_member_id"
+                  name="team_member_id"
+                  required
+                  value={selectedMember}
+                  onChange={(e) => setSelectedMember(e.target.value)}
+                >
+                  <option value="">Select member...</option>
+                  {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="fiverr_account_id">Fiverr Account</Label>
