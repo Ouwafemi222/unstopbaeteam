@@ -15,6 +15,7 @@ import {
   Shield,
   Settings,
   User,
+  UserCircle,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -46,20 +47,33 @@ const navItems = [
   { href: "/profile", label: "Profile", icon: User },
 ];
 
+function buildNavItems(teamMemberId?: string | null) {
+  const items = [...navItems];
+  if (teamMemberId) {
+    items.splice(1, 0, {
+      href: `/team-members/${teamMemberId}`,
+      label: "My Team Profile",
+      icon: UserCircle,
+    });
+  }
+  return items;
+}
+
 interface SidebarProps {
   permissions: string[];
   collapsed?: boolean;
   onToggle?: () => void;
   mobile?: boolean;
   onClose?: () => void;
+  teamMemberId?: string | null;
 }
 
-export function Sidebar({ permissions, collapsed, onToggle, mobile, onClose }: SidebarProps) {
+export function Sidebar({ permissions, collapsed, onToggle, mobile, onClose, teamMemberId }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
-  const filteredNav = navItems.filter((item) => {
+  const filteredNav = buildNavItems(teamMemberId).filter((item) => {
     if (!item.permission) return true;
     return permissions.includes(item.permission) || permissions.some((p) => p.includes("super"));
   });

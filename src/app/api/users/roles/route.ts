@@ -46,6 +46,13 @@ export async function POST(request: NextRequest) {
     const { data: role } = await supabase.from("roles").select("name").eq("id", roleId).single();
     const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
 
+    await supabase.from("user_notifications").insert({
+      user_id: userId,
+      title: "Role assigned",
+      message: `You have been assigned the "${role?.name ?? "Member"}" role.`,
+      link: "/profile",
+    });
+
     await logActivity({
       action: "update",
       entityType: "user_role",

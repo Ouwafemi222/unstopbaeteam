@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Laptop, Smartphone, Loader2 } from "lucide-react";
+import { Laptop, Smartphone, Loader2, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,22 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { TeamPhotoShowcase } from "@/components/auth/team-photo-showcase";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  useEffect(() => {
+    if (searchParams.get("confirmed") === "1") {
+      toast.success("Email confirmed! You can now sign in.");
+    }
+    if (searchParams.get("error") === "confirmation_failed") {
+      toast.error("Email confirmation failed. Try registering again or contact admin.");
+    }
+  }, [searchParams]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -25,7 +35,10 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      toast.error(error.message);
+      const msg = error.message.toLowerCase().includes("email not confirmed")
+        ? "Please confirm your email first. Check your inbox for the confirmation link."
+        : error.message;
+      toast.error(msg);
       setLoading(false);
       return;
     }
@@ -62,6 +75,13 @@ export default function LoginPage() {
           <h2 className="text-2xl font-bold text-neutral-900 mb-2">Welcome back</h2>
           <p className="text-neutral-500 mb-8">Sign in to your account to continue</p>
 
+          {searchParams.get("confirmed") === "1" && (
+            <div className="mb-6 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+              <CheckCircle2 className="h-5 w-5 shrink-0" />
+              Email confirmed successfully. Sign in below.
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -96,10 +116,19 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-8 text-center text-sm text-neutral-400">
-            Access is by invitation only. Contact your administrator.
+            New team member?{" "}
+            <Link href="/join" className="text-brand-green hover:underline">Register here</Link>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

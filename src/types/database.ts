@@ -72,6 +72,7 @@ export interface TeamMember {
   avatar_url: string | null;
   notes: string | null;
   user_id: string | null;
+  sponsor_id: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;

@@ -13,12 +13,12 @@ import { getDateRange } from "@/lib/utils/dates";
 
 interface Props {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; confirmed?: string }>;
 }
 
 export default async function TeamMemberDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { tab = "overview" } = await searchParams;
+  const { tab = "overview", confirmed } = await searchParams;
   const supabase = await createClient();
 
   const { data: member } = await supabase
@@ -28,6 +28,10 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     .single();
 
   if (!member) notFound();
+
+  const { data: sponsor } = member.sponsor_id
+    ? await supabase.from("team_members").select("id, full_name").eq("id", member.sponsor_id).single()
+    : { data: null };
 
   const thisMonth = getDateRange("this_month");
   const lastMonth = getDateRange("last_month");
@@ -70,6 +74,11 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
 
   return (
     <div className="space-y-6">
+      {confirmed === "1" && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          Welcome! Your email is confirmed and your accounts &amp; messages are synced to this profile.
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-green to-brand-orange text-white text-xl font-bold">
@@ -78,11 +87,14 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">{member.full_name}</h1>
             {member.preferred_name && <p className="text-neutral-500">{member.preferred_name}</p>}
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge variant={member.status === "active" ? "success" : "neutral"}>
                 {MEMBER_STATUS_LABELS[member.status]}
               </Badge>
               {member.role_in_team && <Badge variant="info">{member.role_in_team}</Badge>}
+              {sponsor && (
+                <Badge variant="neutral">Sponsor: {sponsor.full_name}</Badge>
+              )}
             </div>
           </div>
         </div>

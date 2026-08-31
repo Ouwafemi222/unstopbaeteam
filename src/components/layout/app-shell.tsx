@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Sidebar, MobileMenuButton } from "./sidebar";
 import { GlobalSearch } from "./global-search";
-import { Bell } from "lucide-react";
+import { NotificationBell } from "./notification-bell";
 import Link from "next/link";
 import type { Profile } from "@/types/database";
 
@@ -11,9 +11,10 @@ interface AppShellProps {
   children: React.ReactNode;
   permissions: string[];
   profile: Profile | null;
+  teamMemberId?: string | null;
 }
 
-export function AppShell({ children, permissions, profile }: AppShellProps) {
+export function AppShell({ children, permissions, profile, teamMemberId }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -26,9 +27,9 @@ export function AppShell({ children, permissions, profile }: AppShellProps) {
 
   return (
     <div className="flex h-screen bg-neutral-50">
-      <Sidebar permissions={permissions} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+      <Sidebar permissions={permissions} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} teamMemberId={teamMemberId} />
       {mobileOpen && (
-        <Sidebar permissions={permissions} mobile onClose={() => setMobileOpen(false)} />
+        <Sidebar permissions={permissions} mobile onClose={() => setMobileOpen(false)} teamMemberId={teamMemberId} />
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -36,9 +37,7 @@ export function AppShell({ children, permissions, profile }: AppShellProps) {
           <MobileMenuButton onClick={() => setMobileOpen(true)} />
           <GlobalSearch className="flex-1 max-w-2xl" />
           <div className="flex items-center gap-3">
-            <button className="relative rounded-lg p-2 text-neutral-500 hover:bg-neutral-100">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
             <Link href="/profile" className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-neutral-100">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-green to-brand-orange text-xs font-bold text-white">
                 {initials}

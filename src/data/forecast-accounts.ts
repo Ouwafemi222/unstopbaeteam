@@ -77,27 +77,4 @@ export const FORECAST_ACCOUNTS: ForecastAccountRow[] = [
   { member: "Miss Deborah", email: "israeldebby60@gmail.com", phone: "7738152722", country: "GB", opening_date: "2026-08-28" },
 ];
 
-const TITLE_MAP: Record<string, string> = { mr: "Mr", mrs: "Mrs", miss: "Miss", ms: "Ms" };
-
-export function normalizeMemberName(name: string): string {
-  const trimmed = name.trim().replace(/\s+/g, " ");
-  const parts = trimmed.split(" ");
-
-  if (parts.length === 1) {
-    return normalizeMemberName(`Mr ${parts[0]}`);
-  }
-
-  const titleKey = parts[0].toLowerCase();
-  parts[0] = TITLE_MAP[titleKey] ?? parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-  parts[1] = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase();
-
-  if (parts[1].toLowerCase() === "debby") {
-    parts[1] = "Deborah";
-  }
-
-  return parts.join(" ");
-}
-
-export function toRegistrationKey(name: string): string {
-  return normalizeMemberName(name).toLowerCase().replace(/[^a-z0-9]/g, "");
-}
+export { normalizeMemberName, toRegistrationKey } from "@/data/forecast-members";
