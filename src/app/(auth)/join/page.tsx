@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2, Users, Mail, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -245,12 +246,12 @@ export default function JoinPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Create Password *</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
+              <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password *</Label>
-              <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} required />
+              <PasswordInput id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} required />
             </div>
 
             <Button type="submit" className="w-full" disabled={loading || !teamMemberId || !sponsorId}>

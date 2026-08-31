@@ -7,6 +7,7 @@ import { Laptop, Smartphone, Loader2, CheckCircle2, Mail, AlertCircle } from "lu
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { TeamPhotoShowcase } from "@/components/auth/team-photo-showcase";
@@ -231,9 +232,8 @@ function LoginForm() {
                   Forgot password?
                 </Link>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
