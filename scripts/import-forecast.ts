@@ -8,8 +8,13 @@ import { resolve } from "path";
 config({ path: resolve(process.cwd(), ".env.local") });
 
 async function main() {
+  const { createAdminClient } = await import("../src/lib/supabase/admin");
   const { importForecastData } = await import("../src/lib/forecast/import");
-  const result = await importForecastData({ clearDemo: true });
+  const db = createAdminClient();
+  if (!db) {
+    throw new Error("Set SUPABASE_SERVICE_ROLE_KEY in .env.local for CLI import");
+  }
+  const result = await importForecastData(db, { clearDemo: true });
   console.log(JSON.stringify(result, null, 2));
 }
 

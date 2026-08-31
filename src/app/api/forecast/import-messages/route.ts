@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { importForecastMessages } from "@/lib/forecast/import";
+import { importForecastMessages, resolveImportClient } from "@/lib/forecast/import";
 import { logActivity } from "@/lib/services/activity";
 
 export async function POST() {
@@ -13,7 +13,8 @@ export async function POST() {
   if (!isAdmin) return NextResponse.json({ error: "Super Admin only" }, { status: 403 });
 
   try {
-    const result = await importForecastMessages({ replaceExisting: true });
+    const db = await resolveImportClient(supabase);
+    const result = await importForecastMessages(db, { replaceExisting: true });
 
     await logActivity({
       action: "import",

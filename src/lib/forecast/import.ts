@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { FORECAST_ACCOUNTS } from "@/data/forecast-accounts";
 import { FORECAST_MESSAGES } from "@/data/forecast-messages";
 import { normalizeMemberName, toRegistrationKey } from "@/data/forecast-members";
@@ -19,8 +20,21 @@ export interface ForecastMessageImportResult {
   errors: string[];
 }
 
+/** Prefer service role when configured; otherwise use signed-in super admin session. */
+export async function resolveImportClient(authClient: SupabaseClient): Promise<SupabaseClient> {
+  const admin = createAdminClient();
+  if (admin) return admin;
+
+  const { data: isAdmin } = await authClient.rpc("is_super_admin");
+  if (!isAdmin) {
+    throw new Error("Super Admin only");
+  }
+
+  return authClient;
+}
+
 async function ensureTeamMember(
-  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  db: SupabaseClient,
   name: string,
   memberIds: Map<string, string>,
   result: { membersCreated: number; membersExisting: number; errors: string[] }
@@ -28,7 +42,7 @@ async function ensureTeamMember(
   if (memberIds.has(name)) return;
 
   const key = toRegistrationKey(name);
-  const { data: existing } = await admin
+  const { data: existing } = await db
     .from("team_members")
     .select("id")
     .eq("registration_key", key)
@@ -40,20 +54,20 @@ async function ensureTeamMember(
     return;
   }
 
-  const { data: byName } = await admin
+  const { data: byName } = await db
     .from("team_members")
     .select("id")
     .ilike("full_name", name)
     .maybeSingle();
 
   if (byName) {
-    await admin.from("team_members").update({ registration_key: key }).eq("id", byName.id);
+    await db.from("team_members").update({ registration_key: key }).eq("id", byName.id);
     memberIds.set(name, byName.id);
     result.membersExisting++;
     return;
   }
 
-  const { data: created, error } = await admin
+  const { data: created, error } = await db
     .from("team_members")
     .insert({
       full_name: name,
@@ -74,20 +88,20 @@ async function ensureTeamMember(
   result.membersCreated++;
 }
 
-async function clearAllMockData(admin: NonNullable<ReturnType<typeof createAdminClient>>) {
-  await admin.from("message_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  await admin.from("account_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  await admin.from("member_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  await admin.from("account_services").delete().neq("account_id", "00000000-0000-0000-0000-000000000000");
-  await admin.from("messages").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  await admin.from("fiverr_accounts").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  await admin.from("team_members").delete().is("user_id", null);
+async function clearAllMockData(db: SupabaseClient) {
+  await db.from("message_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("account_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("member_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("account_services").delete().neq("account_id", "00000000-0000-0000-0000-000000000000");
+  await db.from("messages").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("fiverr_accounts").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("team_members").delete().is("user_id", null);
 }
 
-export async function importForecastData(options?: { clearDemo?: boolean }): Promise<ForecastImportResult> {
-  const admin = createAdminClient();
-  if (!admin) throw new Error("Admin client not configured");
-
+export async function importForecastData(
+  db: SupabaseClient,
+  options?: { clearDemo?: boolean }
+): Promise<ForecastImportResult> {
   const result: ForecastImportResult = {
     membersCreated: 0,
     membersExisting: 0,
@@ -97,17 +111,17 @@ export async function importForecastData(options?: { clearDemo?: boolean }): Pro
   };
 
   if (options?.clearDemo) {
-    await clearAllMockData(admin);
+    await clearAllMockData(db);
   }
 
-  const { data: countries } = await admin.from("countries").select("id, code");
+  const { data: countries } = await db.from("countries").select("id, code");
   const countryMap = new Map(countries?.map((c) => [c.code, c.id]) ?? []);
 
   const memberIds = new Map<string, string>();
   const uniqueMembers = [...new Set(FORECAST_ACCOUNTS.map((r) => normalizeMemberName(r.member)))];
 
   for (const name of uniqueMembers) {
-    await ensureTeamMember(admin, name, memberIds, result);
+    await ensureTeamMember(db, name, memberIds, result);
   }
 
   for (const row of FORECAST_ACCOUNTS) {
@@ -119,7 +133,7 @@ export async function importForecastData(options?: { clearDemo?: boolean }): Pro
     }
 
     const email = row.email.toLowerCase().trim();
-    const { data: dup } = await admin
+    const { data: dup } = await db
       .from("fiverr_accounts")
       .select("id")
       .eq("email", email)
@@ -133,7 +147,7 @@ export async function importForecastData(options?: { clearDemo?: boolean }): Pro
     const username = email.split("@")[0].slice(0, 40);
     const countryId = countryMap.get(row.country) ?? null;
 
-    const { error } = await admin.from("fiverr_accounts").insert({
+    const { error } = await db.from("fiverr_accounts").insert({
       team_member_id: memberId,
       username,
       email,
@@ -155,10 +169,10 @@ export async function importForecastData(options?: { clearDemo?: boolean }): Pro
   return result;
 }
 
-export async function importForecastMessages(options?: { replaceExisting?: boolean }): Promise<ForecastMessageImportResult> {
-  const admin = createAdminClient();
-  if (!admin) throw new Error("Admin client not configured");
-
+export async function importForecastMessages(
+  db: SupabaseClient,
+  options?: { replaceExisting?: boolean }
+): Promise<ForecastMessageImportResult> {
   const result: ForecastMessageImportResult = {
     membersCreated: 0,
     membersExisting: 0,
@@ -168,15 +182,15 @@ export async function importForecastMessages(options?: { replaceExisting?: boole
   };
 
   if (options?.replaceExisting) {
-    await admin.from("message_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    await admin.from("messages").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    await db.from("message_notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    await db.from("messages").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   }
 
   const memberIds = new Map<string, string>();
   const uniqueMembers = [...new Set(FORECAST_MESSAGES.map((r) => normalizeMemberName(r.member)))];
 
   for (const name of uniqueMembers) {
-    await ensureTeamMember(admin, name, memberIds, result);
+    await ensureTeamMember(db, name, memberIds, result);
   }
 
   for (const row of FORECAST_MESSAGES) {
@@ -201,7 +215,7 @@ export async function importForecastMessages(options?: { replaceExisting?: boole
           : "Imported from forecast data";
 
       if (!options?.replaceExisting) {
-        const { data: dup } = await admin
+        const { data: dup } = await db
           .from("messages")
           .select("id")
           .eq("team_member_id", memberId)
@@ -215,7 +229,7 @@ export async function importForecastMessages(options?: { replaceExisting?: boole
         }
       }
 
-      const { error } = await admin.from("messages").insert({
+      const { error } = await db.from("messages").insert({
         team_member_id: memberId,
         received_date: row.received_date,
         gig_name: gigName,
@@ -235,11 +249,15 @@ export async function importForecastMessages(options?: { replaceExisting?: boole
   return result;
 }
 
-export async function linkUserToTeamMember(userId: string, teamMemberId: string) {
-  const admin = createAdminClient();
-  if (!admin) throw new Error("Admin client not configured");
+export async function linkUserToTeamMember(
+  userId: string,
+  teamMemberId: string,
+  authClient?: SupabaseClient
+) {
+  const db = authClient ? await resolveImportClient(authClient) : createAdminClient();
+  if (!db) throw new Error("Admin client not configured");
 
-  const { data: member } = await admin
+  const { data: member } = await db
     .from("team_members")
     .select("id, full_name, user_id")
     .eq("id", teamMemberId)
@@ -250,11 +268,11 @@ export async function linkUserToTeamMember(userId: string, teamMemberId: string)
     throw new Error("This team member profile is already linked to another account");
   }
 
-  await admin.from("team_members").update({ user_id: userId }).eq("id", teamMemberId);
+  await db.from("team_members").update({ user_id: userId }).eq("id", teamMemberId);
 
-  const { data: memberRole } = await admin.from("roles").select("id").eq("slug", "member").single();
+  const { data: memberRole } = await db.from("roles").select("id").eq("slug", "member").single();
   if (memberRole) {
-    await admin.from("user_roles").upsert(
+    await db.from("user_roles").upsert(
       { user_id: userId, role_id: memberRole.id },
       { onConflict: "user_id,role_id" }
     );
