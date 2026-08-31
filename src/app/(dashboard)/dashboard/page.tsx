@@ -100,21 +100,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">
-            {getGreeting()}, {user?.profile?.preferred_name || user?.profile?.full_name || "there"}
-          </h1>
-          <p className="text-neutral-500 mt-1">Here&apos;s what&apos;s happening with your team today.</p>
+      {/* Team command center hero */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-neutral-900 via-neutral-800 to-brand-green-dark shadow-xl">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_70%_20%,#16a34a,transparent_50%)]" />
+        <div className="relative p-6 md:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-white/60 text-sm font-medium uppercase tracking-wider">Team Command Center</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mt-1">
+              {getGreeting()}, {user?.profile?.preferred_name || user?.profile?.full_name || "there"}
+            </h1>
+            <p className="text-white/60 mt-2">Here&apos;s what&apos;s happening across UNSTOPPABLE TEAM today.</p>
+          </div>
+          <Suspense fallback={<div className="h-9 w-72 animate-pulse rounded-lg bg-white/10" />}>
+            <DateFilterBar current={filter} />
+          </Suspense>
         </div>
-        <Suspense fallback={<div className="h-9 w-72 animate-pulse rounded-lg bg-neutral-200" />}>
-          <DateFilterBar current={filter} />
-        </Suspense>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.label}>
+          <Card key={stat.label} className="border-0 shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
