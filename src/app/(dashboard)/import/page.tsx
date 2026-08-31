@@ -3,11 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Upload,
-  Image,
-  FileSearch,
-  CheckCircle,
-  AlertCircle,
   CloudUpload,
   Users,
   Copy,
@@ -21,14 +16,7 @@ import { FORECAST_MESSAGES } from "@/data/forecast-messages";
 import { normalizeMemberName } from "@/data/forecast-members";
 import { toast } from "sonner";
 import { MessageSquare } from "lucide-react";
-
-const steps = [
-  { id: 1, label: "Upload Screenshot", icon: Upload, status: "pending" },
-  { id: 2, label: "Preview Screenshot", icon: Image, status: "pending" },
-  { id: 3, label: "Extract Fields", icon: FileSearch, status: "pending" },
-  { id: 4, label: "Review & Correct", icon: CheckCircle, status: "pending" },
-  { id: 5, label: "Save Record", icon: CheckCircle, status: "pending" },
-];
+import { OcrImportWizard } from "@/components/import/ocr-import-wizard";
 
 const memberSummary = [...FORECAST_ACCOUNTS.reduce((map, row) => {
   map.set(row.member, (map.get(row.member) ?? 0) + 1);
@@ -60,7 +48,6 @@ interface MessageImportResult {
 }
 
 export default function ImportPage() {
-  const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importingMessages, setImportingMessages] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -222,55 +209,7 @@ export default function ImportPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-amber-200 bg-amber-50">
-        <CardContent className="p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="text-sm text-amber-800">
-            <p className="font-medium">Screenshot OCR import (coming soon)</p>
-            <p className="mt-1">Use forecast import above for now. OCR from screenshots will be added later.</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex gap-2 opacity-50">
-        {steps.map((step) => (
-          <div key={step.id} className="flex-1 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-neutral-200 text-neutral-400">
-              <step.icon className="h-5 w-5" />
-            </div>
-            <p className="text-xs mt-2 text-neutral-600">{step.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <Card className="opacity-50 pointer-events-none">
-        <CardHeader>
-          <CardTitle>Upload Screenshot</CardTitle>
-          <CardDescription>PNG, JPG, or PDF — max 10MB</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            className="border-2 border-dashed border-neutral-300 rounded-xl p-12 text-center"
-            onClick={() => document.getElementById("file-input")?.click()}
-          >
-            <Upload className="h-10 w-10 text-neutral-400 mx-auto mb-4" />
-            <p className="text-neutral-600 mb-2">Drag & drop a screenshot here, or click to browse</p>
-            <input
-              id="file-input"
-              type="file"
-              accept="image/png,image/jpeg,image/jpg,application/pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-          {file && (
-            <div className="mt-4 p-4 bg-neutral-50 rounded-lg flex items-center justify-between">
-              <span className="text-sm">{file.name}</span>
-              <Button disabled>Extract Data</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <OcrImportWizard />
     </div>
   );
 }
