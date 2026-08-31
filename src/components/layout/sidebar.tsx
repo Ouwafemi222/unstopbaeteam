@@ -57,6 +57,7 @@ const navItems: NavItem[] = [
 const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
   { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
+  { href: "/my-team", label: "My Team", icon: Users },
   { href: `/team-members/${teamMemberId}`, label: "My Profile", icon: UserCircle },
   { href: "/profile", label: "Account Settings", icon: User },
 ];
@@ -74,6 +75,11 @@ function buildNavItems(teamMemberId?: string | null, isScopedMember?: boolean): 
       icon: Briefcase,
     });
     items.splice(2, 0, {
+      href: "/my-team",
+      label: "My Team",
+      icon: Users,
+    });
+    items.splice(3, 0, {
       href: `/team-members/${teamMemberId}`,
       label: "My Team Profile",
       icon: UserCircle,

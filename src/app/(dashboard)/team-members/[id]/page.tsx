@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
+import { canViewMemberProfile } from "@/lib/auth/sponsor-access";
 import { MemberTabs } from "@/components/members/member-tabs";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { getMessageServiceLabel } from "@/lib/utils";
@@ -17,10 +20,6 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
   const scope = await getUserScope();
   if (!scope) redirect("/login");
 
-  if (scope.isScopedMember && scope.teamMember?.id !== id) {
-    redirect("/dashboard");
-  }
-
   const supabase = await createClient();
 
   const { data: member } = await supabase
@@ -30,6 +29,12 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     .single();
 
   if (!member) notFound();
+
+  const viewAccess = canViewMemberProfile(scope.teamMember?.id, member, scope.isAdmin);
+  if (!viewAccess) redirect("/dashboard");
+
+  const isOwnProfile = viewAccess === "own";
+  const isSponsorView = viewAccess === "sponsor";
 
   const { data: sponsor } = member.sponsor_id
     ? await supabase.from("team_members").select("id, full_name").eq("id", member.sponsor_id).single()
@@ -67,11 +72,24 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
   });
   const bestService = [...serviceCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 
-  const isOwnProfile = scope.teamMember?.id === id;
-
   return (
     <div className="space-y-8">
-      {confirmed === "1" && (
+      {isSponsorView && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-900">
+          <div>
+            <p className="font-semibold">Team member view (read-only)</p>
+            <p className="text-blue-800/80 mt-0.5">
+              {member.full_name} listed you as their sponsor. You can see their accounts and messages but cannot edit them.
+            </p>
+          </div>
+          <Link href="/my-team" className="inline-flex items-center gap-1.5 text-brand-green font-medium hover:underline shrink-0">
+            <ArrowLeft className="h-4 w-4" />
+            Back to My Team
+          </Link>
+        </div>
+      )}
+
+      {confirmed === "1" && isOwnProfile && (
         <div className="rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-brand-green-light/30 px-5 py-4 text-sm text-green-800 shadow-sm">
           Welcome! Your email is confirmed and your accounts &amp; messages are synced to this profile.
         </div>
@@ -80,7 +98,7 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
       <PersonalDashboard
         member={member}
         sponsorName={sponsor?.full_name}
-        showEditLink={!scope.isScopedMember}
+        showEditLink={!scope.isScopedMember && isOwnProfile}
         showAddAccount={isOwnProfile}
         accountsBasePath={isOwnProfile ? "/my-accounts" : undefined}
         subtitle={
@@ -88,7 +106,9 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
             ? scope.isScopedMember
               ? "Your dashboard — add Fiverr accounts and track your messages here."
               : "Your team profile — all Fiverr accounts and messages synced to your name."
-            : undefined
+            : isSponsorView
+              ? `${member.full_name}'s performance — they chose you as sponsor.`
+              : undefined
         }
         preloaded={{
           accounts: accounts ?? [],
@@ -104,12 +124,13 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         member={member}
         accounts={accounts ?? []}
         messages={messages ?? []}
-        notes={notes ?? []}
-        activity={activity ?? []}
+        notes={isSponsorView ? [] : (notes ?? [])}
+        activity={isSponsorView ? [] : (activity ?? [])}
         bestService={bestService}
         messagesThisMonth={messagesThisMonth ?? 0}
         messagesLastMonth={messagesLastMonth ?? 0}
         canManageAccounts={isOwnProfile}
+        readOnly={isSponsorView}
       />
     </div>
   );

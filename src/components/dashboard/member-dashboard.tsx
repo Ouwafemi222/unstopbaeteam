@@ -2,8 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { MemberAccountsPanel } from "@/components/accounts/member-accounts-panel";
+import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Users, ChevronRight } from "lucide-react";
 import type { TeamMember } from "@/types/database";
 
 interface MemberDashboardProps {
@@ -20,6 +22,7 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
     .single();
 
   const profile = fullMember ?? (member as TeamMember);
+  const team = await getSponsoredMembers(supabase, profile.id);
 
   return (
     <div className="space-y-8">
@@ -38,6 +41,30 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
           </Button>
         </Link>
       </div>
+
+      {team.length > 0 && (
+        <Card className="border-brand-green/20 bg-gradient-to-r from-white to-brand-green-light/20">
+          <CardContent className="p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Users className="h-6 w-6 text-brand-green shrink-0 mt-0.5" />
+                <div>
+                  <h2 className="font-semibold text-neutral-900">My Team ({team.length})</h2>
+                  <p className="text-sm text-neutral-500 mt-0.5">
+                    {team.map((t) => t.full_name).join(", ")} — view their accounts &amp; messages
+                  </p>
+                </div>
+              </div>
+              <Link href="/my-team">
+                <Button variant="outline" className="shrink-0">
+                  View team
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <PersonalDashboard
         member={profile}

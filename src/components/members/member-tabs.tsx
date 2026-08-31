@@ -32,20 +32,25 @@ interface MemberTabsProps {
   messagesThisMonth: number;
   messagesLastMonth: number;
   canManageAccounts?: boolean;
+  readOnly?: boolean;
 }
 
 export function MemberTabs({
   memberId, currentTab, member, accounts, messages, notes, activity,
-  bestService, messagesThisMonth, messagesLastMonth, canManageAccounts,
+  bestService, messagesThisMonth, messagesLastMonth, canManageAccounts, readOnly,
 }: MemberTabsProps) {
   const growth = messagesLastMonth > 0
     ? Math.round((messagesThisMonth - messagesLastMonth) / messagesLastMonth * 100)
     : messagesThisMonth > 0 ? 100 : 0;
 
+  const visibleTabs = readOnly
+    ? tabs.filter((t) => ["overview", "accounts", "messages", "performance"].includes(t.id))
+    : tabs;
+
   return (
     <div>
       <div className="flex gap-1 border-b border-neutral-200 mb-6 overflow-x-auto">
-        {tabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <Link
             key={tab.id}
             href={`/team-members/${memberId}?tab=${tab.id}`}
@@ -104,7 +109,7 @@ export function MemberTabs({
 
       {currentTab === "accounts" && (
         <div className="space-y-4">
-          {canManageAccounts ? (
+          {!readOnly && canManageAccounts ? (
             <div className="rounded-xl border border-brand-green/20 bg-brand-green-light/20 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-sm text-neutral-700">
                 Add or edit your Fiverr accounts on the dedicated accounts page.
@@ -114,7 +119,7 @@ export function MemberTabs({
               </Link>
             </div>
           ) : null}
-          {canManageAccounts && (
+          {!readOnly && canManageAccounts && (
             <div className="flex justify-end">
               <Link href="/my-accounts/new">
                 <Button>
@@ -129,7 +134,7 @@ export function MemberTabs({
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <p className="text-neutral-500 mb-4">No Fiverr accounts yet.</p>
-                {canManageAccounts && (
+                {canManageAccounts && !readOnly && (
                   <Link href="/my-accounts/new">
                     <Button>Add Your First Account</Button>
                   </Link>
@@ -145,14 +150,14 @@ export function MemberTabs({
                   <th className="p-3 font-medium">Country</th>
                   <th className="p-3 font-medium">Status</th>
                   <th className="p-3 font-medium">Opened</th>
-                  {canManageAccounts && <th className="p-3 font-medium">Actions</th>}
+                  {canManageAccounts && !readOnly && <th className="p-3 font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {accounts.map((acc) => (
                   <tr key={acc.id} className="border-b hover:bg-neutral-50">
                     <td className="p-3">
-                      {canManageAccounts ? (
+                      {canManageAccounts || readOnly ? (
                         <span className="font-medium text-neutral-900">{acc.username}</span>
                       ) : (
                         <Link href={`/accounts/${acc.id}`} className="text-brand-green hover:underline font-medium">
@@ -164,7 +169,7 @@ export function MemberTabs({
                     <td className="p-3">{(acc.country as { flag_emoji: string; name: string })?.flag_emoji} {(acc.country as { name: string })?.name ?? "—"}</td>
                     <td className="p-3"><AccountStatusBadge status={acc.status} /></td>
                     <td className="p-3">{formatDate(acc.opening_date)}</td>
-                    {canManageAccounts && (
+                    {canManageAccounts && !readOnly && (
                       <td className="p-3">
                         <Link href={`/my-accounts/${acc.id}/edit`}>
                           <Button variant="ghost" size="sm">
