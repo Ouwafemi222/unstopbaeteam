@@ -50,8 +50,13 @@ export function GlobalSearch({ className, large }: GlobalSearchProps) {
       return;
     }
     setLoading(true);
-    const { data } = await supabase.rpc("global_search", { search_query: q, result_limit: 15 });
-    setResults(data ?? []);
+    const { data, error } = await supabase.rpc("global_search", { search_query: q, result_limit: 15 });
+    if (error) {
+      console.error("global_search error:", error.message);
+      setResults([]);
+    } else {
+      setResults(data ?? []);
+    }
     setLoading(false);
   }, [supabase]);
 

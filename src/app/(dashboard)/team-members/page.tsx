@@ -10,10 +10,14 @@ import { formatDate } from "@/lib/utils";
 export default async function TeamMembersPage() {
   const supabase = await createClient();
 
-  const { data: members } = await supabase
+  const { data: members, error } = await supabase
     .from("team_members")
     .select("*")
     .order("full_name");
+
+  if (error) {
+    console.error("team_members fetch error:", error.message);
+  }
 
   const { data: accountCounts } = await supabase
     .from("fiverr_accounts")
@@ -39,7 +43,12 @@ export default async function TeamMembersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Team Members</h1>
-          <p className="text-neutral-500 mt-1">{members?.length ?? 0} members in your team</p>
+          <p className="text-neutral-500 mt-1">
+            {members?.length ?? 0} members in your team
+            {(members?.filter((m) => m.user_id).length ?? 0) > 0 && (
+              <span className="text-brand-green"> · {members?.filter((m) => m.user_id).length} registered</span>
+            )}
+          </p>
         </div>
         <Link href="/team-members/new">
           <Button><Plus className="h-4 w-4" /> Add Member</Button>
@@ -69,10 +78,15 @@ export default async function TeamMembersPage() {
                       {member.preferred_name && (
                         <p className="text-sm text-neutral-500">{member.preferred_name}</p>
                       )}
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <Badge variant={member.status === "active" ? "success" : "neutral"}>
                           {MEMBER_STATUS_LABELS[member.status]}
                         </Badge>
+                        {member.user_id ? (
+                          <Badge variant="info">Registered</Badge>
+                        ) : (
+                          <Badge variant="neutral">Awaiting signup</Badge>
+                        )}
                       </div>
                     </div>
                   </div>
