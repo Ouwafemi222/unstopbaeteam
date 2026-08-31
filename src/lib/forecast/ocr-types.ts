@@ -7,6 +7,7 @@ export interface OcrExtractResponse {
   sheetType: OcrSheetType;
   rows: ForecastAccountRow[] | ForecastMessageRow[];
   rawNotes?: string;
+  rawText?: string;
 }
 
 export interface OcrSaveResult {

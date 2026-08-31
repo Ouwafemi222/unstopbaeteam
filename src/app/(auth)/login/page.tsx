@@ -3,42 +3,120 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Laptop, Smartphone, Loader2, CheckCircle2 } from "lucide-react";
+import { Laptop, Smartphone, Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { TeamPhotoShowcase } from "@/components/auth/team-photo-showcase";
+import { formatAuthError, isEmailRateLimitError } from "@/lib/auth/email-errors";
+
+const RESEND_COOLDOWN_SEC = 60;
+
+function isUnconfirmedEmailError(message: string, code?: string): boolean {
+  const msg = message.toLowerCase();
+  const c = (code ?? "").toLowerCase();
+  return (
+    msg.includes("email not confirmed") ||
+    c.includes("email_not_confirmed") ||
+    msg.includes("confirm your email")
+  );
+}
 
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [showUnconfirmedAlert, setShowUnconfirmedAlert] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
 
+  const checkEmail = searchParams.get("check_email") === "1";
+  const queryEmail = searchParams.get("email") ?? "";
+  const emailConfirmed = searchParams.get("confirmed") === "1";
+  const confirmationFailed = searchParams.get("error") === "confirmation_failed";
+
   useEffect(() => {
-    if (searchParams.get("confirmed") === "1") {
+    if (queryEmail) setEmail(queryEmail);
+  }, [queryEmail]);
+
+  useEffect(() => {
+    if (emailConfirmed) {
       toast.success("Email confirmed! You can now sign in.");
     }
-    if (searchParams.get("error") === "confirmation_failed") {
+    if (confirmationFailed) {
       toast.error("Email confirmation failed. Try registering again or contact admin.");
     }
-  }, [searchParams]);
+    if (checkEmail) {
+      toast.info("Check your inbox — we sent you a confirmation email.", { duration: 8000 });
+    }
+  }, [emailConfirmed, confirmationFailed, checkEmail]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  async function handleResendConfirmation() {
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      toast.error("Enter your email address first");
+      return;
+    }
+    if (resendCooldown > 0) {
+      toast.error(`Please wait ${resendCooldown}s before resending`);
+      return;
+    }
+
+    setResending(true);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+    const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent("/welcome")}`;
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: targetEmail,
+      options: { emailRedirectTo: redirectTo },
+    });
+
+    if (error) {
+      toast.error(formatAuthError(error.message, error.code), { duration: 10000 });
+      if (isEmailRateLimitError(error.message, error.code)) {
+        setShowUnconfirmedAlert(true);
+      }
+    } else {
+      toast.success(`Confirmation email sent to ${targetEmail}. Check your inbox and spam folder.`);
+      setShowUnconfirmedAlert(true);
+      setResendCooldown(RESEND_COOLDOWN_SEC);
+    }
+    setResending(false);
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setShowUnconfirmedAlert(false);
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      const msg = error.message.toLowerCase().includes("email not confirmed")
-        ? "Please confirm your email first. Check your inbox for the confirmation link."
-        : error.message;
-      toast.error(msg);
+      if (isUnconfirmedEmailError(error.message, error.code)) {
+        setShowUnconfirmedAlert(true);
+        toast.error("Please confirm your email before signing in.", { duration: 8000 });
+      } else if (error.message.toLowerCase().includes("invalid login credentials")) {
+        toast.error(
+          "Incorrect email or password. If you just registered, confirm your email first.",
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(error.message);
+      }
       setLoading(false);
       return;
     }
@@ -50,10 +128,11 @@ function LoginForm() {
     }
 
     toast.success("Welcome back!");
-    // Refresh server cache, then hard-navigate so auth cookies are picked up
     router.refresh();
     window.location.href = "/dashboard";
   }
+
+  const showEmailBanner = checkEmail || showUnconfirmedAlert;
 
   return (
     <div className="flex min-h-screen">
@@ -75,10 +154,61 @@ function LoginForm() {
           <h2 className="text-2xl font-bold text-neutral-900 mb-2">Welcome back</h2>
           <p className="text-neutral-500 mb-8">Sign in to your account to continue</p>
 
-          {searchParams.get("confirmed") === "1" && (
+          {emailConfirmed && (
             <div className="mb-6 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               Email confirmed successfully. Sign in below.
+            </div>
+          )}
+
+          {showEmailBanner && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <Mail className="h-5 w-5 shrink-0 text-amber-700 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-amber-900">Confirm your email first</p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    {checkEmail ? (
+                      <>
+                        We sent a confirmation link to{" "}
+                        <strong>{queryEmail || email || "your email"}</strong>.
+                        Click the link in that email, then come back here to sign in.
+                      </>
+                    ) : (
+                      <>
+                        Your account may not be confirmed yet. Check your inbox for the confirmation
+                        link{email ? <> sent to <strong>{email}</strong></> : ""}.
+                      </>
+                    )}
+                  </p>
+                  <p className="text-xs text-amber-700/80 mt-2">
+                    Didn&apos;t get it? Check spam, or resend below.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 border-amber-300 bg-white hover:bg-amber-100"
+                    disabled={resending || resendCooldown > 0 || !email.trim()}
+                    onClick={handleResendConfirmation}
+                  >
+                    {resending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : resendCooldown > 0 ? (
+                      `Resend in ${resendCooldown}s`
+                    ) : (
+                      "Resend confirmation email"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {confirmationFailed && (
+            <div className="mb-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              Email confirmation link expired or is invalid. Register again or ask admin for help.
             </div>
           )}
 

@@ -18,9 +18,20 @@ import type { TeamMember, Country, FiverrAccount } from "@/types/database";
 interface AccountFormProps {
   mode: "create" | "edit";
   account?: FiverrAccount;
+  /** When set, account is always owned by this member (self-service). */
+  lockedTeamMemberId?: string;
+  lockedTeamMemberName?: string;
+  returnTo?: string;
 }
 
-export function AccountForm({ mode, account }: AccountFormProps) {
+export function AccountForm({
+  mode,
+  account,
+  lockedTeamMemberId,
+  lockedTeamMemberName,
+  returnTo,
+}: AccountFormProps) {
+  const isSelfService = !!lockedTeamMemberId;
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -31,14 +42,16 @@ export function AccountForm({ mode, account }: AccountFormProps) {
   useEffect(() => {
     async function load() {
       const [{ data: m }, { data: c }] = await Promise.all([
-        supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
+        isSelfService
+          ? Promise.resolve({ data: null })
+          : supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
         supabase.from("countries").select("*").eq("is_active", true).order("name"),
       ]);
-      setMembers(m ?? []);
+      if (m) setMembers(m ?? []);
       setCountries(c ?? []);
     }
     load();
-  }, [supabase]);
+  }, [supabase, isSelfService]);
 
   async function checkDuplicate(field: string, value: string) {
     if (!value || (mode === "edit" && account && account[field as keyof FiverrAccount] === value)) {
@@ -59,8 +72,12 @@ export function AccountForm({ mode, account }: AccountFormProps) {
     const form = new FormData(e.currentTarget);
     const { data: { user } } = await supabase.auth.getUser();
 
+    const teamMemberId = (isSelfService
+      ? lockedTeamMemberId
+      : (form.get("team_member_id") as string)) as string;
+
     const payload = {
-      team_member_id: form.get("team_member_id") as string,
+      team_member_id: teamMemberId,
       display_name: (form.get("display_name") as string) || null,
       username: form.get("username") as string,
       email: (form.get("email") as string) || null,
@@ -88,12 +105,12 @@ export function AccountForm({ mode, account }: AccountFormProps) {
 
       if (error) { toast.error(error.message); setLoading(false); return; }
       toast.success("Account created");
-      router.push(`/accounts/${data.id}`);
+      router.push(returnTo ?? `/accounts/${data.id}`);
     } else if (account) {
       const { error } = await supabase.from("fiverr_accounts").update(payload).eq("id", account.id);
       if (error) { toast.error(error.message); setLoading(false); return; }
       toast.success("Account updated");
-      router.push(`/accounts/${account.id}`);
+      router.push(returnTo ?? `/accounts/${account.id}`);
     }
     setLoading(false);
   }
@@ -109,13 +126,23 @@ export function AccountForm({ mode, account }: AccountFormProps) {
       <Card>
         <CardHeader><CardTitle>Account Owner</CardTitle></CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="team_member_id">Team Member *</Label>
-            <Select id="team_member_id" name="team_member_id" required defaultValue={a?.team_member_id ?? ""}>
-              <option value="">Select team member...</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-            </Select>
-          </div>
+          {isSelfService ? (
+            <div className="space-y-2">
+              <Label>Team Member</Label>
+              <p className="text-sm font-medium text-neutral-900 rounded-lg border bg-neutral-50 px-3 py-2.5">
+                {lockedTeamMemberName ?? "Your profile"}
+              </p>
+              <input type="hidden" name="team_member_id" value={lockedTeamMemberId} />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="team_member_id">Team Member *</Label>
+              <Select id="team_member_id" name="team_member_id" required defaultValue={a?.team_member_id ?? ""}>
+                <option value="">Select team member...</option>
+                {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 

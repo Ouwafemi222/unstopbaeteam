@@ -81,9 +81,13 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         member={member}
         sponsorName={sponsor?.full_name}
         showEditLink={!scope.isScopedMember}
+        showAddAccount={isOwnProfile}
+        accountsBasePath={isOwnProfile ? "/my-accounts" : undefined}
         subtitle={
-          isOwnProfile && !scope.isScopedMember
-            ? "Your team profile — all Fiverr accounts and messages synced to your name."
+          isOwnProfile
+            ? scope.isScopedMember
+              ? "Your dashboard — add Fiverr accounts and track your messages here."
+              : "Your team profile — all Fiverr accounts and messages synced to your name."
             : undefined
         }
         preloaded={{
@@ -105,6 +109,7 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         bestService={bestService}
         messagesThisMonth={messagesThisMonth ?? 0}
         messagesLastMonth={messagesLastMonth ?? 0}
+        canManageAccounts={isOwnProfile}
       />
     </div>
   );

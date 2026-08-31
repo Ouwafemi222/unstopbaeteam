@@ -10,6 +10,7 @@ import {
   TrendingUp,
   TrendingDown,
   Edit,
+  Plus,
   Sparkles,
   Globe,
   Calendar,
@@ -30,6 +31,9 @@ interface PersonalDashboardProps {
   member: TeamMember;
   sponsorName?: string | null;
   showEditLink?: boolean;
+  showAddAccount?: boolean;
+  /** Link target for add/view accounts (default: team-members profile path) */
+  accountsBasePath?: string;
   subtitle?: string;
   preloaded?: PreloadedData;
 }
@@ -75,9 +79,13 @@ export async function PersonalDashboard({
   member,
   sponsorName,
   showEditLink,
+  showAddAccount,
+  accountsBasePath,
   subtitle,
   preloaded,
 }: PersonalDashboardProps) {
+  const accountsPath = accountsBasePath ?? `/team-members/${member.id}/accounts`;
+  const accountsTabHref = accountsBasePath ?? `/team-members/${member.id}?tab=accounts`;
   const supabase = await createClient();
   const thisMonth = getDateRange("this_month");
   const lastMonth = getDateRange("last_month");
@@ -265,16 +273,33 @@ export async function PersonalDashboard({
               <Briefcase className="h-4 w-4 text-brand-green" />
               Fiverr Accounts
             </CardTitle>
-            <Link
-              href={`/team-members/${member.id}?tab=accounts`}
-              className="text-sm font-medium text-brand-green hover:underline"
-            >
-              View all ({accountList.length})
-            </Link>
+            <div className="flex items-center gap-3">
+              {showAddAccount && (
+                <Link href={`${accountsPath}/new`}>
+                  <Button size="sm" variant="secondary" className="h-8">
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Account
+                  </Button>
+                </Link>
+              )}
+              <Link
+                href={accountsBasePath ?? accountsTabHref}
+                className="text-sm font-medium text-brand-green hover:underline"
+              >
+                View all ({accountList.length})
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {recentAccounts.length === 0 ? (
-              <p className="p-6 text-sm text-neutral-500">No accounts synced yet.</p>
+              <div className="p-6 text-center">
+                <p className="text-sm text-neutral-500 mb-3">No accounts yet.</p>
+                {showAddAccount && (
+                  <Link href={`${accountsPath}/new`}>
+                    <Button size="sm">Add Your First Account</Button>
+                  </Link>
+                )}
+              </div>
             ) : (
               <div className="divide-y divide-neutral-100">
                 {recentAccounts.map((acc) => (

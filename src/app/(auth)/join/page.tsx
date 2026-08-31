@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { normalizeMemberName } from "@/data/forecast-members";
+import { formatAuthError } from "@/lib/auth/email-errors";
 import type { MemberStatus } from "@/types/database";
 
 interface TeamMemberOption {
@@ -32,6 +33,7 @@ export default function JoinPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [canSignInNow, setCanSignInNow] = useState(false);
 
   useEffect(() => {
     fetch("/api/join/register")
@@ -84,12 +86,13 @@ export default function JoinPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      toast.error(data.error ?? "Registration failed");
+      toast.error(formatAuthError(data.error ?? "Registration failed"), { duration: 10000 });
       setLoading(false);
       return;
     }
 
     setConfirmationEmail(email);
+    setCanSignInNow(Boolean(data.skipEmailConfirmation));
     setDone(true);
     toast.success(data.message);
     setLoading(false);
@@ -100,18 +103,44 @@ export default function JoinPage() {
       <div className="flex min-h-screen items-center justify-center p-8 bg-neutral-50">
         <Card className="max-w-md w-full text-center">
           <CardContent className="p-8">
-            <Mail className="h-16 w-16 text-brand-green mx-auto mb-4" />
-            <h2 className="text-xl font-bold">Check your email</h2>
-            <p className="text-neutral-500 mt-2">
-              We sent a confirmation link to <strong>{confirmationEmail}</strong>.
-              Click the link to activate your account, then sign in.
-            </p>
-            <p className="text-sm text-neutral-400 mt-4">
-              After you confirm your email, you&apos;ll go straight to your profile with all accounts and messages synced.
-            </p>
-            <Button asChild className="mt-6 w-full">
-              <Link href="/login">Go to Sign In</Link>
-            </Button>
+            {canSignInNow ? (
+              <>
+                <CheckCircle2 className="h-16 w-16 text-brand-green mx-auto mb-4" />
+                <h2 className="text-xl font-bold">You&apos;re all set!</h2>
+                <p className="text-neutral-500 mt-2">
+                  Your account for <strong>{confirmationEmail}</strong> is active.
+                  Sign in now with the password you chose — no email confirmation needed.
+                </p>
+                <Button asChild className="mt-6 w-full">
+                  <Link href={`/login?email=${encodeURIComponent(confirmationEmail)}`}>
+                    Sign In Now
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Mail className="h-16 w-16 text-brand-green mx-auto mb-4" />
+                <h2 className="text-xl font-bold">Check your email</h2>
+                <p className="text-neutral-500 mt-2">
+                  We sent a confirmation link to <strong>{confirmationEmail}</strong>.
+                  Click the link to activate your account, then sign in.
+                </p>
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
+                  Only click register once. Re-registering sends more emails and can hit Supabase&apos;s
+                  2-emails-per-hour limit.
+                </p>
+                <p className="text-sm text-neutral-400 mt-4">
+                  After you confirm your email, you&apos;ll go straight to your profile with all accounts and messages synced.
+                </p>
+                <Button asChild className="mt-6 w-full">
+                  <Link
+                    href={`/login?check_email=1&email=${encodeURIComponent(confirmationEmail)}`}
+                  >
+                    Go to Sign In
+                  </Link>
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

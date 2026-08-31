@@ -29,13 +29,15 @@ export async function POST(request: Request) {
   }
 
   if (file.size > MAX_OCR_FILE_BYTES) {
-    return NextResponse.json({ error: "Image must be under 10MB" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Image must be under 1MB on the free OCR.space plan. Compress the photo or take a closer crop." },
+      { status: 400 }
+    );
   }
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const base64 = buffer.toString("base64");
-    const result = await extractSheetFromImage(base64, file.type, sheetType);
+    const result = await extractSheetFromImage(buffer, file.name, file.type, sheetType);
 
     return NextResponse.json(result);
   } catch (err) {

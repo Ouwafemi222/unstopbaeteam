@@ -55,6 +55,7 @@ export function OcrImportWizard() {
   const [extracting, setExtracting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rawNotes, setRawNotes] = useState<string | null>(null);
+  const [rawText, setRawText] = useState<string | null>(null);
   const [accountRows, setAccountRows] = useState<ForecastAccountRow[]>([]);
   const [messageRows, setMessageRows] = useState<ForecastMessageRow[]>([]);
   const [saveResult, setSaveResult] = useState<OcrSaveResult | null>(null);
@@ -82,7 +83,7 @@ export function OcrImportWizard() {
       return;
     }
     if (selected.size > MAX_OCR_FILE_BYTES) {
-      toast.error("Image must be under 10MB");
+      toast.error("Image must be under 1MB (OCR.space free plan limit)");
       return;
     }
     resetPreview();
@@ -92,6 +93,7 @@ export function OcrImportWizard() {
     setMessageRows([]);
     setSaveResult(null);
     setRawNotes(null);
+    setRawText(null);
     setStep(2);
   }
 
@@ -123,6 +125,7 @@ export function OcrImportWizard() {
       setMessageRows(data.rows ?? []);
     }
     setRawNotes(data.rawNotes ?? null);
+    setRawText(data.rawText ?? null);
     setStep(4);
 
     const count = (data.rows ?? []).length;
@@ -179,8 +182,9 @@ export function OcrImportWizard() {
           Screenshot OCR Import
         </CardTitle>
         <CardDescription>
-          Photograph a handwritten sheet → AI reads it → you review → save to team profiles.
-          Requires <code className="text-xs bg-neutral-100 px-1 rounded">OPENAI_API_KEY</code> on the server.
+          Photograph a handwritten sheet → OCR.space reads it → you review → save to team profiles.
+          Uses your <code className="text-xs bg-neutral-100 px-1 rounded">OCR_SPACE_API_KEY</code> (Engine 3 for handwriting).
+          Free plan: max 1MB per image.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -259,7 +263,7 @@ export function OcrImportWizard() {
               <>
                 <Upload className="h-10 w-10 text-neutral-400 mx-auto mb-3" />
                 <p className="text-neutral-600">Drag & drop or click to upload</p>
-                <p className="text-xs text-neutral-400 mt-1">PNG, JPG, WEBP — max 10MB. Good lighting helps OCR.</p>
+                <p className="text-xs text-neutral-400 mt-1">PNG, JPG, WEBP — max 1MB (OCR.space free). Good lighting helps.</p>
               </>
             )}
             <input
@@ -284,7 +288,7 @@ export function OcrImportWizard() {
             {extracting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Reading handwriting…
+                Reading sheet with OCR.space…
               </>
             ) : (
               <>
@@ -295,8 +299,14 @@ export function OcrImportWizard() {
           </Button>
           {rawNotes && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
-              AI notes: {rawNotes}
+              {rawNotes}
             </p>
+          )}
+          {rawText && (
+            <details className="text-xs text-neutral-500">
+              <summary className="cursor-pointer text-violet-600">View raw OCR text</summary>
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-neutral-100 p-2">{rawText}</pre>
+            </details>
           )}
         </div>
 
