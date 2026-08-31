@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8f9fa;
+  --foreground: #1a1a2e;
+  --brand-green: #16a34a;
+  --brand-green-dark: #15803d;
+  --brand-green-light: #dcfce7;
+  --brand-orange: #f59e0b;
+  --brand-orange-dark: #d97706;
+  --brand-orange-light: #fef3c7;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-dark: var(--brand-green-dark);
+  --color-brand-green-light: var(--brand-green-light);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-dark: var(--brand-orange-dark);
+  --color-brand-orange-light: var(--brand-orange-light);
+  --font-sans: var(--font-inter);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Login team photo animations */
+@keyframes team-slide-zoom-in {
+  0% {
+    opacity: 0;
+    transform: translateX(60px) scale(0.82);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-6px) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes team-slide-zoom-out-bounce {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  40% {
+    opacity: 0.85;
+    transform: translateX(-30px) scale(0.94);
+  }
+  70% {
+    opacity: 0.5;
+    transform: translateX(-55px) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-90px) scale(0.78);
+  }
+}
+
+@keyframes team-heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.035);
+  }
+  28% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.025);
+  }
+  56% {
+    transform: scale(1);
+  }
+}
+
+.team-photo-enter {
+  animation: team-slide-zoom-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.team-photo-exit {
+  animation: team-slide-zoom-out-bounce 0.9s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+.team-photo-heartbeat {
+  animation: team-heartbeat 2.4s ease-in-out infinite;
+}
+
+.team-photo-frame {
+  will-change: transform, opacity;
+}
+
+
+/* Table responsive */
+@media (max-width: 768px) {
+  .responsive-table { display: block; overflow-x: auto; }
 }

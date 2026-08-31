@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UNSTOPPABLE TEAM
+
+Internal team management platform for Fiverr accounts, messages, and performance tracking.
+
+## Tech Stack
+
+- **Frontend:** Next.js 16, TypeScript, Tailwind CSS, shadcn/ui patterns, Lucide icons, Recharts
+- **Backend:** Supabase (PostgreSQL, Auth, Storage, RLS)
+- **Auth:** Supabase Auth with RBAC
 
 ## Getting Started
 
-First, run the development server:
+### 1. Environment Variables
+
+Copy `.env.local.example` to `.env.local` and fill in your Supabase credentials:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Get your keys from [Supabase Dashboard](https://supabase.com/dashboard/project/ugunmlioollkyshmeelm/settings/api).
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Create users from the dashboard (Super Admin)
+
+Go to **Users & Roles** → **Create New User**. Enter email, name, password, and role.
+
+This requires the **service role key** in `.env.local` (server-only, never share publicly):
+
+1. Open [Supabase → Settings → API](https://supabase.com/dashboard/project/ugunmlioollkyshmeelm/settings/api)
+2. Copy the **service_role** key (secret)
+3. Add to `.env.local`:
+   ```
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+   ```
+4. Restart the dev server
+
+Alternatively, use the setup script for your own admin account only:
+
+```bash
+npx tsx scripts/setup-admin.ts
+```
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── (auth)/          # Login, forgot/reset password
+│   ├── (dashboard)/     # Protected app pages
+│   └── api/             # API routes (reports export)
+├── components/
+│   ├── ui/              # Reusable UI components
+│   ├── layout/          # Sidebar, header, search
+│   ├── dashboard/       # Dashboard widgets
+│   ├── accounts/        # Account components
+│   ├── members/         # Team member components
+│   └── shared/          # Status badges, etc.
+├── lib/
+│   ├── supabase/        # Supabase clients
+│   ├── auth/            # Permissions helpers
+│   ├── services/        # Activity logging
+│   └── utils/           # Date helpers, etc.
+└── types/               # TypeScript types
+```
 
-## Learn More
+## Features (Phase 1)
 
-To learn more about Next.js, take a look at the following resources:
+- Authentication (login, forgot/reset password)
+- Role-based access control (Super Admin, Account Manager, Viewer, etc.)
+- Dashboard with real-time statistics and charts
+- Team Members management with detail profiles
+- Fiverr Accounts CRUD with duplicate detection
+- Message tracking with quick entry mode
+- Services management
+- Global search across all entities
+- Monthly performance tracking
+- Reports with CSV export
+- Activity audit log
+- Screenshot import placeholder (ready for OCR integration)
+- Responsive design (desktop sidebar, mobile drawer)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Schema is managed via Supabase migrations. Tables include:
+- profiles, roles, permissions, role_permissions, user_roles
+- team_members, fiverr_accounts, account_services
+- messages, services, countries
+- member_notes, account_notes, message_notes
+- attachments, activity_logs, system_settings
 
-## Deploy on Vercel
+## Security
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Row Level Security on all tables
+- Permission checks at database level
+- No storage of passwords, OTP codes, or 2FA secrets
+- Secure attachment storage with signed URLs
+- Protected routes via middleware
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Repository
+
+GitHub: https://github.com/Ouwafemi222/unstopbaeteam
+
+Supabase: https://supabase.com/dashboard/project/ugunmlioollkyshmeelm
