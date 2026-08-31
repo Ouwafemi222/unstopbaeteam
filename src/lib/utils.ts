@@ -30,6 +30,13 @@ export function formatDateTime(date: string | Date | null | undefined) {
   });
 }
 
+export function getMessageServiceLabel(message: {
+  service?: { name: string } | null;
+  gig_name?: string | null;
+}): string {
+  return (message.service as { name: string } | null)?.name ?? message.gig_name ?? "—";
+}
+
 export function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";

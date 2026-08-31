@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AccountStatusBadge } from "@/components/shared/status-badges";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime, getMessageServiceLabel } from "@/lib/utils";
 import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 import type { TeamMember, FiverrAccount, Message, ActivityLog } from "@/types/database";
 
@@ -151,7 +151,7 @@ export function MemberTabs({
                   <tr key={msg.id} className="border-b hover:bg-neutral-50">
                     <td className="p-3">{formatDate(msg.received_date)}</td>
                     <td className="p-3">{(msg.fiverr_account as { username: string })?.username ?? "—"}</td>
-                    <td className="p-3">{(msg.service as { name: string })?.name ?? "—"}</td>
+                    <td className="p-3">{getMessageServiceLabel(msg)}</td>
                     <td className="p-3"><Badge variant="neutral">{MESSAGE_STATUS_LABELS[msg.status]}</Badge></td>
                   </tr>
                 ))}

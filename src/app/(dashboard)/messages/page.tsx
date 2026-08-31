@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, MessageSquare, Pencil } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getMessageServiceLabel } from "@/lib/utils";
 import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 
 export default async function MessagesPage() {
@@ -55,7 +55,7 @@ export default async function MessagesPage() {
                   <td className="p-3">{formatDate(msg.received_date)}</td>
                   <td className="p-3 font-medium">{(msg.team_member as { full_name: string })?.full_name}</td>
                   <td className="p-3">{(msg.fiverr_account as { username: string })?.username ?? "—"}</td>
-                  <td className="p-3">{(msg.service as { name: string })?.name ?? "—"}</td>
+                  <td className="p-3">{getMessageServiceLabel(msg)}</td>
                   <td className="p-3"><Badge variant="neutral">{MESSAGE_STATUS_LABELS[msg.status]}</Badge></td>
                   <td className="p-3">
                     <Link href={`/messages/${msg.id}/edit`}>

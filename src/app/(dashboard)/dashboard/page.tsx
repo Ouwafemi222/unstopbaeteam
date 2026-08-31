@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Briefcase, MessageSquare, AlertTriangle, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getMessageServiceLabel } from "@/lib/utils";
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
 import { DateFilterBar } from "@/components/dashboard/date-filter-bar";
 
@@ -42,10 +42,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .gte("received_date", dateRange.from).lte("received_date", dateRange.to),
     supabase.from("fiverr_accounts")
       .select("*, team_member:team_members(full_name), country:countries(name, flag_emoji)")
-      .is("archived_at", null).order("created_at", { ascending: false }).limit(5),
+      .is("archived_at", null).order("opening_date", { ascending: false, nullsFirst: false }).limit(5),
     supabase.from("messages")
       .select("*, team_member:team_members(full_name), service:services(name), fiverr_account:fiverr_accounts(username)")
-      .order("created_at", { ascending: false }).limit(5),
+      .order("received_date", { ascending: false }).limit(5),
     supabase.from("team_members").select("id, full_name").eq("status", "active"),
     supabase.from("messages").select("team_member_id, service_id, received_date")
       .gte("received_date", dateRange.from).lte("received_date", dateRange.to),
@@ -217,7 +217,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     {recentMessages?.map((msg) => (
                       <tr key={msg.id} className="border-b border-neutral-100 hover:bg-neutral-50">
                         <td className="py-2.5">{(msg.team_member as { full_name: string })?.full_name}</td>
-                        <td className="py-2.5">{(msg.service as { name: string })?.name ?? "—"}</td>
+                        <td className="py-2.5">{getMessageServiceLabel(msg)}</td>
                         <td className="py-2.5">{formatDate(msg.received_date)}</td>
                       </tr>
                     ))}

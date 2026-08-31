@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AccountStatusBadge } from "@/components/shared/status-badges";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime, getMessageServiceLabel } from "@/lib/utils";
 import { Edit, User, Archive } from "lucide-react";
 
 interface Props {
@@ -98,7 +98,7 @@ export default async function AccountDetailPage({ params }: Props) {
             <div className="space-y-2">
               {messages?.map((m) => (
                 <div key={m.id} className="flex justify-between text-sm p-2 rounded hover:bg-neutral-50">
-                  <span>{(m.service as { name: string })?.name ?? "—"}</span>
+                  <span>{getMessageServiceLabel(m)}</span>
                   <span className="text-neutral-400">{formatDate(m.received_date)}</span>
                 </div>
               ))}
