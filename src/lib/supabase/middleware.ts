@@ -1,6 +1,29 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const ADMIN_ONLY_PREFIXES = [
+  "/team-members",
+  "/accounts",
+  "/messages",
+  "/import",
+  "/users",
+  "/activity",
+  "/settings",
+  "/reports",
+  "/performance",
+  "/services",
+  "/search",
+];
+
+const ADMIN_ROLE_SLUGS = new Set([
+  "super_admin",
+  "account_manager",
+  "viewer",
+  "team_leader",
+  "finance_manager",
+  "message_tracker",
+]);
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -29,32 +52,63 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const pathname = request.nextUrl.pathname;
+
   const isAuthPage =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/join") ||
-    request.nextUrl.pathname.startsWith("/forgot-password") ||
-    request.nextUrl.pathname.startsWith("/reset-password") ||
-    request.nextUrl.pathname.startsWith("/auth/callback");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/join") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/auth/callback");
 
-  const isPublicApi =
-    request.nextUrl.pathname === "/api/join/register";
+  const isPublicApi = pathname === "/api/join/register";
 
-  if (!user && !isAuthPage && !isPublicApi && request.nextUrl.pathname !== "/") {
+  if (!user && !isAuthPage && !isPublicApi && pathname !== "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
+  if (user) {
+    const [{ data: teamMember }, { data: userRoles }] = await Promise.all([
+      supabase.from("team_members").select("id").eq("user_id", user.id).maybeSingle(),
+      supabase.from("user_roles").select("role:roles(slug)").eq("user_id", user.id),
+    ]);
 
-  if (user && request.nextUrl.pathname === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    const roleSlugs =
+      (userRoles as { role: { slug: string } | null }[] | null)
+        ?.map((r) => r.role?.slug)
+        .filter((slug): slug is string => !!slug) ?? [];
+
+    const isAdmin = roleSlugs.some((slug) => ADMIN_ROLE_SLUGS.has(slug));
+    const isScopedMember = !!teamMember && !isAdmin;
+
+    if (isScopedMember) {
+      const ownProfilePrefix = `/team-members/${teamMember.id}`;
+      const blocked = ADMIN_ONLY_PREFIXES.some((prefix) => {
+        if (!pathname.startsWith(prefix)) return false;
+        if (prefix === "/team-members" && pathname.startsWith(ownProfilePrefix)) return false;
+        return true;
+      });
+
+      if (blocked) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
+
+    if (isAuthPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+
+    if (pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

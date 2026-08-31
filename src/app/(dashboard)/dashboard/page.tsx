@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/permissions";
+import { getUserScope } from "@/lib/auth/scope";
 import { getGreeting } from "@/lib/utils";
 import { getDateRange } from "@/lib/utils/dates";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,16 +10,29 @@ import Link from "next/link";
 import { formatDate, getMessageServiceLabel } from "@/lib/utils";
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
 import { DateFilterBar } from "@/components/dashboard/date-filter-bar";
+import { MemberDashboard } from "@/components/dashboard/member-dashboard";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const scope = await getUserScope();
+  if (!scope) return null;
+
+  if (scope.isScopedMember && scope.teamMember) {
+    const supabase = await createClient();
+    const { data: sponsor } = scope.teamMember.sponsor_id
+      ? await supabase.from("team_members").select("full_name").eq("id", scope.teamMember.sponsor_id).single()
+      : { data: null };
+
+    return <MemberDashboard member={scope.teamMember} sponsorName={sponsor?.full_name} />;
+  }
+
   const params = await searchParams;
   const filter = (params.filter as "today" | "this_week" | "this_month" | "last_month") || "this_month";
   const dateRange = getDateRange(filter);
-  const user = await getCurrentUser();
+  const user = scope.user;
   const supabase = await createClient();
 
   const [

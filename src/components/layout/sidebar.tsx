@@ -31,7 +31,14 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  permission?: string;
+};
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/team-members", label: "Team Members", icon: Users, permission: "team_members.view" },
   { href: "/accounts", label: "Fiverr Accounts", icon: Briefcase, permission: "accounts.view" },
@@ -47,7 +54,17 @@ const navItems = [
   { href: "/profile", label: "Profile", icon: User },
 ];
 
-function buildNavItems(teamMemberId?: string | null) {
+const memberNavItems = (teamMemberId: string): NavItem[] => [
+  { href: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
+  { href: `/team-members/${teamMemberId}`, label: "My Profile", icon: UserCircle },
+  { href: "/profile", label: "Account Settings", icon: User },
+];
+
+function buildNavItems(teamMemberId?: string | null, isScopedMember?: boolean): NavItem[] {
+  if (isScopedMember && teamMemberId) {
+    return memberNavItems(teamMemberId);
+  }
+
   const items = [...navItems];
   if (teamMemberId) {
     items.splice(1, 0, {
@@ -66,16 +83,19 @@ interface SidebarProps {
   mobile?: boolean;
   onClose?: () => void;
   teamMemberId?: string | null;
+  isScopedMember?: boolean;
 }
 
-export function Sidebar({ permissions, collapsed, onToggle, mobile, onClose, teamMemberId }: SidebarProps) {
+export function Sidebar({ permissions, collapsed, onToggle, mobile, onClose, teamMemberId, isScopedMember }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
-  const filteredNav = buildNavItems(teamMemberId).filter((item) => {
-    if (!item.permission) return true;
-    return permissions.includes(item.permission) || permissions.some((p) => p.includes("super"));
+  const filteredNav = buildNavItems(teamMemberId, isScopedMember).filter((item) => {
+    if (isScopedMember) return true;
+    const permission = item.permission;
+    if (!permission) return true;
+    return permissions.includes(permission) || permissions.some((p) => p.includes("super"));
   });
 
   async function handleLogout() {

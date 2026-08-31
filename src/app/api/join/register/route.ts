@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   const fullName = normalizeMemberName(`${title} ${firstName.trim()}`);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
-  const profilePath = `/team-members/${teamMemberId}`;
+  const profilePath = `/welcome`;
   const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent(profilePath)}`;
 
   const { data: memberCheck } = await supabase

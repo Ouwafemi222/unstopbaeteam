@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getUserScope } from "@/lib/auth/scope";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,13 @@ interface Props {
 export default async function TeamMemberDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { tab = "overview", confirmed } = await searchParams;
+  const scope = await getUserScope();
+  if (!scope) redirect("/login");
+
+  if (scope.isScopedMember && scope.teamMember?.id !== id) {
+    redirect("/dashboard");
+  }
+
   const supabase = await createClient();
 
   const { data: member } = await supabase
@@ -98,9 +106,11 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
             </div>
           </div>
         </div>
-        <Link href={`/team-members/${id}/edit`}>
-          <Button variant="outline"><Edit className="h-4 w-4" /> Edit</Button>
-        </Link>
+        {!scope.isScopedMember && (
+          <Link href={`/team-members/${id}/edit`}>
+            <Button variant="outline"><Edit className="h-4 w-4" /> Edit</Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
