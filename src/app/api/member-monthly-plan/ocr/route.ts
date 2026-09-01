@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const rawText = await callOcrSpace(buffer, file.name, file.type);
+    const rawText = await callOcrSpace(buffer, file.name, file.type, { mode: "goals" });
     const parsed = parseGoalsFromOcrText(rawText);
 
     return NextResponse.json({ rawText, parsed });

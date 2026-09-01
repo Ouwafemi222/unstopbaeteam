@@ -59,7 +59,11 @@ export function MemberGoalsOcrEntry({
     setExtracting(false);
 
     if (!res.ok) {
-      toast.error(data.error ?? "OCR failed");
+      toast.error(
+        data.error ??
+          "OCR failed. OCR.space may be busy — wait a minute and retry, or choose Enter manually.",
+        { duration: 8000 }
+      );
       return;
     }
 
