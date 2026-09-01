@@ -10,7 +10,7 @@ import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Users, ChevronRight, MessageSquare } from "lucide-react";
-import type { MemberDailyEarning, MemberMonthlyPlan, TeamMember } from "@/types/database";
+import type { MemberWeeklyEarning, MemberMonthlyPlan, TeamMember } from "@/types/database";
 
 interface MemberDashboardProps {
   member: Pick<TeamMember, "id" | "full_name" | "preferred_name" | "status"> & Partial<TeamMember>;
@@ -32,14 +32,14 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
     await Promise.all([
       supabase.from("fiverr_accounts").select("*").eq("team_member_id", profile.id).is("archived_at", null),
       supabase.from("messages").select("*").eq("team_member_id", profile.id),
-      supabase.from("member_daily_earnings").select("*").eq("team_member_id", profile.id).order("earned_date", { ascending: false }).limit(100),
+      supabase.from("member_weekly_earnings").select("*").eq("team_member_id", profile.id).order("updated_at", { ascending: false }).limit(50),
       supabase.from("member_monthly_plans").select("*").eq("team_member_id", profile.id),
     ]);
 
   const memberActivity = buildMemberActivityFeed({
     accounts: accounts ?? [],
     messages: messages ?? [],
-    earnings: (earnings ?? []) as MemberDailyEarning[],
+    earnings: (earnings ?? []) as MemberWeeklyEarning[],
     monthlyPlans: (monthlyPlans ?? []) as MemberMonthlyPlan[],
     limit: 12,
   });

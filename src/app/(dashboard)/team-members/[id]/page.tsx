@@ -10,7 +10,7 @@ import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { getMessageServiceLabel } from "@/lib/utils";
 import { getDateRange } from "@/lib/utils/dates";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
-import type { MemberDailyEarning, MemberMonthlyPlan } from "@/types/database";
+import type { MemberWeeklyEarning, MemberMonthlyPlan } from "@/types/database";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -66,7 +66,7 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     supabase.from("messages").select("*", { count: "exact", head: true })
       .eq("team_member_id", id).gte("received_date", lastMonth.from).lte("received_date", lastMonth.to),
     supabase.from("member_notes").select("*, profile:profiles(full_name)").eq("team_member_id", id).order("created_at", { ascending: false }),
-    supabase.from("member_daily_earnings").select("*").eq("team_member_id", id).order("earned_date", { ascending: false }).limit(200),
+    supabase.from("member_weekly_earnings").select("*").eq("team_member_id", id).order("updated_at", { ascending: false }).limit(100),
     supabase.from("member_monthly_plans").select("*").eq("team_member_id", id).order("updated_at", { ascending: false }),
   ]);
 
@@ -77,9 +77,9 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
   });
   const bestService = [...serviceCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 
-  const earningsList = (earnings ?? []) as MemberDailyEarning[];
+  const earningsList = (earnings ?? []) as MemberWeeklyEarning[];
   const earningsThisMonth = earningsList
-    .filter((e) => e.earned_date >= thisMonth.from && e.earned_date <= thisMonth.to)
+    .filter((e) => e.year_month === thisMonth.from.slice(0, 7))
     .reduce((sum, e) => sum + Number(e.amount), 0);
 
   const memberActivity = buildMemberActivityFeed({

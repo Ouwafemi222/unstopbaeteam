@@ -179,6 +179,19 @@ export interface MemberMonthlyPlan {
   office_prospects_expected: number | null;
   contacts_expected: number | null;
   skills_to_learn: string | null;
+  is_locked: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemberWeeklyEarning {
+  id: string;
+  team_member_id: string;
+  year_month: string;
+  week_number: number;
+  amount: number;
+  currency: string;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }

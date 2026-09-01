@@ -1,5 +1,5 @@
 import { formatDate, getMessageServiceLabel } from "@/lib/utils";
-import type { FiverrAccount, Message, MemberDailyEarning, MemberMonthlyPlan } from "@/types/database";
+import type { FiverrAccount, Message, MemberWeeklyEarning, MemberMonthlyPlan } from "@/types/database";
 
 export type MemberActivityType =
   | "account"
@@ -23,7 +23,7 @@ function formatMoney(amount: number, currency = "USD") {
 export function buildMemberActivityFeed(opts: {
   accounts: FiverrAccount[];
   messages: Message[];
-  earnings?: MemberDailyEarning[];
+  earnings?: MemberWeeklyEarning[];
   monthlyPlans?: MemberMonthlyPlan[];
   limit?: number;
 }): MemberActivityItem[] {
@@ -56,8 +56,8 @@ export function buildMemberActivityFeed(opts: {
     items.push({
       id: `earning-${e.id}`,
       type: "earning",
-      label: `Logged earnings of ${formatMoney(Number(e.amount), e.currency)}`,
-      detail: e.notes ?? formatDate(e.earned_date),
+      label: `Logged week ${e.week_number} earnings of ${formatMoney(Number(e.amount), e.currency)}`,
+      detail: e.notes ?? e.year_month,
       created_at: e.updated_at ?? e.created_at,
     });
   }

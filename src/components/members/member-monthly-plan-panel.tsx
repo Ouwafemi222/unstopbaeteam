@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Calendar,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,12 @@ import {
   monthlyPlanImagePath,
   uploadMemberImage,
 } from "@/lib/storage/member-uploads";
-import { MemberDailyEarningsPanel } from "@/components/members/member-daily-earnings-panel";
+import { MemberWeeklyEarningsPanel } from "@/components/members/member-weekly-earnings-panel";
+import {
+  MemberGoalsOcrEntry,
+  type GoalsFillMode,
+} from "@/components/members/member-goals-ocr-entry";
+import type { ParsedGoalsFromOcr } from "@/lib/forecast/goals-ocr-parse";
 import {
   buildYearMonthOptions,
   currentYearMonth,
@@ -69,6 +75,10 @@ export function MemberMonthlyPlanPanel({
   const [evaluationImageUrl, setEvaluationImageUrl] = useState<string | null>(null);
   const [goalsFile, setGoalsFile] = useState<File | null>(null);
   const [evaluationFile, setEvaluationFile] = useState<File | null>(null);
+  const [fillMode, setFillMode] = useState<GoalsFillMode>("choose");
+
+  const isLocked = plan?.is_locked ?? false;
+  const fieldsDisabled = readOnly || isLocked;
 
   const loadImageUrls = useCallback(
     async (record: MemberMonthlyPlan | null) => {
@@ -103,6 +113,8 @@ export function MemberMonthlyPlanPanel({
       setSkillsToLearn(record?.skills_to_learn ?? "");
       setGoalsFile(null);
       setEvaluationFile(null);
+      if (record?.is_locked) setFillMode("manual");
+      else if (!record) setFillMode("choose");
       await loadImageUrls(record);
     },
     [loadImageUrls]
@@ -146,7 +158,10 @@ export function MemberMonthlyPlanPanel({
   }
 
   async function handleSave() {
-    if (readOnly) return;
+    if (readOnly || isLocked) {
+      toast.error("This month's goals are locked and cannot be edited");
+      return;
+    }
     setSaving(true);
 
     try {
@@ -177,6 +192,7 @@ export function MemberMonthlyPlanPanel({
         skills_to_learn: skillsToLearn.trim() || null,
         goals_image_path: goalsImagePath,
         evaluation_image_path: evaluationImagePath,
+        is_locked: true,
         updated_at: new Date().toISOString(),
       };
 
@@ -185,6 +201,7 @@ export function MemberMonthlyPlanPanel({
             .from("member_monthly_plans")
             .update(payload)
             .eq("id", plan.id)
+            .eq("is_locked", false)
             .select()
             .single()
         : await supabase.from("member_monthly_plans").insert(payload).select().single();
@@ -192,7 +209,7 @@ export function MemberMonthlyPlanPanel({
       if (error) throw error;
 
       await applyRecord(data as MemberMonthlyPlan);
-      toast.success("Monthly plan saved");
+      toast.success("Monthly goals saved and locked for this month");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -202,6 +219,19 @@ export function MemberMonthlyPlanPanel({
 
   const parsedIncomeGoal = parseOptionalMoney(incomeGoal);
   const monthLabel = formatYearMonthLabel(yearMonth);
+  const showGoalForm = isLocked || fillMode !== "choose";
+
+  function handleApplyOcr(parsed: ParsedGoalsFromOcr, imageFile: File) {
+    setGoals(parsed.goals);
+    if (parsed.income_goal != null) setIncomeGoal(String(parsed.income_goal));
+    if (parsed.prospects_target != null) setProspectsTarget(String(parsed.prospects_target));
+    if (parsed.office_prospects_expected != null) {
+      setOfficeProspects(String(parsed.office_prospects_expected));
+    }
+    if (parsed.contacts_expected != null) setContactsExpected(String(parsed.contacts_expected));
+    if (parsed.skills_to_learn) setSkillsToLearn(parsed.skills_to_learn);
+    setGoalsFile(imageFile);
+  }
 
   const monthSelect = (
     <div className="space-y-1.5 shrink-0">
@@ -264,7 +294,7 @@ export function MemberMonthlyPlanPanel({
                 Goals &amp; Evaluation
               </h1>
               <p className="text-white/75 text-sm md:text-base max-w-lg">
-                Plan targets, log daily earnings, and review your month — {memberName}
+                Plan targets, log weekly earnings, and review your month — {memberName}
               </p>
               <p className="text-white/90 text-sm font-medium pt-1">
                 Viewing: <span className="text-white">{monthLabel}</span>
@@ -292,6 +322,28 @@ export function MemberMonthlyPlanPanel({
         </div>
       ) : (
         <div className="space-y-8">
+          {isLocked && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <Lock className="h-5 w-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Goals locked for {monthLabel}</p>
+                <p className="text-amber-800/80 mt-0.5">
+                  Your monthly targets and written goals cannot be changed. You can still update weekly earnings below.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!fieldsDisabled && (
+            <MemberGoalsOcrEntry
+              fillMode={fillMode}
+              onFillModeChange={setFillMode}
+              onApplyOcr={handleApplyOcr}
+            />
+          )}
+
+          {showGoalForm && (
+            <>
           {/* Section 1: Targets */}
           <PlanSection
             step={1}
@@ -312,7 +364,7 @@ export function MemberMonthlyPlanPanel({
                   placeholder="500"
                   value={incomeGoal}
                   onChange={(e) => setIncomeGoal(e.target.value)}
-                  disabled={readOnly}
+                  disabled={fieldsDisabled}
                   className="h-11"
                 />
               </MetricField>
@@ -328,7 +380,7 @@ export function MemberMonthlyPlanPanel({
                   placeholder="20"
                   value={prospectsTarget}
                   onChange={(e) => setProspectsTarget(e.target.value)}
-                  disabled={readOnly}
+                  disabled={fieldsDisabled}
                   className="h-11"
                 />
               </MetricField>
@@ -344,7 +396,7 @@ export function MemberMonthlyPlanPanel({
                   placeholder="5"
                   value={officeProspects}
                   onChange={(e) => setOfficeProspects(e.target.value)}
-                  disabled={readOnly}
+                  disabled={fieldsDisabled}
                   className="h-11"
                 />
               </MetricField>
@@ -360,7 +412,7 @@ export function MemberMonthlyPlanPanel({
                   placeholder="50"
                   value={contactsExpected}
                   onChange={(e) => setContactsExpected(e.target.value)}
-                  disabled={readOnly}
+                  disabled={fieldsDisabled}
                   className="h-11"
                 />
               </MetricField>
@@ -382,29 +434,14 @@ export function MemberMonthlyPlanPanel({
                 onChange={(e) => setSkillsToLearn(e.target.value)}
                 placeholder="e.g. Better gig research, faster replies, Photoshop basics, negotiation with buyers..."
                 rows={3}
-                disabled={readOnly}
+                disabled={fieldsDisabled}
                 className="resize-none"
               />
             </div>
           </PlanSection>
 
-          {/* Section 2: Daily earnings */}
           <PlanSection
             step={2}
-            title="Daily Earnings"
-            description="Log what you earn each day — totals add up automatically for the month"
-          >
-            <MemberDailyEarningsPanel
-              teamMemberId={teamMemberId}
-              yearMonth={yearMonth}
-              incomeGoal={parsedIncomeGoal}
-              readOnly={readOnly}
-            />
-          </PlanSection>
-
-          {/* Section 3: Written goals & evaluation */}
-          <PlanSection
-            step={3}
             title="Written Goals & Evaluation"
             description="Add notes and photos of your handwritten goals or monthly review"
           >
@@ -415,7 +452,7 @@ export function MemberMonthlyPlanPanel({
                 placeholder="Other goals for this month — accounts to open, gigs to launch, milestones..."
                 value={goals}
                 onChange={setGoals}
-                readOnly={readOnly}
+                readOnly={fieldsDisabled}
                 uploadId="goals-image"
                 onFileChange={setGoalsFile}
                 previewUrl={goalsFile ? URL.createObjectURL(goalsFile) : goalsImageUrl}
@@ -427,7 +464,7 @@ export function MemberMonthlyPlanPanel({
                 placeholder="How did the month go? What worked well? What will you improve next month?"
                 value={evaluation}
                 onChange={setEvaluation}
-                readOnly={readOnly}
+                readOnly={fieldsDisabled}
                 uploadId="evaluation-image"
                 onFileChange={setEvaluationFile}
                 previewUrl={
@@ -437,17 +474,32 @@ export function MemberMonthlyPlanPanel({
               />
             </div>
           </PlanSection>
+            </>
+          )}
+
+          <PlanSection
+            step={3}
+            title="Weekly Earnings"
+            description="Log what you earn each week — amounts add up toward your monthly income goal"
+          >
+            <MemberWeeklyEarningsPanel
+              teamMemberId={teamMemberId}
+              yearMonth={yearMonth}
+              incomeGoal={parsedIncomeGoal}
+              readOnly={readOnly}
+            />
+          </PlanSection>
         </div>
       )}
 
-      {!readOnly && !loading && (
+      {!fieldsDisabled && !loading && showGoalForm && (
         <div className="sticky bottom-4 z-10 flex justify-end">
           <div className="rounded-xl border border-neutral-200 bg-white/95 backdrop-blur-sm shadow-lg px-4 py-3 flex items-center gap-3">
             <p className="text-sm text-neutral-500 hidden sm:block">
-              Saving updates <strong className="text-neutral-800">{monthLabel}</strong>
+              Save locks goals for <strong className="text-neutral-800">{monthLabel}</strong>
             </p>
             <Button onClick={handleSave} disabled={saving} size="lg" className="min-w-[10rem]">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save monthly plan"}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & lock goals"}
             </Button>
           </div>
         </div>
