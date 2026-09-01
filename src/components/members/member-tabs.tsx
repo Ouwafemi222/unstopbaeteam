@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { AccountStatusBadge } from "@/components/shared/status-badges";
 import { formatDate, formatDateTime, getMessageServiceLabel } from "@/lib/utils";
 import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
-import type { TeamMember, FiverrAccount, Message, ActivityLog } from "@/types/database";
+import { MemberActivityFeed } from "@/components/members/member-activity-feed";
+import type { MemberActivityItem } from "@/lib/members/activity-feed";
+import type { TeamMember, FiverrAccount, Message } from "@/types/database";
 
 const tabs = [
   { id: "overview", label: "Overview" },
@@ -27,7 +29,8 @@ interface MemberTabsProps {
   accounts: FiverrAccount[];
   messages: Message[];
   notes: { id: string; content: string; created_at: string; profile: { full_name: string } | null }[];
-  activity: ActivityLog[];
+  memberActivity: MemberActivityItem[];
+  earningsThisMonth?: number;
   bestService?: string;
   messagesThisMonth: number;
   messagesLastMonth: number;
@@ -37,7 +40,8 @@ interface MemberTabsProps {
 }
 
 export function MemberTabs({
-  memberId, currentTab, member, accounts, messages, notes, activity,
+  memberId, currentTab, member, accounts, messages, notes, memberActivity,
+  earningsThisMonth = 0,
   bestService, messagesThisMonth, messagesLastMonth, canManageAccounts, canManageMessages, readOnly,
 }: MemberTabsProps) {
   const growth = messagesLastMonth > 0
@@ -45,7 +49,7 @@ export function MemberTabs({
     : messagesThisMonth > 0 ? 100 : 0;
 
   const visibleTabs = readOnly
-    ? tabs.filter((t) => ["overview", "accounts", "messages", "performance"].includes(t.id))
+    ? tabs.filter((t) => ["overview", "accounts", "messages", "performance", "activity"].includes(t.id))
     : tabs;
 
   return (
@@ -65,11 +69,41 @@ export function MemberTabs({
             {tab.label}
             {tab.id === "accounts" && ` (${accounts.length})`}
             {tab.id === "messages" && ` (${messages.length})`}
+            {tab.id === "activity" && memberActivity.length > 0 && ` (${memberActivity.length})`}
           </Link>
         ))}
       </div>
 
       {currentTab === "overview" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-neutral-500">Accounts Opened</p>
+                <p className="text-2xl font-bold text-brand-green">{accounts.length}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-neutral-500">Messages Received</p>
+                <p className="text-2xl font-bold text-brand-orange">{messages.length}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-neutral-500">Messages This Month</p>
+                <p className="text-2xl font-bold">{messagesThisMonth}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-neutral-500">Earnings This Month</p>
+                <p className="text-2xl font-bold text-emerald-600">
+                  {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(earningsThisMonth)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         <div className="grid md:grid-cols-2 gap-6">
           <Card>
             <CardContent className="p-6 space-y-3">
@@ -105,6 +139,13 @@ export function MemberTabs({
               </CardContent>
             </Card>
           )}
+        </div>
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="font-semibold text-neutral-900 mb-4">Recent Activity</h3>
+              <MemberActivityFeed items={memberActivity.slice(0, 8)} />
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -275,15 +316,7 @@ export function MemberTabs({
       )}
 
       {currentTab === "activity" && (
-        <div className="space-y-2">
-          {activity.length === 0 ? <p className="text-neutral-500">No activity recorded.</p> : activity.map((log) => (
-            <div key={log.id} className="flex items-center gap-3 p-3 bg-white rounded-lg border text-sm">
-              <Badge variant="neutral">{log.action}</Badge>
-              <span className="text-neutral-700">{log.entity_label}</span>
-              <span className="text-neutral-400 ml-auto">{formatDateTime(log.created_at)}</span>
-            </div>
-          ))}
-        </div>
+        <MemberActivityFeed items={memberActivity} />
       )}
     </div>
   );

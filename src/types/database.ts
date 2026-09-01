@@ -174,6 +174,22 @@ export interface MemberMonthlyPlan {
   goals_image_path: string | null;
   evaluation: string | null;
   evaluation_image_path: string | null;
+  income_goal: number | null;
+  prospects_target: number | null;
+  office_prospects_expected: number | null;
+  contacts_expected: number | null;
+  skills_to_learn: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemberDailyEarning {
+  id: string;
+  team_member_id: string;
+  earned_date: string;
+  amount: number;
+  currency: string;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }

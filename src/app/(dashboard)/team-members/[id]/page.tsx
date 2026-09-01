@@ -9,6 +9,8 @@ import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { getMessageServiceLabel } from "@/lib/utils";
 import { getDateRange } from "@/lib/utils/dates";
+import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
+import type { MemberDailyEarning, MemberMonthlyPlan } from "@/types/database";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -50,7 +52,8 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     { count: messagesThisMonth },
     { count: messagesLastMonth },
     { data: notes },
-    { data: activity },
+    { data: earnings },
+    { data: monthlyPlans },
   ] = await Promise.all([
     supabase.from("fiverr_accounts")
       .select("*, country:countries(name, flag_emoji)")
@@ -63,7 +66,8 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     supabase.from("messages").select("*", { count: "exact", head: true })
       .eq("team_member_id", id).gte("received_date", lastMonth.from).lte("received_date", lastMonth.to),
     supabase.from("member_notes").select("*, profile:profiles(full_name)").eq("team_member_id", id).order("created_at", { ascending: false }),
-    supabase.from("activity_logs").select("*, profile:profiles(full_name)").eq("entity_id", id).order("created_at", { ascending: false }).limit(20),
+    supabase.from("member_daily_earnings").select("*").eq("team_member_id", id).order("earned_date", { ascending: false }).limit(200),
+    supabase.from("member_monthly_plans").select("*").eq("team_member_id", id).order("updated_at", { ascending: false }),
   ]);
 
   const serviceCounts = new Map<string, number>();
@@ -72,6 +76,18 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     if (name !== "—") serviceCounts.set(name, (serviceCounts.get(name) || 0) + 1);
   });
   const bestService = [...serviceCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  const earningsList = (earnings ?? []) as MemberDailyEarning[];
+  const earningsThisMonth = earningsList
+    .filter((e) => e.earned_date >= thisMonth.from && e.earned_date <= thisMonth.to)
+    .reduce((sum, e) => sum + Number(e.amount), 0);
+
+  const memberActivity = buildMemberActivityFeed({
+    accounts: accounts ?? [],
+    messages: messages ?? [],
+    earnings: earningsList,
+    monthlyPlans: (monthlyPlans ?? []) as MemberMonthlyPlan[],
+  });
 
   return (
     <div className="space-y-8">
@@ -121,10 +137,11 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         }}
       />
 
-      {isOwnProfile && (
+      {(isOwnProfile || isSponsorView) && (
         <MemberMonthlyPlanPanel
           teamMemberId={member.id}
           memberName={member.full_name}
+          readOnly={isSponsorView}
         />
       )}
 
@@ -135,7 +152,8 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         accounts={accounts ?? []}
         messages={messages ?? []}
         notes={isSponsorView ? [] : (notes ?? [])}
-        activity={isSponsorView ? [] : (activity ?? [])}
+        memberActivity={memberActivity}
+        earningsThisMonth={earningsThisMonth}
         bestService={bestService}
         messagesThisMonth={messagesThisMonth ?? 0}
         messagesLastMonth={messagesLastMonth ?? 0}

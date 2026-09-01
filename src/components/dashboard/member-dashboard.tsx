@@ -4,11 +4,13 @@ import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { MemberAccountsPanel } from "@/components/accounts/member-accounts-panel";
 import { MemberMessagesPanel } from "@/components/messages/member-messages-panel";
 import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
+import { MemberActivityFeed } from "@/components/members/member-activity-feed";
+import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Users, ChevronRight, MessageSquare } from "lucide-react";
-import type { TeamMember } from "@/types/database";
+import type { MemberDailyEarning, MemberMonthlyPlan, TeamMember } from "@/types/database";
 
 interface MemberDashboardProps {
   member: Pick<TeamMember, "id" | "full_name" | "preferred_name" | "status"> & Partial<TeamMember>;
@@ -25,6 +27,22 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
 
   const profile = fullMember ?? (member as TeamMember);
   const { members: team } = await getSponsoredMembers(supabase, profile.id);
+
+  const [{ data: accounts }, { data: messages }, { data: earnings }, { data: monthlyPlans }] =
+    await Promise.all([
+      supabase.from("fiverr_accounts").select("*").eq("team_member_id", profile.id).is("archived_at", null),
+      supabase.from("messages").select("*").eq("team_member_id", profile.id),
+      supabase.from("member_daily_earnings").select("*").eq("team_member_id", profile.id).order("earned_date", { ascending: false }).limit(100),
+      supabase.from("member_monthly_plans").select("*").eq("team_member_id", profile.id),
+    ]);
+
+  const memberActivity = buildMemberActivityFeed({
+    accounts: accounts ?? [],
+    messages: messages ?? [],
+    earnings: (earnings ?? []) as MemberDailyEarning[],
+    monthlyPlans: (monthlyPlans ?? []) as MemberMonthlyPlan[],
+    limit: 12,
+  });
 
   return (
     <div className="space-y-8">
@@ -107,6 +125,17 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         teamMemberId={profile.id}
         memberName={profile.full_name}
       />
+
+      {memberActivity.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Your Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MemberActivityFeed items={memberActivity} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
