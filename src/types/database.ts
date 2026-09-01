@@ -166,6 +166,18 @@ export interface DateRange {
 
 export type DateFilter = "today" | "this_week" | "this_month" | "last_month" | "custom" | "all";
 
+export interface MemberMonthlyPlan {
+  id: string;
+  team_member_id: string;
+  year_month: string;
+  goals: string | null;
+  goals_image_path: string | null;
+  evaluation: string | null;
+  evaluation_image_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SearchResult {
   result_type: string;
   result_id: string;

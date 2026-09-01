@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
   if (admin) {
     const { data: linked } = await admin
       .from("team_members")
-      .select("user_id")
+      .select("user_id, sponsor_id")
       .eq("id", teamMemberId)
       .single();
 
@@ -255,6 +255,8 @@ export async function POST(request: NextRequest) {
         const linkMessage = err instanceof Error ? err.message : "Failed to link profile";
         return NextResponse.json({ error: linkMessage }, { status: 400 });
       }
+    } else if (!linked.sponsor_id) {
+      await admin.from("team_members").update({ sponsor_id: sponsorId }).eq("id", teamMemberId);
     }
   }
 

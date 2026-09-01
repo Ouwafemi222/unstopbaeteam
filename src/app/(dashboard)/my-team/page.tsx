@@ -23,7 +23,7 @@ export default async function MyTeamPage() {
   }
 
   const supabase = await createClient();
-  const team = await getSponsoredMembers(supabase, member.id);
+  const { members: team, error: teamError } = await getSponsoredMembers(supabase, member.id);
 
   const totalAccounts = team.reduce((s, m) => s + m.accountCount, 0);
   const totalMessages = team.reduce((s, m) => s + m.messageCount, 0);
@@ -39,6 +39,12 @@ export default async function MyTeamPage() {
           Members who chose <strong>{member.full_name}</strong> as their sponsor — read-only view of their accounts and messages.
         </p>
       </div>
+
+      {teamError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Could not load your team: {teamError}. Try refreshing, or contact admin if this continues.
+        </div>
+      )}
 
       {team.length > 0 && (
         <div className="grid grid-cols-3 gap-4">

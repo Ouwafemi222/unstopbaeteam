@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { MemberAccountsPanel } from "@/components/accounts/member-accounts-panel";
 import { MemberMessagesPanel } from "@/components/messages/member-messages-panel";
+import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +24,7 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
     .single();
 
   const profile = fullMember ?? (member as TeamMember);
-  const team = await getSponsoredMembers(supabase, profile.id);
+  const { members: team } = await getSponsoredMembers(supabase, profile.id);
 
   return (
     <div className="space-y-8">
@@ -100,6 +101,11 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         memberId={profile.id}
         memberName={profile.full_name}
         basePath="/my-messages"
+      />
+
+      <MemberMonthlyPlanPanel
+        teamMemberId={profile.id}
+        memberName={profile.full_name}
       />
     </div>
   );

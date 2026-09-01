@@ -24,6 +24,7 @@ import {
   X,
   Laptop,
   Smartphone,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
   { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
   { href: "/my-messages", label: "My Messages", icon: MessageSquare },
+  { href: "/my-monthly-plan", label: "Monthly Goals", icon: Target },
   { href: "/my-team", label: "My Team", icon: Users },
   { href: `/team-members/${teamMemberId}`, label: "My Profile", icon: UserCircle },
   { href: "/profile", label: "Account Settings", icon: User },
@@ -81,11 +83,16 @@ function buildNavItems(teamMemberId?: string | null, isScopedMember?: boolean): 
       icon: MessageSquare,
     });
     items.splice(3, 0, {
+      href: "/my-monthly-plan",
+      label: "Monthly Goals",
+      icon: Target,
+    });
+    items.splice(4, 0, {
       href: "/my-team",
       label: "My Team",
       icon: Users,
     });
-    items.splice(4, 0, {
+    items.splice(5, 0, {
       href: `/team-members/${teamMemberId}`,
       label: "My Team Profile",
       icon: UserCircle,

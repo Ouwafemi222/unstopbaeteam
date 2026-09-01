@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { canViewMemberProfile } from "@/lib/auth/sponsor-access";
 import { MemberTabs } from "@/components/members/member-tabs";
+import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { getMessageServiceLabel } from "@/lib/utils";
 import { getDateRange } from "@/lib/utils/dates";
@@ -119,6 +120,13 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
           messagesLastMonth: messagesLastMonth ?? 0,
         }}
       />
+
+      {isOwnProfile && (
+        <MemberMonthlyPlanPanel
+          teamMemberId={member.id}
+          memberName={member.full_name}
+        />
+      )}
 
       <MemberTabs
         memberId={id}

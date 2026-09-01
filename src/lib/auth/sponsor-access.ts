@@ -13,14 +13,18 @@ export interface SponsoredMemberSummary {
 export async function getSponsoredMembers(
   supabase: SupabaseClient,
   sponsorTeamMemberId: string
-): Promise<SponsoredMemberSummary[]> {
-  const { data: members } = await supabase
+): Promise<{ members: SponsoredMemberSummary[]; error?: string }> {
+  const { data: members, error } = await supabase
     .from("team_members")
     .select("id, full_name, preferred_name, status, email")
     .eq("sponsor_id", sponsorTeamMemberId)
     .order("full_name");
 
-  if (!members?.length) return [];
+  if (error) {
+    return { members: [], error: error.message };
+  }
+
+  if (!members?.length) return { members: [] };
 
   const ids = members.map((m) => m.id);
 
@@ -39,11 +43,13 @@ export async function getSponsoredMembers(
     messageCounts.set(m.team_member_id, (messageCounts.get(m.team_member_id) || 0) + 1);
   });
 
-  return members.map((m) => ({
-    ...m,
-    accountCount: accountCounts.get(m.id) || 0,
-    messageCount: messageCounts.get(m.id) || 0,
-  }));
+  return {
+    members: members.map((m) => ({
+      ...m,
+      accountCount: accountCounts.get(m.id) || 0,
+      messageCount: messageCounts.get(m.id) || 0,
+    })),
+  };
 }
 
 export function canViewMemberProfile(
