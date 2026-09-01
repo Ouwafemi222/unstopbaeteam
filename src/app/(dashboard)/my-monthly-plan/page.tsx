@@ -9,16 +9,11 @@ export default async function MyMonthlyPlanPage() {
   const member = scope.teamMember;
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Monthly Goals &amp; Evaluation</h1>
-        <p className="text-neutral-500 mt-1">
-          Set your targets for the month and review how you performed — add a photo of your written goals or evaluation if you like.
-        </p>
-      </div>
+    <div className="max-w-4xl mx-auto pb-8">
       <MemberMonthlyPlanPanel
         teamMemberId={member.id}
         memberName={member.full_name}
+        variant="page"
       />
     </div>
   );

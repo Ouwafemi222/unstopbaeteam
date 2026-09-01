@@ -1,14 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Loader2, Target, ClipboardCheck, Upload, ListChecks } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  Loader2,
+  Target,
+  ClipboardCheck,
+  Upload,
+  DollarSign,
+  Users,
+  Building2,
+  Phone,
+  GraduationCap,
+  Calendar,
+  Sparkles,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   getMemberImageUrl,
   monthlyPlanImagePath,
@@ -31,12 +43,15 @@ interface MemberMonthlyPlanPanelProps {
   teamMemberId: string;
   memberName: string;
   readOnly?: boolean;
+  /** "page" = full hero (my-monthly-plan). "embedded" = compact header (profile). */
+  variant?: "page" | "embedded";
 }
 
 export function MemberMonthlyPlanPanel({
   teamMemberId,
   memberName,
   readOnly,
+  variant = "embedded",
 }: MemberMonthlyPlanPanelProps) {
   const supabase = createClient();
   const [yearMonth, setYearMonth] = useState(currentYearMonth());
@@ -186,245 +201,392 @@ export function MemberMonthlyPlanPanel({
   }
 
   const parsedIncomeGoal = parseOptionalMoney(incomeGoal);
+  const monthLabel = formatYearMonthLabel(yearMonth);
+
+  const monthSelect = (
+    <div className="space-y-1.5 shrink-0">
+      <Label
+        htmlFor="plan-month"
+        className={cn(
+          "text-xs uppercase tracking-wide",
+          variant === "page" ? "text-white/70" : "text-neutral-500"
+        )}
+      >
+        Select month
+      </Label>
+      <div className="relative">
+        <Calendar
+          className={cn(
+            "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none",
+            variant === "page" ? "text-white/60" : "text-neutral-400"
+          )}
+        />
+        <select
+          id="plan-month"
+          value={yearMonth}
+          onChange={(e) => setYearMonth(e.target.value)}
+          className={cn(
+            "h-11 w-full min-w-[11rem] rounded-lg border pl-10 pr-3 text-sm font-medium appearance-none cursor-pointer",
+            variant === "page"
+              ? "border-white/20 bg-white/10 text-white backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/30"
+              : "border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-brand-green/30"
+          )}
+        >
+          {[...monthOptionsByYear.entries()]
+            .sort(([a], [b]) => Number(a) - Number(b))
+            .map(([year, months]) => (
+              <optgroup key={year} label={year}>
+                {months.map((ym) => (
+                  <option key={ym} value={ym} className="text-neutral-900">
+                    {formatYearMonthLabel(ym)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+        </select>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
-            <Target className="h-5 w-5 text-brand-green" />
-            Monthly Goals &amp; Evaluation
-          </h2>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            Plan your month, log daily earnings, and review progress for {memberName}
-          </p>
+    <div className="space-y-8">
+      {/* Hero / header */}
+      {variant === "page" ? (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-neutral-900 via-brand-green-dark to-brand-green shadow-lg">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_80%_20%,#fff,transparent_50%)]" />
+          <div className="relative p-6 md:p-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-white/70 text-sm font-medium uppercase tracking-wider">
+                <Sparkles className="h-4 w-4" />
+                Monthly planning
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                Goals &amp; Evaluation
+              </h1>
+              <p className="text-white/75 text-sm md:text-base max-w-lg">
+                Plan targets, log daily earnings, and review your month — {memberName}
+              </p>
+              <p className="text-white/90 text-sm font-medium pt-1">
+                Viewing: <span className="text-white">{monthLabel}</span>
+              </p>
+            </div>
+            {monthSelect}
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="plan-month">Month</Label>
-          <select
-            id="plan-month"
-            value={yearMonth}
-            onChange={(e) => setYearMonth(e.target.value)}
-            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm min-w-[12rem]"
-          >
-            {[...monthOptionsByYear.entries()]
-              .sort(([a], [b]) => Number(a) - Number(b))
-              .map(([year, months]) => (
-                <optgroup key={year} label={year}>
-                  {months.map((ym) => (
-                    <option key={ym} value={ym}>
-                      {formatYearMonthLabel(ym)}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-          </select>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-neutral-200">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+              <Target className="h-5 w-5 text-brand-green" />
+              Monthly Goals &amp; Evaluation
+            </h2>
+            <p className="text-sm text-neutral-500 mt-0.5">{monthLabel} · {memberName}</p>
+          </div>
+          {monthSelect}
         </div>
-      </div>
+      )}
 
       {loading ? (
-        <Card>
-          <CardContent className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-green" />
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-24 rounded-2xl border border-neutral-200 bg-white">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-green" />
+        </div>
       ) : (
-        <>
-          <Card className="border-brand-orange/20">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <ListChecks className="h-4 w-4 text-brand-orange" />
-                Monthly Targets — {formatYearMonthLabel(yearMonth)}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="income-goal">How much do you want to make? (USD)</Label>
-                  <Input
-                    id="income-goal"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g. 500"
-                    value={incomeGoal}
-                    onChange={(e) => setIncomeGoal(e.target.value)}
-                    disabled={readOnly}
-                  />
+        <div className="space-y-8">
+          {/* Section 1: Targets */}
+          <PlanSection
+            step={1}
+            title="Monthly Targets"
+            description="Set your numbers and learning focus for this month"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <MetricField
+                icon={<DollarSign className="h-5 w-5" />}
+                iconBg="bg-emerald-100 text-emerald-700"
+                label="Income goal"
+                hint="How much do you want to make? (USD)"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="500"
+                  value={incomeGoal}
+                  onChange={(e) => setIncomeGoal(e.target.value)}
+                  disabled={readOnly}
+                  className="h-11"
+                />
+              </MetricField>
+              <MetricField
+                icon={<Users className="h-5 w-5" />}
+                iconBg="bg-blue-100 text-blue-700"
+                label="Prospects"
+                hint="How many prospects do you want?"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="20"
+                  value={prospectsTarget}
+                  onChange={(e) => setProspectsTarget(e.target.value)}
+                  disabled={readOnly}
+                  className="h-11"
+                />
+              </MetricField>
+              <MetricField
+                icon={<Building2 className="h-5 w-5" />}
+                iconBg="bg-violet-100 text-violet-700"
+                label="Office prospects"
+                hint="How many prospects expected in the office?"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="5"
+                  value={officeProspects}
+                  onChange={(e) => setOfficeProspects(e.target.value)}
+                  disabled={readOnly}
+                  className="h-11"
+                />
+              </MetricField>
+              <MetricField
+                icon={<Phone className="h-5 w-5" />}
+                iconBg="bg-orange-100 text-orange-700"
+                label="Contacts"
+                hint="How many contacts do you expect to get?"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="50"
+                  value={contactsExpected}
+                  onChange={(e) => setContactsExpected(e.target.value)}
+                  disabled={readOnly}
+                  className="h-11"
+                />
+              </MetricField>
+            </div>
+            <div className="mt-4 rounded-xl border border-neutral-200 bg-white p-4 md:p-5">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                  <GraduationCap className="h-5 w-5" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="prospects-target">How many prospects?</Label>
-                  <Input
-                    id="prospects-target"
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 20"
-                    value={prospectsTarget}
-                    onChange={(e) => setProspectsTarget(e.target.value)}
-                    disabled={readOnly}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="office-prospects">Prospects expected in the office</Label>
-                  <Input
-                    id="office-prospects"
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 5"
-                    value={officeProspects}
-                    onChange={(e) => setOfficeProspects(e.target.value)}
-                    disabled={readOnly}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="contacts-expected">Contacts expected to get</Label>
-                  <Input
-                    id="contacts-expected"
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 50"
-                    value={contactsExpected}
-                    onChange={(e) => setContactsExpected(e.target.value)}
-                    disabled={readOnly}
-                  />
+                <div>
+                  <p className="font-medium text-neutral-900">Skills &amp; office training</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    What specific things do you plan to learn this month?
+                  </p>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="skills-learn">
-                  What do you plan to learn this month? (skills &amp; office training)
-                </Label>
-                <Textarea
-                  id="skills-learn"
-                  value={skillsToLearn}
-                  onChange={(e) => setSkillsToLearn(e.target.value)}
-                  placeholder="e.g. Better gig research, faster replies, Photoshop basics, negotiation..."
-                  rows={3}
-                  disabled={readOnly}
-                />
-              </div>
-            </CardContent>
-          </Card>
+              <Textarea
+                value={skillsToLearn}
+                onChange={(e) => setSkillsToLearn(e.target.value)}
+                placeholder="e.g. Better gig research, faster replies, Photoshop basics, negotiation with buyers..."
+                rows={3}
+                disabled={readOnly}
+                className="resize-none"
+              />
+            </div>
+          </PlanSection>
 
-          <MemberDailyEarningsPanel
-            teamMemberId={teamMemberId}
-            yearMonth={yearMonth}
-            incomeGoal={parsedIncomeGoal}
-            readOnly={readOnly}
-          />
+          {/* Section 2: Daily earnings */}
+          <PlanSection
+            step={2}
+            title="Daily Earnings"
+            description="Log what you earn each day — totals add up automatically for the month"
+          >
+            <MemberDailyEarningsPanel
+              teamMemberId={teamMemberId}
+              yearMonth={yearMonth}
+              incomeGoal={parsedIncomeGoal}
+              readOnly={readOnly}
+            />
+          </PlanSection>
 
-          <div className="grid lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Target className="h-4 w-4 text-brand-green" />
-                  Written Goals
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  value={goals}
-                  onChange={(e) => setGoals(e.target.value)}
-                  placeholder="Other goals for this month (accounts to open, gigs to launch, etc.)"
-                  rows={5}
-                  disabled={readOnly}
-                />
-                {!readOnly && (
-                  <div className="space-y-2">
-                    <Label htmlFor="goals-image" className="flex items-center gap-1.5">
-                      <Upload className="h-3.5 w-3.5" />
-                      Upload goals picture (optional)
-                    </Label>
-                    <InputImage
-                      id="goals-image"
-                      onChange={setGoalsFile}
-                      previewUrl={goalsFile ? URL.createObjectURL(goalsFile) : goalsImageUrl}
-                    />
-                  </div>
-                )}
-                {(readOnly || !goalsFile) && goalsImageUrl && (
-                  <PlanImage src={goalsImageUrl} alt="Goals upload" />
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <ClipboardCheck className="h-4 w-4 text-brand-orange" />
-                  Monthly Evaluation
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  value={evaluation}
-                  onChange={(e) => setEvaluation(e.target.value)}
-                  placeholder="How did the month go? What worked, what to improve?"
-                  rows={5}
-                  disabled={readOnly}
-                />
-                {!readOnly && (
-                  <div className="space-y-2">
-                    <Label htmlFor="evaluation-image" className="flex items-center gap-1.5">
-                      <Upload className="h-3.5 w-3.5" />
-                      Upload evaluation picture (optional)
-                    </Label>
-                    <InputImage
-                      id="evaluation-image"
-                      onChange={setEvaluationFile}
-                      previewUrl={
-                        evaluationFile ? URL.createObjectURL(evaluationFile) : evaluationImageUrl
-                      }
-                    />
-                  </div>
-                )}
-                {(readOnly || !evaluationFile) && evaluationImageUrl && (
-                  <PlanImage src={evaluationImageUrl} alt="Evaluation upload" />
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </>
+          {/* Section 3: Written goals & evaluation */}
+          <PlanSection
+            step={3}
+            title="Written Goals & Evaluation"
+            description="Add notes and photos of your handwritten goals or monthly review"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <WriteCard
+                icon={<Target className="h-4 w-4 text-brand-green" />}
+                title="Written goals"
+                placeholder="Other goals for this month — accounts to open, gigs to launch, milestones..."
+                value={goals}
+                onChange={setGoals}
+                readOnly={readOnly}
+                uploadId="goals-image"
+                onFileChange={setGoalsFile}
+                previewUrl={goalsFile ? URL.createObjectURL(goalsFile) : goalsImageUrl}
+                accent="green"
+              />
+              <WriteCard
+                icon={<ClipboardCheck className="h-4 w-4 text-brand-orange" />}
+                title="Monthly evaluation"
+                placeholder="How did the month go? What worked well? What will you improve next month?"
+                value={evaluation}
+                onChange={setEvaluation}
+                readOnly={readOnly}
+                uploadId="evaluation-image"
+                onFileChange={setEvaluationFile}
+                previewUrl={
+                  evaluationFile ? URL.createObjectURL(evaluationFile) : evaluationImageUrl
+                }
+                accent="orange"
+              />
+            </div>
+          </PlanSection>
+        </div>
       )}
 
       {!readOnly && !loading && (
-        <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving} size="lg">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Monthly Plan"}
-          </Button>
+        <div className="sticky bottom-4 z-10 flex justify-end">
+          <div className="rounded-xl border border-neutral-200 bg-white/95 backdrop-blur-sm shadow-lg px-4 py-3 flex items-center gap-3">
+            <p className="text-sm text-neutral-500 hidden sm:block">
+              Saving updates <strong className="text-neutral-800">{monthLabel}</strong>
+            </p>
+            <Button onClick={handleSave} disabled={saving} size="lg" className="min-w-[10rem]">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save monthly plan"}
+            </Button>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function InputImage({
-  id,
-  onChange,
-  previewUrl,
+function PlanSection({
+  step,
+  title,
+  description,
+  children,
 }: {
-  id: string;
-  onChange: (file: File | null) => void;
-  previewUrl: string | null;
+  step: number;
+  title: string;
+  description: string;
+  children: ReactNode;
 }) {
   return (
-    <div className="space-y-3">
-      <input
-        id={id}
-        type="file"
-        accept="image/*"
-        className="block w-full text-sm text-neutral-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-green-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-green-dark hover:file:bg-brand-green/20"
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
-      />
-      {previewUrl && <PlanImage src={previewUrl} alt="Preview" />}
+    <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-start gap-4 px-5 py-4 md:px-6 md:py-5 border-b border-neutral-100 bg-neutral-50/80">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-green text-white text-sm font-bold">
+          {step}
+        </div>
+        <div className="min-w-0 pt-0.5">
+          <h3 className="text-base font-semibold text-neutral-900">{title}</h3>
+          <p className="text-sm text-neutral-500 mt-0.5">{description}</p>
+        </div>
+      </div>
+      <div className="p-5 md:p-6">{children}</div>
+    </section>
+  );
+}
+
+function MetricField({
+  icon,
+  iconBg,
+  label,
+  hint,
+  children,
+}: {
+  icon: ReactNode;
+  iconBg: string;
+  label: string;
+  hint: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4 flex gap-3 h-full">
+      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", iconBg)}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0 space-y-2">
+        <div>
+          <p className="text-sm font-semibold text-neutral-900">{label}</p>
+          <p className="text-xs text-neutral-500 leading-snug">{hint}</p>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
 
-function PlanImage({ src, alt }: { src: string; alt: string }) {
+function WriteCard({
+  icon,
+  title,
+  placeholder,
+  value,
+  onChange,
+  readOnly,
+  uploadId,
+  onFileChange,
+  previewUrl,
+  accent,
+}: {
+  icon: ReactNode;
+  title: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  readOnly?: boolean;
+  uploadId: string;
+  onFileChange: (f: File | null) => void;
+  previewUrl: string | null;
+  accent: "green" | "orange";
+}) {
   return (
-    <div className="relative rounded-xl border overflow-hidden bg-neutral-50 aspect-video max-h-56">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="w-full h-full object-contain" />
+    <div
+      className={cn(
+        "rounded-xl border flex flex-col h-full",
+        accent === "green" ? "border-brand-green/20" : "border-brand-orange/20"
+      )}
+    >
+      <div
+        className={cn(
+          "px-4 py-3 border-b flex items-center gap-2 font-medium text-sm",
+          accent === "green"
+            ? "bg-brand-green-light/30 border-brand-green/10 text-brand-green-dark"
+            : "bg-brand-orange-light/30 border-brand-orange/10 text-brand-orange-dark"
+        )}
+      >
+        {icon}
+        {title}
+      </div>
+      <div className="p-4 flex flex-col flex-1 gap-4">
+        <Textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={6}
+          disabled={readOnly}
+          className="flex-1 resize-none min-h-[8rem]"
+        />
+        {!readOnly && (
+          <label
+            htmlFor={uploadId}
+            className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 px-4 py-6 cursor-pointer hover:border-brand-green/40 hover:bg-brand-green-light/10 transition-colors"
+          >
+            <Upload className="h-5 w-5 text-neutral-400" />
+            <span className="text-xs text-neutral-500 text-center">
+              Upload a photo (optional)
+            </span>
+            <input
+              id={uploadId}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+            />
+          </label>
+        )}
+        {previewUrl && (
+          <div className="rounded-xl border overflow-hidden bg-neutral-50 aspect-video max-h-48">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl} alt="Upload preview" className="w-full h-full object-contain" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
