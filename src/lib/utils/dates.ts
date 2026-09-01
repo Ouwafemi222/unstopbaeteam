@@ -57,6 +57,43 @@ export function getMonthYear(date?: Date): { month: number; year: number } {
   return { month: d.getMonth() + 1, year: d.getFullYear() };
 }
 
+/** Current calendar month as YYYY-MM (Africa/Lagos). */
+export function currentYearMonth(): string {
+  return format(toZonedTime(new Date(), TZ), "yyyy-MM");
+}
+
+/**
+ * Build a descending list of YYYY-MM values for month pickers.
+ * Uses date-fns subMonths to avoid setMonth overflow bugs (e.g. Aug 31 → duplicate July).
+ */
+export function buildYearMonthOptions(yearsBack = 5): string[] {
+  const now = toZonedTime(new Date(), TZ);
+  const totalMonths = yearsBack * 12;
+  const options: string[] = [];
+  for (let i = 0; i < totalMonths; i++) {
+    options.push(format(subMonths(now, i), "yyyy-MM"));
+  }
+  return options;
+}
+
+export function formatYearMonthLabel(ym: string): string {
+  const [y, m] = ym.split("-");
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+/** Group YYYY-MM options by year for <optgroup> selects (newest year first). */
+export function groupYearMonthOptionsByYear(options: string[]): Map<string, string[]> {
+  const byYear = new Map<string, string[]>();
+  for (const ym of options) {
+    const year = ym.slice(0, 4);
+    const list = byYear.get(year) ?? [];
+    list.push(ym);
+    byYear.set(year, list);
+  }
+  return byYear;
+}
+
 export function getPerformanceStatus(
   current: number,
   previous: number,

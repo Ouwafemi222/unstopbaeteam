@@ -13,18 +13,17 @@ import {
   monthlyPlanImagePath,
   uploadMemberImage,
 } from "@/lib/storage/member-uploads";
+import {
+  buildYearMonthOptions,
+  currentYearMonth,
+  formatYearMonthLabel,
+  groupYearMonthOptionsByYear,
+} from "@/lib/utils/dates";
 import type { MemberMonthlyPlan } from "@/types/database";
 
-function currentYearMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function formatYearMonth(ym: string) {
-  const [y, m] = ym.split("-");
-  const date = new Date(Number(y), Number(m) - 1, 1);
-  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-}
+const MONTH_PICKER_YEARS = 5;
+const monthOptions = buildYearMonthOptions(MONTH_PICKER_YEARS);
+const monthOptionsByYear = groupYearMonthOptionsByYear(monthOptions);
 
 interface MemberMonthlyPlanPanelProps {
   teamMemberId: string;
@@ -151,12 +150,6 @@ export function MemberMonthlyPlanPanel({
     }
   }
 
-  const monthOptions = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    return ym;
-  });
 
   return (
     <div className="space-y-4">
@@ -176,13 +169,19 @@ export function MemberMonthlyPlanPanel({
             id="plan-month"
             value={yearMonth}
             onChange={(e) => setYearMonth(e.target.value)}
-            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm min-w-[12rem]"
           >
-            {monthOptions.map((ym) => (
-              <option key={ym} value={ym}>
-                {formatYearMonth(ym)}
-              </option>
-            ))}
+            {[...monthOptionsByYear.entries()]
+              .sort(([a], [b]) => Number(b) - Number(a))
+              .map(([year, months]) => (
+                <optgroup key={year} label={year}>
+                  {months.map((ym) => (
+                    <option key={ym} value={ym}>
+                      {formatYearMonthLabel(ym)}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
           </select>
         </div>
       </div>
@@ -199,7 +198,7 @@ export function MemberMonthlyPlanPanel({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Target className="h-4 w-4 text-brand-green" />
-                Monthly Goals — {formatYearMonth(yearMonth)}
+                Monthly Goals — {formatYearMonthLabel(yearMonth)}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -236,7 +235,7 @@ export function MemberMonthlyPlanPanel({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4 text-brand-orange" />
-                Monthly Evaluation — {formatYearMonth(yearMonth)}
+                Monthly Evaluation — {formatYearMonthLabel(yearMonth)}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
