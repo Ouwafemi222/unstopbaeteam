@@ -63,15 +63,20 @@ export function currentYearMonth(): string {
 }
 
 /**
- * Build a descending list of YYYY-MM values for month pickers.
- * Uses date-fns subMonths to avoid setMonth overflow bugs (e.g. Aug 31 → duplicate July).
+ * Build YYYY-MM options for month pickers: every month from January of the
+ * current year through December of (current year + yearsAhead).
+ * e.g. in Aug 2026 with yearsAhead=5 → Jan 2026 … Dec 2031 (no years before now).
  */
-export function buildYearMonthOptions(yearsBack = 5): string[] {
+export function buildYearMonthOptions(yearsAhead = 5): string[] {
   const now = toZonedTime(new Date(), TZ);
-  const totalMonths = yearsBack * 12;
+  const startYear = now.getFullYear();
+  const endYear = startYear + yearsAhead;
+
   const options: string[] = [];
-  for (let i = 0; i < totalMonths; i++) {
-    options.push(format(subMonths(now, i), "yyyy-MM"));
+  for (let year = startYear; year <= endYear; year++) {
+    for (let month = 1; month <= 12; month++) {
+      options.push(`${year}-${String(month).padStart(2, "0")}`);
+    }
   }
   return options;
 }
@@ -82,7 +87,7 @@ export function formatYearMonthLabel(ym: string): string {
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-/** Group YYYY-MM options by year for <optgroup> selects (newest year first). */
+/** Group YYYY-MM options by year for <optgroup> selects. */
 export function groupYearMonthOptionsByYear(options: string[]): Map<string, string[]> {
   const byYear = new Map<string, string[]>();
   for (const ym of options) {

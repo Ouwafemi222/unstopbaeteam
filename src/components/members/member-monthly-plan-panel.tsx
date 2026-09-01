@@ -21,8 +21,8 @@ import {
 } from "@/lib/utils/dates";
 import type { MemberMonthlyPlan } from "@/types/database";
 
-const MONTH_PICKER_YEARS = 5;
-const monthOptions = buildYearMonthOptions(MONTH_PICKER_YEARS);
+const MONTH_PICKER_YEARS_AHEAD = 5;
+const monthOptions = buildYearMonthOptions(MONTH_PICKER_YEARS_AHEAD);
 const monthOptionsByYear = groupYearMonthOptionsByYear(monthOptions);
 
 interface MemberMonthlyPlanPanelProps {
@@ -172,7 +172,7 @@ export function MemberMonthlyPlanPanel({
             className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm min-w-[12rem]"
           >
             {[...monthOptionsByYear.entries()]
-              .sort(([a], [b]) => Number(b) - Number(a))
+              .sort(([a], [b]) => Number(a) - Number(b))
               .map(([year, months]) => (
                 <optgroup key={year} label={year}>
                   {months.map((ym) => (
