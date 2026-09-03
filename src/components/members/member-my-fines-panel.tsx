@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { HandCoins, Loader2, PartyPopper, Sparkles, UserCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, UserCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatFineMoney } from "@/lib/members/fine-on-ground";
@@ -14,12 +14,12 @@ type EntryWithRecorder = FineOnGroundEntry & {
   batch?: { created_by: string | null; profile?: { full_name: string } | null } | null;
 };
 
-interface MemberMyDebtPanelProps {
+interface MemberMyFinesPanelProps {
   teamMemberId: string;
   variant?: "dashboard" | "page";
 }
 
-export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: MemberMyDebtPanelProps) {
+export function MemberMyFinesPanel({ teamMemberId, variant = "dashboard" }: MemberMyFinesPanelProps) {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [unpaid, setUnpaid] = useState<EntryWithRecorder[]>([]);
@@ -37,11 +37,11 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
         )
       `)
       .eq("team_member_id", teamMemberId)
-      .eq("obligation_type", "debt")
+      .eq("obligation_type", "fine")
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("MemberMyDebtPanel load error:", error.message);
+      console.error("MemberMyFinesPanel load error:", error.message);
     }
 
     const all = (data as EntryWithRecorder[]) ?? [];
@@ -56,7 +56,7 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
 
   const totalOwed = unpaid.reduce((sum, d) => sum + Number(d.amount ?? 0), 0);
   const currency = unpaid[0]?.currency ?? settled[0]?.currency ?? "NGN";
-  const isDebtFree = !loading && unpaid.length === 0;
+  const isFineFree = !loading && unpaid.length === 0;
 
   function recorderName(entry: EntryWithRecorder) {
     const name = (entry.batch?.profile as { full_name?: string } | null)?.full_name;
@@ -66,26 +66,26 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-sky-500" />
+        <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
       </div>
     );
   }
 
   // ── Dashboard compact ──────────────────────────────────────────
   if (variant === "dashboard") {
-    if (isDebtFree && settled.length === 0) {
+    if (isFineFree && settled.length === 0) {
       return (
         <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-teal-50/50 px-5 py-5">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-              <PartyPopper className="h-6 w-6" />
+              <CheckCircle2 className="h-6 w-6" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">My Debt</p>
-              <h3 className="font-bold text-neutral-900">You&apos;re debt free — keep it up! 🎉</h3>
-              <p className="text-sm text-neutral-500 mt-0.5">No money borrowed is recorded against you.</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">My Fines</p>
+              <h3 className="font-bold text-neutral-900">No fines — you&apos;re clean! 🙌</h3>
+              <p className="text-sm text-neutral-500 mt-0.5">No disciplinary fines recorded against you.</p>
             </div>
-            <Link href="/my-debts">
+            <Link href="/my-fines">
               <Button variant="outline" size="sm" className="shrink-0 border-emerald-200 text-emerald-800">
                 View
               </Button>
@@ -96,36 +96,36 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
     }
 
     return (
-      <div className="rounded-2xl border border-sky-200 bg-sky-50/60 px-5 py-4 space-y-3">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <HandCoins className="h-5 w-5 text-sky-700" />
-            <span className="font-semibold text-neutral-900 text-sm">My Debt</span>
+            <AlertTriangle className="h-5 w-5 text-amber-700" />
+            <span className="font-semibold text-neutral-900 text-sm">My Fines</span>
           </div>
-          <Link href="/my-debts">
-            <Button variant="ghost" size="sm" className="text-sky-700 h-7 text-xs">
+          <Link href="/my-fines">
+            <Button variant="ghost" size="sm" className="text-amber-700 h-7 text-xs">
               View all →
             </Button>
           </Link>
         </div>
 
-        {isDebtFree ? (
-          <p className="text-sm text-emerald-700 font-medium">✅ No active debts — you&apos;re clear!</p>
+        {isFineFree ? (
+          <p className="text-sm text-emerald-700 font-medium">✅ No active fines — you&apos;re clear!</p>
         ) : (
           <>
-            <p className="text-sm text-sky-800 font-medium">
+            <p className="text-sm text-amber-800 font-medium">
               Total owed:{" "}
-              <span className="text-xl font-bold text-sky-900">{formatFineMoney(totalOwed, currency)}</span>
+              <span className="text-xl font-bold text-amber-900">{formatFineMoney(totalOwed, currency)}</span>
             </p>
             <ul className="space-y-2">
               {unpaid.slice(0, 3).map((d) => (
-                <li key={d.id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2.5 border border-sky-100">
+                <li key={d.id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2.5 border border-amber-100">
                   <div className="min-w-0">
                     <span className="font-semibold">{formatFineMoney(Number(d.amount), d.currency ?? "NGN")}</span>
                     {d.reason && <span className="text-neutral-500 ml-2">— {d.reason}</span>}
                     <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1">
                       <UserCircle2 className="h-3 w-3 shrink-0" />
-                      Recorded by {recorderName(d)}
+                      Issued by {recorderName(d)}
                     </p>
                   </div>
                   <RelativeTime iso={d.created_at} className="text-xs text-neutral-400 shrink-0 ml-3" />
@@ -133,7 +133,7 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
               ))}
             </ul>
             {unpaid.length > 3 && (
-              <Link href="/my-debts" className="text-xs text-sky-600 hover:underline">
+              <Link href="/my-fines" className="text-xs text-amber-600 hover:underline">
                 + {unpaid.length - 3} more — view all
               </Link>
             )}
@@ -146,33 +146,33 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
   // ── Page full view ─────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {isDebtFree ? (
+      {isFineFree ? (
         <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-10 text-center">
           <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_0%,#34d399,transparent_60%)]" />
           <div className="relative">
-            <Sparkles className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-neutral-900">Debt free — well done! 🎊</h3>
+            <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-neutral-900">No fines — you&apos;re clean! 🙌</h3>
             <p className="text-neutral-600 mt-2 max-w-md mx-auto">
-              No money is currently borrowed or owed. Stay on track and keep building your future.
+              No disciplinary fines are currently active against you. Keep up the good conduct!
             </p>
             {settled.length > 0 && (
               <p className="text-sm text-neutral-400 mt-4">
-                You have {settled.length} settled record{settled.length === 1 ? "" : "s"} in your history below.
+                You have {settled.length} settled fine{settled.length === 1 ? "" : "s"} in your history below.
               </p>
             )}
           </div>
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <p className="text-sm text-sky-800 font-medium">Total you owe</p>
-              <p className="text-3xl font-bold text-sky-900 tabular-nums">
+              <p className="text-sm text-amber-800 font-medium">Total you owe</p>
+              <p className="text-3xl font-bold text-amber-900 tabular-nums">
                 {formatFineMoney(totalOwed, currency)}
               </p>
             </div>
-            <p className="text-sm text-sky-700">
-              {unpaid.length} active debt{unpaid.length === 1 ? "" : "s"} — please settle when you can.
+            <p className="text-sm text-amber-700">
+              {unpaid.length} active fine{unpaid.length === 1 ? "" : "s"} — disciplinary charges.
             </p>
           </div>
 
@@ -180,7 +180,7 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
             {unpaid.map((d) => (
               <li
                 key={d.id}
-                className="rounded-xl border border-sky-100 bg-white px-5 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+                className="rounded-xl border border-amber-100 bg-white px-5 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
               >
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-neutral-900 text-lg">
@@ -189,15 +189,15 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
                   {d.reason && <p className="text-sm text-neutral-600 mt-0.5">{d.reason}</p>}
                   <p className="text-xs text-neutral-400 mt-2 flex items-center gap-1.5">
                     <UserCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    Recorded by <span className="font-medium text-neutral-600">{recorderName(d)}</span>
+                    Issued by <span className="font-medium text-neutral-600">{recorderName(d)}</span>
                     {" · "}
                     <RelativeTime iso={d.created_at} />
                     {" · "}
                     {formatDateTime(d.created_at)}
                   </p>
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-sky-700 bg-sky-100 px-3 py-1 rounded-full shrink-0 self-start mt-1">
-                  Owed
+                <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-3 py-1 rounded-full shrink-0 self-start mt-1">
+                  Unpaid
                 </span>
               </li>
             ))}
@@ -225,7 +225,7 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
                 </div>
                 <p className="text-xs text-neutral-400 mt-1 flex items-center gap-1">
                   <UserCircle2 className="h-3 w-3 shrink-0" />
-                  Recorded by {recorderName(d)}
+                  Issued by {recorderName(d)}
                 </p>
               </li>
             ))}

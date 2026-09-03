@@ -62,6 +62,7 @@ const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
   { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
   { href: "/my-messages", label: "My Messages", icon: MessageSquare },
+  { href: "/my-fines", label: "My Fines", icon: AlertTriangle },
   { href: "/my-debts", label: "My Debt", icon: HandCoins },
   { href: "/my-monthly-plan", label: "Monthly Goals", icon: Target },
   { href: "/my-team", label: "My Team", icon: Users },

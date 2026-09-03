@@ -7,6 +7,7 @@ import { MemberVerificationPanel } from "@/components/accounts/member-verificati
 import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
 import { MemberFineOnGroundBanner } from "@/components/members/member-fine-on-ground-banner";
 import { MemberMyDebtPanel } from "@/components/members/member-my-debt-panel";
+import { MemberMyFinesPanel } from "@/components/members/member-my-fines-panel";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
@@ -190,6 +191,9 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
           </div>
         </Link>
       </div>
+
+      {/* Fines panel */}
+      <MemberMyFinesPanel teamMemberId={profile.id} variant="dashboard" />
 
       {/* Debt panel */}
       <MemberMyDebtPanel teamMemberId={profile.id} variant="dashboard" />
