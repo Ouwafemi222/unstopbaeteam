@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Loader2, BellRing, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, BellRing, X, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatFineMoney, obligationLabel } from "@/lib/members/fine-on-ground";
 import { formatDateTime } from "@/lib/utils";
@@ -38,6 +42,12 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
   const [alerts, setAlerts] = useState<FineEarningAlert[]>([]);
   const [popupAlert, setPopupAlert] = useState<FineEarningAlert | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<FineOnGroundEntry | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editCurrency, setEditCurrency] = useState("NGN");
+  const [editReason, setEditReason] = useState("");
+  const [editType, setEditType] = useState<"fine" | "debt">("fine");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,6 +77,50 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
   useEffect(() => {
     load();
   }, [load]);
+
+  function openEdit(f: FineOnGroundEntry) {
+    setEditing(f);
+    setEditAmount(String(f.amount ?? ""));
+    setEditCurrency(f.currency ?? "NGN");
+    setEditReason(f.reason ?? "");
+    setEditType((f.obligation_type as "fine" | "debt") ?? "fine");
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    const amount = parseFloat(editAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid amount greater than 0");
+      return;
+    }
+
+    setSavingEdit(true);
+    const { error } = await supabase
+      .from("fine_on_ground_entries")
+      .update({
+        amount,
+        currency: editCurrency,
+        reason: editReason.trim() || null,
+        obligation_type: editType,
+        seen_at: null,
+      })
+      .eq("id", editing.id);
+
+    if (error) {
+      toast.error(
+        error.message.includes("row-level security")
+          ? "Only a super admin can edit fines"
+          : error.message
+      );
+    } else {
+      toast.success(
+        `${obligationLabel(editType)} updated${amount > Number(editing.amount) ? " (increased)" : ""}`
+      );
+      setEditing(null);
+      await load();
+    }
+    setSavingEdit(false);
+  }
 
   async function markPaid(id: string) {
     setMarkingId(id);
@@ -132,7 +186,11 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                   {formatFineMoney(Number(popupAlert.earned_amount), popupAlert.earned_currency)}
                 </strong>
                 {popupAlert.week_number != null && (
-                  <> (week {popupAlert.week_number}{popupAlert.year_month ? ` · ${popupAlert.year_month}` : ""})</>
+                  <>
+                    {" "}
+                    (week {popupAlert.week_number}
+                    {popupAlert.year_month ? ` · ${popupAlert.year_month}` : ""})
+                  </>
                 )}
               </p>
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -158,6 +216,89 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
         </div>
       )}
 
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-neutral-200 overflow-hidden">
+            <div className="px-5 py-4 border-b flex items-center justify-between bg-neutral-50">
+              <div>
+                <p className="font-semibold text-neutral-900">Edit fine / debt</p>
+                <p className="text-sm text-neutral-500">
+                  {(editing.team_member as { full_name?: string } | null)?.full_name ?? editing.input_name}
+                </p>
+              </div>
+              <button type="button" onClick={() => setEditing(null)} aria-label="Close" disabled={savingEdit}>
+                <X className="h-5 w-5 text-neutral-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-type">Type</Label>
+                <Select
+                  id="edit-type"
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value as "fine" | "debt")}
+                >
+                  <option value="fine">Fine (disciplinary)</option>
+                  <option value="debt">Debt (money borrowed)</option>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount">Amount</Label>
+                  <Input
+                    id="edit-amount"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-currency">Currency</Label>
+                  <Select
+                    id="edit-currency"
+                    value={editCurrency}
+                    onChange={(e) => setEditCurrency(e.target.value)}
+                  >
+                    <option value="NGN">NGN</option>
+                    <option value="GBP">GBP</option>
+                    <option value="USD">USD</option>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-reason">Reason / note</Label>
+                <Textarea
+                  id="edit-reason"
+                  rows={3}
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  placeholder="Why this was recorded or updated"
+                />
+              </div>
+              <p className="text-xs text-neutral-500">
+                Saving updates what the member sees and shows them the banner again.
+              </p>
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit}>
+                  Cancel
+                </Button>
+                <Button onClick={saveEdit} disabled={savingEdit}>
+                  {savingEdit ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                    </>
+                  ) : (
+                    "Save changes"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card className="border-amber-200/80 bg-gradient-to-r from-white to-amber-50/40">
         <CardContent className="p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -168,8 +309,7 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
               <div>
                 <h2 className="font-semibold text-neutral-900">Unpaid fines &amp; debts</h2>
                 <p className="text-sm text-neutral-500 mt-0.5">
-                  People who still owe a fine or debt. When they record earnings online, you get an alert
-                  to remind them.
+                  Edit mistakes or increase amounts, mark paid, and get alerts when they record earnings.
                 </p>
               </div>
             </div>
@@ -274,21 +414,27 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                           </td>
                           <td className="p-3 text-neutral-600">{f.reason ?? "—"}</td>
                           <td className="p-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={markingId === f.id}
-                              onClick={() => markPaid(f.id)}
-                            >
-                              {markingId === f.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  Mark paid
-                                </>
-                              )}
-                            </Button>
+                            <div className="flex flex-wrap gap-2">
+                              <Button size="sm" variant="outline" onClick={() => openEdit(f)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={markingId === f.id}
+                                onClick={() => markPaid(f.id)}
+                              >
+                                {markingId === f.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Mark paid
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
