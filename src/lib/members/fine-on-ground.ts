@@ -167,6 +167,7 @@ export function parseFineOnGroundLines(
   return lines;
 }
 
-export function formatFineMoney(amount: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+export function formatFineMoney(amount: number, currency = "NGN") {
+  const locale = currency === "NGN" ? "en-NG" : "en-US";
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
 }

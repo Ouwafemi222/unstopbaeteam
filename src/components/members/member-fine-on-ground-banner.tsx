@@ -53,7 +53,7 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
   if (loading || entries.length === 0) return null;
 
   const total = entries.reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
-  const currency = entries[0]?.currency ?? "USD";
+  const currency = entries[0]?.currency ?? "NGN";
   const reasons = [
     ...new Set(entries.map((e) => e.reason).filter((r): r is string => Boolean(r))),
   ];

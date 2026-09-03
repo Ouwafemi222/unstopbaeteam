@@ -36,7 +36,7 @@ export function AdminFineOnGroundCard() {
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
   const [defaultAmount, setDefaultAmount] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("NGN");
   const [rawList, setRawList] = useState("");
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
@@ -225,8 +225,8 @@ export function AdminFineOnGroundCard() {
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                 >
+                  <option value="NGN">NGN (₦ Naira)</option>
                   <option value="USD">USD</option>
-                  <option value="NGN">NGN</option>
                   <option value="GBP">GBP</option>
                   <option value="EUR">EUR</option>
                 </Select>
@@ -247,7 +247,7 @@ export function AdminFineOnGroundCard() {
               <Textarea
                 id="fine-list"
                 rows={5}
-                placeholder={"Mr Femi, 50\nMr Samuel\n@username | 25\nMiss Ope 100"}
+                placeholder={"Mr Femi, 5000\nMr Samuel\n@username | 2500\nMiss Ope 10000"}
                 value={rawList}
                 onChange={(e) => setRawList(e.target.value)}
                 className="font-mono text-sm"
