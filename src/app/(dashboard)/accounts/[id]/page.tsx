@@ -80,6 +80,12 @@ export default async function AccountDetailPage({ params }: Props) {
               <Badge variant={account.email_verified ? "success" : "neutral"}>{account.email_verified ? "Yes" : "No"}</Badge>
             </div>
             <div className="flex justify-between"><span className="text-neutral-500">Verified At</span><span>{formatDateTime(account.verification_completed_at)}</span></div>
+            {account.verification_code && (
+              <div className="flex justify-between"><span className="text-neutral-500">Verification Code</span><span className="font-mono font-medium">{account.verification_code}</span></div>
+            )}
+            {(account.verification_screenshot_paths?.length ?? 0) > 0 && (
+              <div><span className="text-neutral-500">Screenshots</span><p className="mt-1">{account.verification_screenshot_paths.length} on file</p></div>
+            )}
             {account.verification_notes && (
               <div><span className="text-neutral-500">Notes</span><p className="mt-1">{account.verification_notes}</p></div>
             )}

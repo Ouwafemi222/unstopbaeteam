@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileSearch, Loader2, PenLine, ScanLine, Upload } from "lucide-react";
+import { CheckCircle2, FileSearch, Loader2, PenLine, ScanLine, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,11 @@ interface MemberGoalsOcrEntryProps {
   onFillModeChange: (mode: GoalsFillMode) => void;
   onApplyOcr: (parsed: ParsedGoalsFromOcr, imageFile: File) => void;
   disabled?: boolean;
+}
+
+function formatExtractedValue(label: string, value: string | number | null | undefined) {
+  if (value == null || value === "") return null;
+  return { label, value: String(value) };
 }
 
 export function MemberGoalsOcrEntry({
@@ -69,14 +74,27 @@ export function MemberGoalsOcrEntry({
 
     setRawText(data.rawText);
     setParsed(data.parsed);
-    toast.success("Text extracted — review below, then apply to the form");
+    toast.success("Text extracted — review the sections below, then apply to the form");
   }
 
   function handleApply() {
     if (!parsed || !file) return;
     onApplyOcr(parsed, file);
-    toast.success("Form filled — review everything, then save to lock your goals");
+    toast.success("Form filled — review every section, then save to lock your goals");
   }
+
+  const extractedFields = parsed
+    ? [
+        formatExtractedValue("Monthly income", parsed.income_goal != null ? `$${parsed.income_goal}` : null),
+        formatExtractedValue("Weekly income", parsed.weekly_income_goal != null ? `$${parsed.weekly_income_goal}` : null),
+        formatExtractedValue("Accounts daily", parsed.accounts_daily_target),
+        formatExtractedValue("Prospects", parsed.prospects_target),
+        formatExtractedValue("Office prospects", parsed.office_prospects_expected),
+        formatExtractedValue("Contacts", parsed.contacts_expected),
+        formatExtractedValue("Personal PV", parsed.personal_pv_target != null ? `${parsed.personal_pv_target} PV` : null),
+        formatExtractedValue("Group PV (GPV)", parsed.group_pv_target != null ? `${parsed.group_pv_target} GPV` : null),
+      ].filter(Boolean) as { label: string; value: string }[]
+    : [];
 
   if (disabled) return null;
 
@@ -87,7 +105,8 @@ export function MemberGoalsOcrEntry({
           Step 0 — How do you want to enter your goals?
         </p>
         <p className="text-sm text-neutral-600 mt-1">
-          Choose scan (OCR) or type manually. Nothing is saved until you press Save at the bottom.
+          Scan your handwritten sheet — we read the text, then sort it into sections (Fiverr, NeoLife PV,
+          evaluation). Review before applying. Nothing saves until you press Save at the bottom.
         </p>
       </div>
 
@@ -106,7 +125,7 @@ export function MemberGoalsOcrEntry({
             <ScanLine className="h-6 w-6 text-brand-green mb-2" />
             <p className="font-semibold text-neutral-900">Scan with OCR</p>
             <p className="text-xs text-neutral-500 mt-1">
-              Upload a photo of handwritten goals — extract text, then apply to the form yourself.
+              Upload a photo — we extract text and map it to the right goal sections.
             </p>
           </button>
           <button
@@ -122,7 +141,7 @@ export function MemberGoalsOcrEntry({
             <PenLine className="h-6 w-6 text-brand-green mb-2" />
             <p className="font-semibold text-neutral-900">Enter manually</p>
             <p className="text-xs text-neutral-500 mt-1">
-              Type your targets, skills, and written goals directly into the form.
+              Fill in Personal targets, NeoLife PV, and written goals yourself.
             </p>
           </button>
         </div>
@@ -160,7 +179,7 @@ export function MemberGoalsOcrEntry({
                 ) : (
                   <>
                     <FileSearch className="h-4 w-4" />
-                    Extract text from image
+                    Extract &amp; sort into sections
                   </>
                 )}
               </Button>
@@ -171,10 +190,55 @@ export function MemberGoalsOcrEntry({
               )}
             </div>
 
-            {rawText && (
-              <div className="rounded-lg bg-neutral-50 border p-3 text-xs text-neutral-600 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">
-                {rawText}
+            {parsed && parsed.sections.length > 0 && (
+              <div className="rounded-xl border border-brand-green/20 bg-brand-green-light/10 p-4 space-y-3">
+                <p className="text-sm font-semibold text-neutral-900 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-green" />
+                  Sections detected on your sheet
+                </p>
+                <ul className="space-y-2">
+                  {parsed.sections.map((s) => (
+                    <li
+                      key={s.id}
+                      className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-xs"
+                    >
+                      <p className="font-medium text-neutral-900">{s.title}</p>
+                      <p className="text-brand-green-dark mt-0.5">→ {s.mapsTo}</p>
+                      {s.excerpt && (
+                        <p className="text-neutral-500 mt-1 whitespace-pre-wrap font-mono">{s.excerpt}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
+            )}
+
+            {parsed && extractedFields.length > 0 && (
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                <p className="text-sm font-semibold text-neutral-900 mb-2">Values we extracted</p>
+                <dl className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  {extractedFields.map((f) => (
+                    <div key={f.label} className="rounded-lg bg-white border px-2 py-1.5">
+                      <dt className="text-neutral-500">{f.label}</dt>
+                      <dd className="font-semibold text-neutral-900">{f.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="text-[11px] text-neutral-400 mt-2">
+                  Always double-check — handwriting OCR is not perfect. Team diagrams must be typed manually.
+                </p>
+              </div>
+            )}
+
+            {rawText && (
+              <details className="rounded-lg border bg-neutral-50">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-neutral-600">
+                  Raw OCR text (full)
+                </summary>
+                <div className="px-3 pb-3 text-xs text-neutral-600 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono border-t">
+                  {rawText}
+                </div>
+              </details>
             )}
           </div>
         )}

@@ -112,6 +112,8 @@ export interface FiverrAccount {
   verification_completed_at: string | null;
   verified_by: string | null;
   verification_notes: string | null;
+  verification_code: string | null;
+  verification_screenshot_paths: string[];
   info_supplied_by: string | null;
   notes: string | null;
   archived_at: string | null;
@@ -179,6 +181,11 @@ export interface MemberMonthlyPlan {
   office_prospects_expected: number | null;
   contacts_expected: number | null;
   skills_to_learn: string | null;
+  weekly_income_goal: number | null;
+  accounts_daily_target: number | null;
+  personal_pv_target: number | null;
+  group_pv_target: number | null;
+  neolife_team_structure: string | null;
   is_locked: boolean;
   created_at: string;
   updated_at: string;
@@ -192,6 +199,13 @@ export interface MemberWeeklyEarning {
   amount: number;
   currency: string;
   notes: string | null;
+  prospects_count: number;
+  office_prospects_count: number;
+  contacts_count: number;
+  activities_done: string | null;
+  skills_progress: string | null;
+  personal_pv: number;
+  group_pv: number;
   created_at: string;
   updated_at: string;
 }
@@ -205,6 +219,28 @@ export interface MemberDailyEarning {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface FineOnGroundBatch {
+  id: string;
+  title: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface FineOnGroundEntry {
+  id: string;
+  batch_id: string;
+  input_name: string;
+  team_member_id: string | null;
+  fiverr_account_id: string | null;
+  match_label: string | null;
+  is_active: boolean;
+  seen_at: string | null;
+  created_at: string;
+  team_member?: { id: string; full_name: string } | null;
+  fiverr_account?: { id: string; username: string } | null;
 }
 
 export interface SearchResult {

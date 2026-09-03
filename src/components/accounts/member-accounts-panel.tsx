@@ -82,6 +82,7 @@ export async function MemberAccountsPanel({
                 <th className="p-3 font-medium">Phone</th>
                 <th className="p-3 font-medium">Country</th>
                 <th className="p-3 font-medium">Status</th>
+                <th className="p-3 font-medium">Verification</th>
                 <th className="p-3 font-medium">Opened</th>
                 <th className="p-3 font-medium">Actions</th>
               </tr>
@@ -98,6 +99,19 @@ export async function MemberAccountsPanel({
                   </td>
                   <td className="p-3">
                     <AccountStatusBadge status={acc.status} />
+                  </td>
+                  <td className="p-3 text-xs">
+                    {acc.verification_code ? (
+                      <span className="font-mono font-medium">{acc.verification_code}</span>
+                    ) : (
+                      <span className="text-neutral-400">—</span>
+                    )}
+                    {(acc.verification_screenshot_paths?.length ?? 0) > 0 && (
+                      <span className="block text-neutral-500 mt-0.5">
+                        {acc.verification_screenshot_paths.length} screenshot
+                        {acc.verification_screenshot_paths.length === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </td>
                   <td className="p-3">{formatDate(acc.opening_date)}</td>
                   <td className="p-3">

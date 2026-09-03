@@ -12,6 +12,7 @@ import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
 import { DateFilterBar } from "@/components/dashboard/date-filter-bar";
 import { MemberDashboard } from "@/components/dashboard/member-dashboard";
 import { AdminAddMemberCard } from "@/components/dashboard/admin-add-member-card";
+import { AdminFineOnGroundCard } from "@/components/dashboard/admin-fine-on-ground-card";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
@@ -119,6 +120,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </div>
 
       <AdminAddMemberCard />
+
+      <AdminFineOnGroundCard />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((stat) => (

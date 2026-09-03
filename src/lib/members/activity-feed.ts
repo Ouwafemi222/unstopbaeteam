@@ -53,11 +53,19 @@ export function buildMemberActivityFeed(opts: {
   }
 
   for (const e of opts.earnings ?? []) {
+    const parts: string[] = [];
+    if (Number(e.amount) > 0) parts.push(formatMoney(Number(e.amount), e.currency));
+    if ((e.prospects_count ?? 0) > 0) parts.push(`${e.prospects_count} prospects`);
+    if ((e.office_prospects_count ?? 0) > 0) parts.push(`${e.office_prospects_count} office`);
+    if ((e.contacts_count ?? 0) > 0) parts.push(`${e.contacts_count} contacts`);
+    if ((e.personal_pv ?? 0) > 0) parts.push(`${e.personal_pv} personal PV`);
+    if ((e.group_pv ?? 0) > 0) parts.push(`${e.group_pv} GPV`);
+    const summary = parts.length > 0 ? parts.join(" · ") : "Activities logged";
     items.push({
       id: `earning-${e.id}`,
       type: "earning",
-      label: `Logged week ${e.week_number} earnings of ${formatMoney(Number(e.amount), e.currency)}`,
-      detail: e.notes ?? e.year_month,
+      label: `Week ${e.week_number} evaluation: ${summary}`,
+      detail: e.activities_done ?? e.skills_progress ?? e.year_month,
       created_at: e.updated_at ?? e.created_at,
     });
   }

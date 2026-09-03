@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { MemberAccountsPanel } from "@/components/accounts/member-accounts-panel";
 import { MemberMessagesPanel } from "@/components/messages/member-messages-panel";
+import { MemberVerificationPanel } from "@/components/accounts/member-verification-panel";
 import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
+import { MemberFineOnGroundBanner } from "@/components/members/member-fine-on-ground-banner";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
@@ -46,6 +48,8 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
 
   return (
     <div className="space-y-8">
+      <MemberFineOnGroundBanner teamMemberId={profile.id} />
+
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-brand-green/20 bg-gradient-to-r from-brand-green-light/40 to-white p-5 shadow-sm">
           <div>
@@ -114,6 +118,8 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         memberName={profile.full_name}
         basePath="/my-accounts"
       />
+
+      <MemberVerificationPanel teamMemberId={profile.id} />
 
       <MemberMessagesPanel
         memberId={profile.id}

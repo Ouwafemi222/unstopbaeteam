@@ -14,6 +14,8 @@ import {
   Calendar,
   Sparkles,
   Lock,
+  Leaf,
+  TrendingUp,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -71,6 +73,11 @@ export function MemberMonthlyPlanPanel({
   const [officeProspects, setOfficeProspects] = useState("");
   const [contactsExpected, setContactsExpected] = useState("");
   const [skillsToLearn, setSkillsToLearn] = useState("");
+  const [weeklyIncomeGoal, setWeeklyIncomeGoal] = useState("");
+  const [accountsDailyTarget, setAccountsDailyTarget] = useState("");
+  const [personalPvTarget, setPersonalPvTarget] = useState("");
+  const [groupPvTarget, setGroupPvTarget] = useState("");
+  const [neolifeTeamStructure, setNeolifeTeamStructure] = useState("");
   const [goalsImageUrl, setGoalsImageUrl] = useState<string | null>(null);
   const [evaluationImageUrl, setEvaluationImageUrl] = useState<string | null>(null);
   const [goalsFile, setGoalsFile] = useState<File | null>(null);
@@ -111,6 +118,17 @@ export function MemberMonthlyPlanPanel({
       );
       setContactsExpected(record?.contacts_expected != null ? String(record.contacts_expected) : "");
       setSkillsToLearn(record?.skills_to_learn ?? "");
+      setWeeklyIncomeGoal(
+        record?.weekly_income_goal != null ? String(record.weekly_income_goal) : ""
+      );
+      setAccountsDailyTarget(
+        record?.accounts_daily_target != null ? String(record.accounts_daily_target) : ""
+      );
+      setPersonalPvTarget(
+        record?.personal_pv_target != null ? String(record.personal_pv_target) : ""
+      );
+      setGroupPvTarget(record?.group_pv_target != null ? String(record.group_pv_target) : "");
+      setNeolifeTeamStructure(record?.neolife_team_structure ?? "");
       setGoalsFile(null);
       setEvaluationFile(null);
       if (record?.is_locked) setFillMode("manual");
@@ -190,6 +208,11 @@ export function MemberMonthlyPlanPanel({
         office_prospects_expected: parseOptionalInt(officeProspects),
         contacts_expected: parseOptionalInt(contactsExpected),
         skills_to_learn: skillsToLearn.trim() || null,
+        weekly_income_goal: parseOptionalMoney(weeklyIncomeGoal),
+        accounts_daily_target: parseOptionalInt(accountsDailyTarget),
+        personal_pv_target: parseOptionalInt(personalPvTarget),
+        group_pv_target: parseOptionalInt(groupPvTarget),
+        neolife_team_structure: neolifeTeamStructure.trim() || null,
         goals_image_path: goalsImagePath,
         evaluation_image_path: evaluationImagePath,
         is_locked: true,
@@ -222,14 +245,22 @@ export function MemberMonthlyPlanPanel({
   const showGoalForm = isLocked || fillMode !== "choose";
 
   function handleApplyOcr(parsed: ParsedGoalsFromOcr, imageFile: File) {
-    setGoals(parsed.goals);
+    if (parsed.goals) setGoals(parsed.goals);
+    if (parsed.evaluation) setEvaluation(parsed.evaluation);
     if (parsed.income_goal != null) setIncomeGoal(String(parsed.income_goal));
+    if (parsed.weekly_income_goal != null) setWeeklyIncomeGoal(String(parsed.weekly_income_goal));
+    if (parsed.accounts_daily_target != null) {
+      setAccountsDailyTarget(String(parsed.accounts_daily_target));
+    }
     if (parsed.prospects_target != null) setProspectsTarget(String(parsed.prospects_target));
     if (parsed.office_prospects_expected != null) {
       setOfficeProspects(String(parsed.office_prospects_expected));
     }
     if (parsed.contacts_expected != null) setContactsExpected(String(parsed.contacts_expected));
     if (parsed.skills_to_learn) setSkillsToLearn(parsed.skills_to_learn);
+    if (parsed.personal_pv_target != null) setPersonalPvTarget(String(parsed.personal_pv_target));
+    if (parsed.group_pv_target != null) setGroupPvTarget(String(parsed.group_pv_target));
+    if (parsed.neolife_team_structure) setNeolifeTeamStructure(parsed.neolife_team_structure);
     setGoalsFile(imageFile);
   }
 
@@ -328,7 +359,8 @@ export function MemberMonthlyPlanPanel({
               <div>
                 <p className="font-semibold">Goals locked for {monthLabel}</p>
                 <p className="text-amber-800/80 mt-0.5">
-                  Your monthly targets and written goals cannot be changed. You can still update weekly earnings below.
+                  Your monthly targets are set. Use the weekly evaluation section below to log what you
+                  actually did and earned each week — that updates your progress toward each goal.
                 </p>
               </div>
             </div>
@@ -347,23 +379,56 @@ export function MemberMonthlyPlanPanel({
           {/* Section 1: Targets */}
           <PlanSection
             step={1}
-            title="Monthly Targets"
-            description="Set your numbers and learning focus for this month"
+            title="Personal & Fiverr Targets"
+            description="Income, prospecting, and daily activity goals for this month"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <MetricField
                 icon={<DollarSign className="h-5 w-5" />}
                 iconBg="bg-emerald-100 text-emerald-700"
-                label="Income goal"
-                hint="How much do you want to make? (USD)"
+                label="Monthly income goal"
+                hint="Total you want to make this month (USD)"
               >
                 <Input
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="500"
+                  placeholder="1500"
                   value={incomeGoal}
                   onChange={(e) => setIncomeGoal(e.target.value)}
+                  disabled={fieldsDisabled}
+                  className="h-11"
+                />
+              </MetricField>
+              <MetricField
+                icon={<TrendingUp className="h-5 w-5" />}
+                iconBg="bg-emerald-50 text-emerald-600"
+                label="Weekly income goal"
+                hint="How much per week (e.g. $400 weekly)"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="400"
+                  value={weeklyIncomeGoal}
+                  onChange={(e) => setWeeklyIncomeGoal(e.target.value)}
+                  disabled={fieldsDisabled}
+                  className="h-11"
+                />
+              </MetricField>
+              <MetricField
+                icon={<Target className="h-5 w-5" />}
+                iconBg="bg-sky-100 text-sky-700"
+                label="Accounts online daily"
+                hint="e.g. Put 3 accounts online every day"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="3"
+                  value={accountsDailyTarget}
+                  onChange={(e) => setAccountsDailyTarget(e.target.value)}
                   disabled={fieldsDisabled}
                   className="h-11"
                 />
@@ -442,8 +507,81 @@ export function MemberMonthlyPlanPanel({
 
           <PlanSection
             step={2}
+            title="NeoLife Qualification"
+            description="Monthly PV targets for your NeoLife business — personal volume and group (team) volume"
+          >
+            <div className="rounded-xl border border-lime-200 bg-lime-50/50 px-4 py-3 text-sm text-lime-900 mb-4">
+              <p className="font-medium flex items-center gap-2">
+                <Leaf className="h-4 w-4" />
+                NeoLife partner qualification
+              </p>
+              <p className="text-lime-800/80 mt-1 text-xs leading-relaxed">
+                Each month you set a <strong>Personal PV</strong> target (your own point volume) and a{" "}
+                <strong>Group PV (GPV)</strong> target (your team&apos;s total volume including you).
+                These are separate from your Fiverr income goals above.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <MetricField
+                icon={<Leaf className="h-5 w-5" />}
+                iconBg="bg-lime-100 text-lime-800"
+                label="Personal PV target"
+                hint="Your own monthly PV qualification (e.g. 250 PV)"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="250"
+                  value={personalPvTarget}
+                  onChange={(e) => setPersonalPvTarget(e.target.value)}
+                  disabled={fieldsDisabled}
+                  className="h-11"
+                />
+              </MetricField>
+              <MetricField
+                icon={<Users className="h-5 w-5" />}
+                iconBg="bg-green-100 text-green-800"
+                label="Group PV target (GPV)"
+                hint="Total team volume goal including you (e.g. 1,250 GPV)"
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="1250"
+                  value={groupPvTarget}
+                  onChange={(e) => setGroupPvTarget(e.target.value)}
+                  disabled={fieldsDisabled}
+                  className="h-11"
+                />
+              </MetricField>
+            </div>
+            <div className="mt-4 rounded-xl border border-neutral-200 bg-white p-4 md:p-5">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-lime-100 text-lime-800">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-medium text-neutral-900">Team structure</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Describe your downline layout or team tree (OCR cannot read diagrams — type it here)
+                  </p>
+                </div>
+              </div>
+              <Textarea
+                value={neolifeTeamStructure}
+                onChange={(e) => setNeolifeTeamStructure(e.target.value)}
+                placeholder="e.g. You 250 PV → 2 legs @ 250 each → 2 more @ 250 (A, B, C…) · GPV target 1,250"
+                rows={3}
+                disabled={fieldsDisabled}
+                className="resize-none"
+              />
+            </div>
+          </PlanSection>
+
+          <PlanSection
+            step={3}
             title="Written Goals & Evaluation"
-            description="Add notes and photos of your handwritten goals or monthly review"
+            description="Notes and photos from your handwritten sheet — last month review and this month plans"
           >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <WriteCard
@@ -477,18 +615,51 @@ export function MemberMonthlyPlanPanel({
             </>
           )}
 
-          <PlanSection
-            step={3}
-            title="Weekly Earnings"
-            description="Log what you earn each week — amounts add up toward your monthly income goal"
-          >
-            <MemberWeeklyEarningsPanel
-              teamMemberId={teamMemberId}
-              yearMonth={yearMonth}
-              incomeGoal={parsedIncomeGoal}
-              readOnly={readOnly}
-            />
-          </PlanSection>
+          {isLocked ? (
+            <PlanSection
+              step={4}
+              title="Weekly Evaluation"
+              description="Break down what you did and earned each week toward your locked monthly goals"
+            >
+              <MemberWeeklyEarningsPanel
+                teamMemberId={teamMemberId}
+                yearMonth={yearMonth}
+                monthlyGoals={{
+                  incomeGoal: plan?.income_goal ?? parsedIncomeGoal,
+                  weeklyIncomeGoal:
+                    plan?.weekly_income_goal ?? parseOptionalMoney(weeklyIncomeGoal),
+                  prospectsTarget: plan?.prospects_target ?? parseOptionalInt(prospectsTarget),
+                  officeProspectsExpected:
+                    plan?.office_prospects_expected ?? parseOptionalInt(officeProspects),
+                  contactsExpected: plan?.contacts_expected ?? parseOptionalInt(contactsExpected),
+                  personalPvTarget: plan?.personal_pv_target ?? parseOptionalInt(personalPvTarget),
+                  groupPvTarget: plan?.group_pv_target ?? parseOptionalInt(groupPvTarget),
+                  skillsToLearn: plan?.skills_to_learn ?? skillsToLearn,
+                  writtenGoals: plan?.goals ?? goals,
+                }}
+                readOnly={readOnly}
+              />
+            </PlanSection>
+          ) : (
+            !readOnly && (
+              <PlanSection
+                step={4}
+                title="Weekly Evaluation"
+                description="Unlocks after you save & lock your goals above"
+              >
+                <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-5 py-8 text-center max-w-lg mx-auto">
+                  <Lock className="h-8 w-8 text-neutral-400 mx-auto mb-3" />
+                  <p className="font-medium text-neutral-900">Not available while setting goals</p>
+                  <p className="text-sm text-neutral-500 mt-2 leading-relaxed">
+                    Your <strong>income goal</strong> above is only a target — it is not money you have made yet.
+                    Finish your monthly plan and click <strong>Save &amp; lock goals</strong> first.
+                    Then come back here each week to log your activities, counts, and earnings — that
+                    is what tracks progress toward your goals.
+                  </p>
+                </div>
+              </PlanSection>
+            )
+          )}
         </div>
       )}
 

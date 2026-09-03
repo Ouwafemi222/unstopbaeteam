@@ -12,6 +12,10 @@ import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CountrySelect } from "@/components/shared/country-select";
 import { DateInput } from "@/components/shared/date-input";
+import {
+  AccountVerificationCapture,
+  uploadVerificationScreenshots,
+} from "@/components/accounts/account-verification-capture";
 import { toast } from "sonner";
 import type { TeamMember, Country, FiverrAccount } from "@/types/database";
 
@@ -36,6 +40,9 @@ export function AccountForm({
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState(account?.verification_code ?? "");
+  const [pendingScreenshots, setPendingScreenshots] = useState<File[]>([]);
+  const [removedScreenshotPaths, setRemovedScreenshotPaths] = useState<string[]>([]);
   const router = useRouter();
   const supabase = createClient();
 
@@ -76,6 +83,13 @@ export function AccountForm({
       ? lockedTeamMemberId
       : (form.get("team_member_id") as string)) as string;
 
+    const codeRaw = verificationCode.trim();
+    if (codeRaw && codeRaw.length !== 4) {
+      toast.error("Verification code must be exactly 4 digits");
+      setLoading(false);
+      return;
+    }
+
     const payload = {
       team_member_id: teamMemberId,
       display_name: (form.get("display_name") as string) || null,
@@ -91,6 +105,7 @@ export function AccountForm({
       rate_notes: (form.get("rate_notes") as string) || null,
       phone_verified: form.get("phone_verified") === "true",
       email_verified: form.get("email_verified") === "true",
+      verification_code: codeRaw || null,
       verification_notes: (form.get("verification_notes") as string) || null,
       info_supplied_by: (form.get("info_supplied_by") as string) || null,
       notes: (form.get("notes") as string) || null,
@@ -100,14 +115,46 @@ export function AccountForm({
     if (mode === "create") {
       const { data, error } = await supabase.from("fiverr_accounts").insert({
         ...payload,
+        verification_screenshot_paths: [],
         created_by: user?.id,
       }).select().single();
 
       if (error) { toast.error(error.message); setLoading(false); return; }
+
+      if (pendingScreenshots.length > 0) {
+        const paths = await uploadVerificationScreenshots(
+          supabase,
+          teamMemberId,
+          data.id,
+          pendingScreenshots,
+          [],
+          []
+        );
+        await supabase
+          .from("fiverr_accounts")
+          .update({ verification_screenshot_paths: paths })
+          .eq("id", data.id);
+      }
+
       toast.success("Account created");
       router.push(returnTo ?? `/accounts/${data.id}`);
     } else if (account) {
-      const { error } = await supabase.from("fiverr_accounts").update(payload).eq("id", account.id);
+      let screenshotPaths = account.verification_screenshot_paths ?? [];
+      if (pendingScreenshots.length > 0 || removedScreenshotPaths.length > 0) {
+        screenshotPaths = await uploadVerificationScreenshots(
+          supabase,
+          teamMemberId,
+          account.id,
+          pendingScreenshots,
+          account.verification_screenshot_paths ?? [],
+          removedScreenshotPaths
+        );
+      }
+
+      const { error } = await supabase.from("fiverr_accounts").update({
+        ...payload,
+        verification_screenshot_paths: screenshotPaths,
+      }).eq("id", account.id);
       if (error) { toast.error(error.message); setLoading(false); return; }
       toast.success("Account updated");
       router.push(returnTo ?? `/accounts/${account.id}`);
@@ -220,7 +267,21 @@ export function AccountForm({
       <Card>
         <CardHeader><CardTitle>Verification Status</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
+          <AccountVerificationCapture
+            teamMemberId={
+              isSelfService
+                ? lockedTeamMemberId!
+                : (account?.team_member_id ?? lockedTeamMemberId ?? "")
+            }
+            accountId={account?.id}
+            initialCode={account?.verification_code}
+            initialPaths={account?.verification_screenshot_paths ?? []}
+            embeddedInForm
+            onCodeChange={setVerificationCode}
+            onPendingFilesChange={setPendingScreenshots}
+            onRemovedPathsChange={setRemovedScreenshotPaths}
+          />
+          <div className="grid sm:grid-cols-2 gap-4 pt-2 border-t border-neutral-100">
             <div className="space-y-2">
               <Label htmlFor="phone_verified">Phone Verified</Label>
               <Select id="phone_verified" name="phone_verified" defaultValue={String(a?.phone_verified ?? false)}>
