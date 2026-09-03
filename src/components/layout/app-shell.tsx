@@ -7,6 +7,7 @@ import { NotificationBell } from "./notification-bell";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { LocationBadge } from "@/components/shared/location-badge";
 import type { Profile } from "@/types/database";
 
 const BUCKET = "attachments";
@@ -75,6 +76,7 @@ export function AppShell({ children, permissions, profile, teamMemberId, isScope
           {!isScopedMember && <GlobalSearch className="flex-1 max-w-2xl" />}
           {isScopedMember && <div className="flex-1" />}
           <div className="flex items-center gap-3">
+            <LocationBadge />
             <NotificationBell />
             <Link
               href="/profile"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { ExchangeRates } from "@/app/api/currency/rates/route";
+import type { GeoLocation } from "@/app/api/geo/location/route";
 
 const CURRENCIES = [
   { code: "GBP", symbol: "£", flag: "🇬🇧", label: "British Pound" },
@@ -11,18 +12,49 @@ const CURRENCIES = [
   { code: "USD", symbol: "$", flag: "🇺🇸", label: "US Dollar" },
 ];
 
+// Map detected currency codes to our supported ones
+function mapCurrencyCode(code: string): string {
+  if (code === "GBP") return "GBP";
+  if (code === "NGN") return "NGN";
+  if (code === "USD") return "USD";
+  return "NGN"; // default to NGN for unsupported currencies
+}
+
 export function CurrencyConverter() {
   const [rates, setRates] = useState<ExchangeRates | null>(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("1");
   const [from, setFrom] = useState("GBP");
   const [to, setTo] = useState("NGN");
+  const [locationLabel, setLocationLabel] = useState<string | null>(null);
 
   useEffect(() => {
+    // Load rates
     fetch("/api/currency/rates")
       .then((r) => r.json())
       .then((data) => { if (data?.rates) setRates(data); })
       .finally(() => setLoading(false));
+
+    // Auto-set "to" currency based on user's location
+    fetch("/api/geo/location")
+      .then((r) => r.json())
+      .then((geo: GeoLocation) => {
+        if (geo?.currency?.currency_code) {
+          const detected = mapCurrencyCode(geo.currency.currency_code);
+          // If user is in Nigeria → from GBP to NGN; if in UK → from NGN to GBP
+          if (detected === "GBP") {
+            setFrom("NGN");
+            setTo("GBP");
+          } else {
+            setFrom("GBP");
+            setTo(detected);
+          }
+          if (geo.city || geo.country) {
+            setLocationLabel(`${geo.flag} ${geo.city || geo.country}`);
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   function getRate(fromCode: string, toCode: string): number {
@@ -50,7 +82,10 @@ export function CurrencyConverter() {
       <div className="flex items-center gap-2">
         <ArrowRightLeft className="h-5 w-5 text-emerald-600" />
         <h3 className="font-semibold text-neutral-900">Currency Converter</h3>
-        {loading && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 ml-auto" />}
+        {locationLabel && (
+          <span className="ml-auto text-xs text-neutral-400 font-medium">{locationLabel}</span>
+        )}
+        {loading && !locationLabel && <Loader2 className="h-4 w-4 animate-spin text-neutral-400 ml-auto" />}
       </div>
 
       {/* From */}
