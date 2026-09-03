@@ -39,20 +39,19 @@ export function CurrencyConverter() {
     fetch("/api/geo/location")
       .then((r) => r.json())
       .then((geo: GeoLocation) => {
-        if (geo?.currency?.currency_code) {
-          const detected = mapCurrencyCode(geo.currency.currency_code);
-          // If user is in Nigeria → from GBP to NGN; if in UK → from NGN to GBP
-          if (detected === "GBP") {
-            setFrom("NGN");
-            setTo("GBP");
-          } else {
-            setFrom("GBP");
-            setTo(detected);
-          }
-          if (geo.city || geo.country) {
-            setLocationLabel(`${geo.flag} ${geo.city || geo.country}`);
-          }
+        if (!geo?.country) return;
+        const code =
+          geo.currency?.currency_code ||
+          (geo.country_code === "NG" ? "NGN" : geo.country_code === "GB" ? "GBP" : "USD");
+        const detected = mapCurrencyCode(code);
+        if (detected === "GBP") {
+          setFrom("NGN");
+          setTo("GBP");
+        } else {
+          setFrom("GBP");
+          setTo(detected);
         }
+        setLocationLabel(`${geo.flag ? geo.flag + " " : ""}${geo.city || geo.country}`);
       })
       .catch(() => {});
   }, []);

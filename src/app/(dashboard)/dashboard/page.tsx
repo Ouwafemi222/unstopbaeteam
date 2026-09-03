@@ -16,6 +16,7 @@ import { AdminFineOnGroundCard } from "@/components/dashboard/admin-fine-on-grou
 import { AdminUnpaidFinesPanel } from "@/components/dashboard/admin-unpaid-fines-panel";
 import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-activity-feed";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
+import { LocationCard } from "@/components/shared/location-card";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
@@ -141,8 +142,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
       </div>
 
-      {/* Live exchange rates */}
-      <CurrencyRatesWidget variant="banner" />
+      {/* Live exchange rates + detected location */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <CurrencyRatesWidget variant="banner" />
+        </div>
+        <LocationCard />
+      </div>
 
       <AdminAddMemberCard />
 

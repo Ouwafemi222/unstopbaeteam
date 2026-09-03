@@ -10,6 +10,7 @@ import { MemberMyDebtPanel } from "@/components/members/member-my-debt-panel";
 import { MemberMyFinesPanel } from "@/components/members/member-my-fines-panel";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 import { CurrencyConverter } from "@/components/shared/currency-converter";
+import { LocationCard } from "@/components/shared/location-card";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
@@ -194,8 +195,13 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         </Link>
       </div>
 
-      {/* Live exchange rates */}
-      <CurrencyRatesWidget variant="banner" />
+      {/* Live exchange rates + detected location */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <CurrencyRatesWidget variant="banner" />
+        </div>
+        <LocationCard />
+      </div>
 
       {/* Fines panel */}
       <MemberMyFinesPanel teamMemberId={profile.id} variant="dashboard" />

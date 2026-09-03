@@ -18,13 +18,18 @@ export function LocationBadge() {
 
   if (!loc) return null;
 
+  const label = [loc.city, loc.country].filter(Boolean).join(", ");
+
   return (
     <div
-      className="hidden lg:flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600"
-      title={`Your location: ${loc.city ? loc.city + ", " : ""}${loc.country} · ${loc.timezone?.name ?? ""}`}
+      className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs text-neutral-600 max-w-[11rem] sm:max-w-none"
+      title={`You appear to be in ${label}${loc.timezone?.name ? ` · ${loc.timezone.name}` : ""}`}
     >
       <MapPin className="h-3 w-3 text-neutral-400 shrink-0" />
-      <span className="font-medium">{loc.flag} {loc.city || loc.country}</span>
+      <span className="font-medium truncate">
+        {loc.flag ? `${loc.flag} ` : ""}
+        {loc.city || loc.country}
+      </span>
     </div>
   );
 }
