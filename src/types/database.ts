@@ -247,6 +247,22 @@ export interface FineOnGroundEntry {
   fiverr_account?: { id: string; username: string } | null;
 }
 
+export interface FineEarningAlert {
+  id: string;
+  team_member_id: string;
+  fine_entry_id: string | null;
+  earned_amount: number;
+  earned_currency: string;
+  year_month: string | null;
+  week_number: number | null;
+  fine_amount: number;
+  fine_currency: string;
+  message: string | null;
+  admin_seen_at: string | null;
+  created_at: string;
+  team_member?: { id: string; full_name: string } | null;
+}
+
 export interface SearchResult {
   result_type: string;
   result_id: string;

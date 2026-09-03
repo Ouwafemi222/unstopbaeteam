@@ -197,6 +197,32 @@ export function MemberWeeklyEarningsPanel({
     if (error) toast.error(error.message);
     else {
       toast.success(`Week ${weekNumber} saved`);
+      if (amount > 0) {
+        try {
+          const res = await fetch("/api/fines/earning-alert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              earnedAmount: amount,
+              earnedCurrency: "USD",
+              yearMonth,
+              weekNumber,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (data.alerted && data.unpaidFineTotal > 0) {
+            toast.warning(
+              `Reminder: you still have an unpaid fine of ${new Intl.NumberFormat(
+                data.fineCurrency === "NGN" ? "en-NG" : "en-US",
+                { style: "currency", currency: data.fineCurrency ?? "NGN" }
+              ).format(data.unpaidFineTotal)}`,
+              { duration: 8000 }
+            );
+          }
+        } catch {
+          // Non-blocking — earnings already saved
+        }
+      }
       await loadEntries();
     }
     setSavingWeek(null);
