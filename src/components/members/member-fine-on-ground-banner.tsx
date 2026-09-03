@@ -1,10 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, HandCoins, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { formatFineMoney } from "@/lib/members/fine-on-ground";
+import {
+  formatFineMoney,
+  obligationLabel,
+  obligationPhrase,
+} from "@/lib/members/fine-on-ground";
 import type { FineOnGroundEntry } from "@/types/database";
 
 interface MemberFineOnGroundBannerProps {
@@ -52,6 +56,8 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
 
   if (loading || entries.length === 0) return null;
 
+  const hasDebt = entries.some((e) => e.obligation_type === "debt");
+  const hasFine = entries.some((e) => (e.obligation_type ?? "fine") === "fine");
   const total = entries.reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
   const currency = entries[0]?.currency ?? "NGN";
   const reasons = [
@@ -65,37 +71,70 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
     ),
   ];
 
+  const headline =
+    hasDebt && hasFine
+      ? "You have money to settle"
+      : hasDebt
+        ? "You have a debt to settle"
+        : "You owe a disciplinary fine";
+
+  const detailParts = entries.map((e) => {
+    const kind = obligationLabel(e.obligation_type ?? "fine");
+    return `${kind}: ${formatFineMoney(Number(e.amount), e.currency ?? "NGN")}`;
+  });
+
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 via-white to-amber-50 shadow-sm">
-      <div className="absolute inset-y-0 left-0 w-1.5 bg-amber-500" />
+    <div
+      className={`relative overflow-hidden rounded-2xl border shadow-sm ${
+        hasDebt && !hasFine
+          ? "border-sky-300 bg-gradient-to-r from-sky-50 via-white to-sky-50"
+          : "border-amber-300 bg-gradient-to-r from-amber-50 via-white to-amber-50"
+      }`}
+    >
+      <div
+        className={`absolute inset-y-0 left-0 w-1.5 ${
+          hasDebt && !hasFine ? "bg-sky-500" : "bg-amber-500"
+        }`}
+      />
       <div className="p-5 md:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-          <AlertTriangle className="h-6 w-6" />
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+            hasDebt && !hasFine ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {hasDebt && !hasFine ? (
+            <HandCoins className="h-6 w-6" />
+          ) : (
+            <AlertTriangle className="h-6 w-6" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
-            Disciplinary fine
+          <p
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              hasDebt && !hasFine ? "text-sky-700" : "text-amber-700"
+            }`}
+          >
+            {hasDebt && hasFine
+              ? "Fine & debt"
+              : hasDebt
+                ? "Debt (money borrowed)"
+                : "Disciplinary fine"}
           </p>
           <h2 className="text-lg md:text-xl font-bold text-neutral-900 mt-0.5">
-            You owe a fine of{" "}
-            <span className="text-amber-800">{formatFineMoney(total, currency)}</span>
+            {headline}:{" "}
+            <span className={hasDebt && !hasFine ? "text-sky-800" : "text-amber-800"}>
+              {formatFineMoney(total, currency)}
+            </span>
           </h2>
           <p className="text-sm text-neutral-600 mt-1">
-            Admin assigned this as discipline (money fine)
+            {detailParts.join(" · ")}
             {reasons.length > 0 && (
               <>
                 {" "}
-                — reason: <strong>{reasons.join("; ")}</strong>
+                — note: <strong>{reasons.join("; ")}</strong>
               </>
             )}
             .
-            {entries.length > 1 && (
-              <>
-                {" "}
-                ({entries.length} fine{entries.length === 1 ? "" : "s"} totaling{" "}
-                {formatFineMoney(total, currency)})
-              </>
-            )}
             {accountNames.length > 0 && (
               <>
                 {" "}
@@ -104,11 +143,18 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
               </>
             )}
           </p>
+          <p className="text-xs text-neutral-500 mt-1">
+            This is recorded as {entries.map((e) => obligationPhrase(e.obligation_type)).join(" / ")}.
+          </p>
         </div>
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 border-amber-300 text-amber-900 hover:bg-amber-50"
+          className={`shrink-0 ${
+            hasDebt && !hasFine
+              ? "border-sky-300 text-sky-900 hover:bg-sky-50"
+              : "border-amber-300 text-amber-900 hover:bg-amber-50"
+          }`}
           onClick={markSeen}
           disabled={dismissing}
         >

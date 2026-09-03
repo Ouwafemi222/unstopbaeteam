@@ -48,7 +48,7 @@ const navItems: NavItem[] = [
   { href: "/services", label: "Services", icon: Wrench },
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
   { href: "/reports", label: "Reports", icon: FileText, permission: "reports.view" },
-  { href: "/fines", label: "Disciplinary Fines", icon: AlertTriangle, permission: "team_members.view" },
+  { href: "/fines", label: "Fines & Debts", icon: AlertTriangle, permission: "team_members.view" },
   { href: "/search", label: "Search", icon: Search },
   { href: "/import", label: "Import Accounts", icon: Upload, permission: "accounts.import" },
   { href: "/activity", label: "Activity", icon: Activity, permission: "activity.view" },

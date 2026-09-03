@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { formatFineMoney } from "@/lib/members/fine-on-ground";
+import { formatFineMoney, obligationLabel } from "@/lib/members/fine-on-ground";
 import { formatDateTime } from "@/lib/utils";
 import type { FineOnGroundEntry } from "@/types/database";
 
@@ -166,9 +166,9 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="font-semibold text-neutral-900">Unpaid fines (on ground)</h2>
+                <h2 className="font-semibold text-neutral-900">Unpaid fines &amp; debts</h2>
                 <p className="text-sm text-neutral-500 mt-0.5">
-                  People who still owe a disciplinary fine. When they record earnings online, you get an alert
+                  People who still owe a fine or debt. When they record earnings online, you get an alert
                   to remind them.
                 </p>
               </div>
@@ -246,6 +246,7 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                     <thead>
                       <tr className="border-b text-left text-neutral-500 bg-neutral-50">
                         <th className="p-3 font-medium">Member</th>
+                        <th className="p-3 font-medium">Type</th>
                         <th className="p-3 font-medium">Amount</th>
                         <th className="p-3 font-medium">Reason</th>
                         <th className="p-3 font-medium">Actions</th>
@@ -256,6 +257,17 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                         <tr key={f.id} className="border-b hover:bg-neutral-50">
                           <td className="p-3 font-medium text-neutral-900">
                             {(f.team_member as { full_name?: string } | null)?.full_name ?? f.input_name}
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={
+                                f.obligation_type === "debt"
+                                  ? "text-sky-700 font-medium"
+                                  : "text-amber-700 font-medium"
+                              }
+                            >
+                              {obligationLabel(f.obligation_type ?? "fine")}
+                            </span>
                           </td>
                           <td className="p-3 font-semibold text-amber-800">
                             {formatFineMoney(Number(f.amount), f.currency ?? "NGN")}

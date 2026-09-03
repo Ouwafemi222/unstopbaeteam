@@ -171,3 +171,13 @@ export function formatFineMoney(amount: number, currency = "NGN") {
   const locale = currency === "NGN" ? "en-NG" : "en-US";
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
 }
+
+export type ObligationType = "fine" | "debt";
+
+export function obligationLabel(type: ObligationType | string | null | undefined): string {
+  return type === "debt" ? "Debt" : "Fine";
+}
+
+export function obligationPhrase(type: ObligationType | string | null | undefined): string {
+  return type === "debt" ? "debt (money borrowed)" : "disciplinary fine";
+}

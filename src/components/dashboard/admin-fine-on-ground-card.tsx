@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, HandCoins, Loader2, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   formatFineMoney,
   matchFineOnGroundName,
+  obligationLabel,
+  obligationPhrase,
   parseFineOnGroundLines,
   type FineMatchResult,
+  type ObligationType,
 } from "@/lib/members/fine-on-ground";
 
 interface MemberRow {
@@ -33,6 +37,7 @@ interface AccountRow {
 
 export function AdminFineOnGroundCard() {
   const supabase = createClient();
+  const [obligationType, setObligationType] = useState<ObligationType>("fine");
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
   const [defaultAmount, setDefaultAmount] = useState("");
@@ -43,6 +48,9 @@ export function AdminFineOnGroundCard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lastSummary, setLastSummary] = useState<string | null>(null);
+
+  const isDebt = obligationType === "debt";
+  const typeWord = obligationLabel(obligationType).toLowerCase();
 
   useEffect(() => {
     async function load() {
@@ -90,11 +98,11 @@ export function AdminFineOnGroundCard() {
 
   async function handlePublish() {
     if (preview.length === 0) {
-      toast.error("Add at least one name (and fine amount)");
+      toast.error(`Add at least one name (and ${typeWord} amount)`);
       return;
     }
     if (missingAmount) {
-      toast.error("Every person needs a fine amount — set Default amount, or put amount on each line");
+      toast.error(`Every person needs an amount — set Default amount, or put amount on each line`);
       return;
     }
 
@@ -104,10 +112,14 @@ export function AdminFineOnGroundCard() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      const defaultTitle = isDebt
+        ? `Debts — ${new Date().toLocaleDateString()}`
+        : `Disciplinary fines — ${new Date().toLocaleDateString()}`;
+
       const { data: batch, error: batchError } = await supabase
         .from("fine_on_ground_batches")
         .insert({
-          title: title.trim() || `Disciplinary fines — ${new Date().toLocaleDateString()}`,
+          title: title.trim() || defaultTitle,
           notes: reason.trim() || null,
           created_by: user?.id ?? null,
         })
@@ -125,6 +137,7 @@ export function AdminFineOnGroundCard() {
         amount: p.amount ?? 0,
         currency,
         reason: reason.trim() || null,
+        obligation_type: obligationType,
         is_active: true,
       }));
 
@@ -149,8 +162,10 @@ export function AdminFineOnGroundCard() {
             const money = formatFineMoney(entry?.amount ?? 0, currency);
             return {
               user_id: userId,
-              title: "Disciplinary fine assigned",
-              message: `You have a fine of ${money}. Open your dashboard for details.`,
+              title: isDebt ? "Debt recorded" : "Disciplinary fine assigned",
+              message: isDebt
+                ? `You have a debt of ${money} (money borrowed). Open your dashboard for details.`
+                : `You have a fine of ${money}. Open your dashboard for details.`,
               link: "/dashboard",
             };
           })
@@ -158,10 +173,10 @@ export function AdminFineOnGroundCard() {
       }
 
       setLastSummary(
-        `Published ${preview.length} fine${preview.length === 1 ? "" : "s"} totaling ${formatFineMoney(totalAmount, currency)} — ${matchedCount} on member dashboards, ${unmatchedCount} unmatched.`
+        `Published ${preview.length} ${typeWord}${preview.length === 1 ? "" : "s"} totaling ${formatFineMoney(totalAmount, currency)} — ${matchedCount} on member dashboards, ${unmatchedCount} unmatched.`
       );
       toast.success(
-        `${matchedCount} member dashboard${matchedCount === 1 ? "" : "s"} will show the fine amount.`
+        `${matchedCount} member dashboard${matchedCount === 1 ? "" : "s"} will show the ${typeWord}.`
       );
       setRawList("");
       setTitle("");
@@ -179,13 +194,13 @@ export function AdminFineOnGroundCard() {
       <CardContent className="p-5 space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-            <AlertTriangle className="h-5 w-5" />
+            {isDebt ? <HandCoins className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
           </div>
           <div>
-            <h2 className="font-semibold text-neutral-900">Disciplinary Fines</h2>
+            <h2 className="font-semibold text-neutral-900">Fines &amp; Debts</h2>
             <p className="text-sm text-neutral-500 mt-0.5 max-w-2xl">
-              Enter people who owe a <strong>fine</strong> (money discipline). When the name matches an
-              account owner, the <strong>amount</strong> pops up on <strong>their</strong> dashboard.
+              Record either a <strong>fine</strong> (discipline) or a <strong>debt</strong> (money you
+              borrowed them). They will see the true description and amount on their dashboard.
             </p>
           </div>
         </div>
@@ -196,12 +211,50 @@ export function AdminFineOnGroundCard() {
           </div>
         ) : (
           <>
+            <div className="space-y-2">
+              <Label>What are you recording? *</Label>
+              <div className="grid grid-cols-2 gap-3 max-w-md">
+                <button
+                  type="button"
+                  onClick={() => setObligationType("fine")}
+                  className={cn(
+                    "rounded-xl border-2 px-4 py-3 text-left transition-all",
+                    obligationType === "fine"
+                      ? "border-amber-500 bg-amber-50 shadow-sm"
+                      : "border-neutral-200 bg-white hover:border-amber-300"
+                  )}
+                >
+                  <p className="font-semibold text-neutral-900 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    Fine
+                  </p>
+                  <p className="text-xs text-neutral-500 mt-1">Disciplinary money they must pay</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setObligationType("debt")}
+                  className={cn(
+                    "rounded-xl border-2 px-4 py-3 text-left transition-all",
+                    obligationType === "debt"
+                      ? "border-sky-500 bg-sky-50 shadow-sm"
+                      : "border-neutral-200 bg-white hover:border-sky-300"
+                  )}
+                >
+                  <p className="font-semibold text-neutral-900 flex items-center gap-2">
+                    <HandCoins className="h-4 w-4 text-sky-600" />
+                    Debt
+                  </p>
+                  <p className="text-xs text-neutral-500 mt-1">Money you borrowed them (not a fine)</p>
+                </button>
+              </div>
+            </div>
+
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
                 <Label htmlFor="fine-title">List title (optional)</Label>
                 <Input
                   id="fine-title"
-                  placeholder="e.g. Sept discipline fines"
+                  placeholder={isDebt ? "e.g. Money borrowed — Sept" : "e.g. Sept discipline fines"}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -213,7 +266,7 @@ export function AdminFineOnGroundCard() {
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="50"
+                  placeholder="5000"
                   value={defaultAmount}
                   onChange={(e) => setDefaultAmount(e.target.value)}
                 />
@@ -232,10 +285,16 @@ export function AdminFineOnGroundCard() {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-                <Label htmlFor="fine-reason">Reason (optional)</Label>
+                <Label htmlFor="fine-reason">
+                  {isDebt ? "Description / note (optional)" : "Reason (optional)"}
+                </Label>
                 <Input
                   id="fine-reason"
-                  placeholder="e.g. Late report / missed target"
+                  placeholder={
+                    isDebt
+                      ? "e.g. Borrowed for transport / personal loan"
+                      : "e.g. Late report / missed target"
+                  }
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                 />
@@ -253,17 +312,16 @@ export function AdminFineOnGroundCard() {
                 className="font-mono text-sm"
               />
               <p className="text-xs text-neutral-500">
-                If a line has no amount, the <strong>Default amount</strong> above is used. Examples:{" "}
-                <code className="bg-neutral-100 px-1 rounded">Mr Femi, 50</code> or just{" "}
-                <code className="bg-neutral-100 px-1 rounded">Mr Femi</code>.
+                Recording as <strong>{obligationPhrase(obligationType)}</strong>. If a line has no
+                amount, the Default amount is used.
               </p>
             </div>
 
             {preview.length > 0 && (
               <div className="rounded-xl border border-amber-100 bg-white p-3 space-y-2">
                 <p className="text-sm font-medium text-neutral-800">
-                  Preview — {matchedCount} matched, {unmatchedCount} not found · Total{" "}
-                  {formatFineMoney(totalAmount, currency)}
+                  Preview ({obligationLabel(obligationType)}) — {matchedCount} matched, {unmatchedCount}{" "}
+                  not found · Total {formatFineMoney(totalAmount, currency)}
                 </p>
                 <ul className="max-h-48 overflow-y-auto space-y-1.5 text-xs">
                   {preview.map((p) => (
@@ -297,14 +355,14 @@ export function AdminFineOnGroundCard() {
               <Button
                 onClick={handlePublish}
                 disabled={saving || preview.length === 0 || missingAmount}
-                className="bg-amber-600 hover:bg-amber-700"
+                className={isDebt ? "bg-sky-600 hover:bg-sky-700" : "bg-amber-600 hover:bg-amber-700"}
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
                     <Upload className="h-4 w-4" />
-                    Publish fines to dashboards
+                    Publish {typeWord}s to dashboards
                   </>
                 )}
               </Button>

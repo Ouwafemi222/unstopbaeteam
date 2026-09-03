@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   const fineCurrency = unpaidFines[0]?.currency ?? "NGN";
   const primaryFine = unpaidFines[0];
 
-  const message = `${member.full_name} recorded ${formatFineMoney(earnedAmount, earnedCurrency)} earnings and still owes a fine of ${formatFineMoney(fineTotal, fineCurrency)}. Remind them: you have fine on ground.`;
+  const message = `${member.full_name} recorded ${formatFineMoney(earnedAmount, earnedCurrency)} earnings and still owes ${formatFineMoney(fineTotal, fineCurrency)} (fine/debt). Remind them to settle what they owe.`;
 
   // Insert alert (member can insert own row via RLS)
   const { data: alert, error: alertError } = await supabase

@@ -11,10 +11,10 @@ export default async function FinesPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Disciplinary Fines</h1>
+        <h1 className="text-2xl font-bold text-neutral-900">Fines &amp; Debts</h1>
         <p className="text-neutral-500 mt-1">
-          Assign fines, track who hasn&apos;t paid, and get alerts when they record earnings so you can
-          remind them.
+          Assign fines or debts (money borrowed), track who hasn&apos;t paid, and get alerts when they
+          record earnings so you can remind them.
         </p>
       </div>
 
