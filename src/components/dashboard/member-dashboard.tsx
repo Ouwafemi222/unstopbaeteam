@@ -8,6 +8,8 @@ import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan
 import { MemberFineOnGroundBanner } from "@/components/members/member-fine-on-ground-banner";
 import { MemberMyDebtPanel } from "@/components/members/member-my-debt-panel";
 import { MemberMyFinesPanel } from "@/components/members/member-my-fines-panel";
+import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
+import { CurrencyConverter } from "@/components/shared/currency-converter";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
@@ -192,6 +194,9 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         </Link>
       </div>
 
+      {/* Live exchange rates */}
+      <CurrencyRatesWidget variant="banner" />
+
       {/* Fines panel */}
       <MemberMyFinesPanel teamMemberId={profile.id} variant="dashboard" />
 
@@ -296,6 +301,12 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
           teamMemberId={profile.id}
           memberName={profile.full_name}
         />
+      </div>
+
+      {/* Currency tools */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <CurrencyRatesWidget variant="card" />
+        <CurrencyConverter />
       </div>
 
       {/* Activity */}

@@ -15,6 +15,7 @@ import { AdminAddMemberCard } from "@/components/dashboard/admin-add-member-card
 import { AdminFineOnGroundCard } from "@/components/dashboard/admin-fine-on-ground-card";
 import { AdminUnpaidFinesPanel } from "@/components/dashboard/admin-unpaid-fines-panel";
 import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-activity-feed";
+import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
@@ -139,6 +140,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Suspense>
         </div>
       </div>
+
+      {/* Live exchange rates */}
+      <CurrencyRatesWidget variant="banner" />
 
       <AdminAddMemberCard />
 
