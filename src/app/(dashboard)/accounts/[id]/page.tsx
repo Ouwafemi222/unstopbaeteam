@@ -71,6 +71,22 @@ export default async function AccountDetailPage({ params }: Props) {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle className="text-base">Secret Question &amp; Answer</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <span className="text-neutral-500">Question</span>
+              <p className="mt-1 font-medium text-neutral-900">{account.secret_question ?? "—"}</p>
+            </div>
+            <div>
+              <span className="text-neutral-500">Answer</span>
+              <p className="mt-1 font-medium text-neutral-900">{account.secret_answer ?? "—"}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
           <CardHeader><CardTitle className="text-base">Verification</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between"><span className="text-neutral-500">Phone Verified</span>
@@ -91,11 +107,16 @@ export default async function AccountDetailPage({ params }: Props) {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {account.notes && (
-        <Card><CardContent className="p-4"><p className="text-sm text-neutral-600">{account.notes}</p></CardContent></Card>
-      )}
+        {account.notes ? (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
+            <CardContent><p className="text-sm text-neutral-600">{account.notes}</p></CardContent>
+          </Card>
+        ) : (
+          <div className="hidden md:block" />
+        )}
+      </div>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Recent Messages ({messages?.length ?? 0})</CardTitle></CardHeader>

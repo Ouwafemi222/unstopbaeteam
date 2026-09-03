@@ -107,6 +107,8 @@ export function AccountForm({
       email_verified: form.get("email_verified") === "true",
       verification_code: codeRaw || null,
       verification_notes: (form.get("verification_notes") as string) || null,
+      secret_question: (form.get("secret_question") as string)?.trim() || null,
+      secret_answer: (form.get("secret_answer") as string)?.trim() || null,
       info_supplied_by: (form.get("info_supplied_by") as string) || null,
       notes: (form.get("notes") as string) || null,
       updated_by: user?.id,
@@ -270,6 +272,36 @@ export function AccountForm({
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" name="notes" rows={2} defaultValue={a?.notes ?? ""} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Secret Question &amp; Answer</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-neutral-500">
+            Save the security question and answer used for this Fiverr account so you can recover it later.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="secret_question">Secret question</Label>
+            <Input
+              id="secret_question"
+              name="secret_question"
+              placeholder="e.g. What is your mother's maiden name?"
+              defaultValue={a?.secret_question ?? ""}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="secret_answer">Secret answer</Label>
+            <Input
+              id="secret_answer"
+              name="secret_answer"
+              placeholder="The answer you used"
+              defaultValue={a?.secret_answer ?? ""}
+              autoComplete="off"
+            />
           </div>
         </CardContent>
       </Card>

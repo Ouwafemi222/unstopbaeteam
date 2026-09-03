@@ -62,7 +62,7 @@ export async function MemberAccountsPanel({
             <h3 className="text-lg font-semibold text-neutral-900">No accounts recorded yet</h3>
             <p className="text-sm text-neutral-500 mt-2 max-w-md">
               Open a new Fiverr account? Tap below and fill in your username, email, phone, country,
-              opening date, and verification details.
+              secret question, opening date, and verification details.
             </p>
             <Link href={`${basePath}/new`} className="mt-6">
               <Button size="lg">

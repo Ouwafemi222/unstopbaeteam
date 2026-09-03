@@ -114,6 +114,8 @@ export interface FiverrAccount {
   verification_notes: string | null;
   verification_code: string | null;
   verification_screenshot_paths: string[];
+  secret_question: string | null;
+  secret_answer: string | null;
   info_supplied_by: string | null;
   notes: string | null;
   archived_at: string | null;
