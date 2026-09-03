@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { getGreeting } from "@/lib/utils";
-import { getDateRange } from "@/lib/utils/dates";
+import { getDateRange, startOfTodayLagosIso } from "@/lib/utils/dates";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Briefcase, MessageSquare, AlertTriangle, TrendingUp } from "lucide-react";
@@ -14,6 +14,7 @@ import { MemberDashboard } from "@/components/dashboard/member-dashboard";
 import { AdminAddMemberCard } from "@/components/dashboard/admin-add-member-card";
 import { AdminFineOnGroundCard } from "@/components/dashboard/admin-fine-on-ground-card";
 import { AdminUnpaidFinesPanel } from "@/components/dashboard/admin-unpaid-fines-panel";
+import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-activity-feed";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
@@ -37,12 +38,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const dateRange = getDateRange(filter);
   const user = scope.user;
   const supabase = await createClient();
+  const todayStartIso = startOfTodayLagosIso();
 
   const [
     { count: totalMembers },
     { count: totalAccounts },
     { count: accountsThisMonth },
     { count: messagesThisMonth },
+    { count: accountsAddedToday },
+    { data: todayAccounts },
     { data: recentAccounts },
     { data: recentMessages },
     { data: members },
@@ -56,9 +60,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .gte("opening_date", dateRange.from).lte("opening_date", dateRange.to),
     supabase.from("messages").select("*", { count: "exact", head: true })
       .gte("received_date", dateRange.from).lte("received_date", dateRange.to),
-    supabase.from("fiverr_accounts")
-      .select("*, team_member:team_members(full_name), country:countries(name, flag_emoji)")
-      .is("archived_at", null).order("opening_date", { ascending: false, nullsFirst: false }).limit(5),
+    supabase
+      .from("fiverr_accounts")
+      .select("*", { count: "exact", head: true })
+      .is("archived_at", null)
+      .gte("created_at", todayStartIso),
+    supabase
+      .from("fiverr_accounts")
+      .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name), country:countries(name, flag_emoji)")
+      .is("archived_at", null)
+      .gte("created_at", todayStartIso)
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("fiverr_accounts")
+      .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name), country:countries(name, flag_emoji)")
+      .is("archived_at", null)
+      .order("created_at", { ascending: false })
+      .limit(12),
     supabase.from("messages")
       .select("*, team_member:team_members(full_name), service:services(name), fiverr_account:fiverr_accounts(username)")
       .order("received_date", { ascending: false }).limit(5),
@@ -93,7 +112,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const stats = [
     { label: "Total Team Members", value: totalMembers ?? 0, icon: Users, color: "text-brand-green" },
     { label: "Total Fiverr Accounts", value: totalAccounts ?? 0, icon: Briefcase, color: "text-brand-orange" },
-    { label: "Accounts Opened", value: accountsThisMonth ?? 0, icon: TrendingUp, color: "text-blue-600" },
+    { label: "Accounts Added Today", value: accountsAddedToday ?? 0, icon: Briefcase, color: "text-emerald-600" },
+    { label: "Accounts Opened (period)", value: accountsThisMonth ?? 0, icon: TrendingUp, color: "text-blue-600" },
     { label: "Messages This Period", value: messagesThisMonth ?? 0, icon: MessageSquare, color: "text-purple-600" },
     { label: "Members With Messages", value: membersWithMessages, icon: Users, color: "text-emerald-600" },
     { label: "Zero Messages", value: membersWithZero, icon: AlertTriangle, color: "text-red-500" },
@@ -126,7 +146,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <AdminUnpaidFinesPanel variant="dashboard" />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         {stats.map((stat) => (
           <Card key={stat.label} className="border-0 shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
@@ -181,48 +201,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         countryCounts={Object.fromEntries(countryCounts)}
       />
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent Accounts Added</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentAccounts?.length === 0 ? (
-              <p className="text-sm text-neutral-500">No accounts yet.</p>
-            ) : (
-              <div className="responsive-table">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-neutral-500">
-                      <th className="pb-2 font-medium">Member</th>
-                      <th className="pb-2 font-medium">Username</th>
-                      <th className="pb-2 font-medium">Country</th>
-                      <th className="pb-2 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentAccounts?.map((acc) => (
-                      <tr key={acc.id} className="border-b border-neutral-100 hover:bg-neutral-50">
-                        <td className="py-2.5">
-                          <Link href={`/accounts/${acc.id}`} className="text-brand-green hover:underline">
-                            {(acc.team_member as { full_name: string })?.full_name}
-                          </Link>
-                        </td>
-                        <td className="py-2.5">{acc.username}</td>
-                        <td className="py-2.5">
-                          {(acc.country as { flag_emoji: string; name: string })?.flag_emoji}{" "}
-                          {(acc.country as { name: string })?.name}
-                        </td>
-                        <td className="py-2.5"><Badge variant="neutral">{acc.status}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <AdminAccountActivityFeed
+        todayAccounts={(todayAccounts as never) ?? []}
+        recentAccounts={(recentAccounts as never) ?? []}
+      />
 
+      <div className="grid lg:grid-cols-1 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Recent Messages</CardTitle>

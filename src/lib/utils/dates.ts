@@ -8,10 +8,18 @@ import {
   subMonths,
   format,
 } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import type { DateFilter, DateRange } from "@/types/database";
 
 const TZ = "Africa/Lagos";
+
+/** Start of "today" in Africa/Lagos as UTC ISO string — for filtering created_at. */
+export function startOfTodayLagosIso(): string {
+  const now = toZonedTime(new Date(), TZ);
+  const startLocal = new Date(now);
+  startLocal.setHours(0, 0, 0, 0);
+  return fromZonedTime(startLocal, TZ).toISOString();
+}
 
 export function getDateRange(filter: DateFilter, custom?: DateRange): { from: string; to: string } {
   const now = toZonedTime(new Date(), TZ);

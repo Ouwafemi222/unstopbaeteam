@@ -136,6 +136,16 @@ export function AccountForm({
           .eq("id", data.id);
       }
 
+      try {
+        await fetch("/api/accounts/created-alert", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: data.id, username: data.username }),
+        });
+      } catch {
+        // Non-blocking — account already saved
+      }
+
       toast.success("Account created");
       router.push(returnTo ?? `/accounts/${data.id}`);
     } else if (account) {
