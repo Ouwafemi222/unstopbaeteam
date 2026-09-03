@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, ShieldCheck, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
+  formatFineMoney,
   matchFineOnGroundName,
   parseFineOnGroundLines,
   type FineMatchResult,
@@ -32,7 +34,9 @@ interface AccountRow {
 export function AdminFineOnGroundCard() {
   const supabase = createClient();
   const [title, setTitle] = useState("");
-  const [notes, setNotes] = useState("");
+  const [reason, setReason] = useState("");
+  const [defaultAmount, setDefaultAmount] = useState("");
+  const [currency, setCurrency] = useState("USD");
   const [rawList, setRawList] = useState("");
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
@@ -61,17 +65,36 @@ export function AdminFineOnGroundCard() {
     load();
   }, [supabase]);
 
+  const parsedDefault = useMemo(() => {
+    if (!defaultAmount.trim()) return null;
+    const n = parseFloat(defaultAmount);
+    return Number.isNaN(n) || n < 0 ? null : n;
+  }, [defaultAmount]);
+
   const preview: FineMatchResult[] = useMemo(() => {
-    const lines = parseFineOnGroundLines(rawList);
-    return lines.map((line) => matchFineOnGroundName(line, members, accounts));
-  }, [rawList, members, accounts]);
+    const lines = parseFineOnGroundLines(rawList, parsedDefault);
+    return lines.map((line) => {
+      const match = matchFineOnGroundName(line.inputName, members, accounts);
+      return {
+        ...match,
+        amount: line.amount,
+        rawLine: line.rawLine,
+      };
+    });
+  }, [rawList, members, accounts, parsedDefault]);
 
   const matchedCount = preview.filter((p) => p.matched).length;
   const unmatchedCount = preview.length - matchedCount;
+  const missingAmount = preview.some((p) => p.amount == null || p.amount <= 0);
+  const totalAmount = preview.reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
   async function handlePublish() {
     if (preview.length === 0) {
-      toast.error("Paste at least one name or Fiverr username");
+      toast.error("Add at least one name (and fine amount)");
+      return;
+    }
+    if (missingAmount) {
+      toast.error("Every person needs a fine amount — set Default amount, or put amount on each line");
       return;
     }
 
@@ -84,8 +107,8 @@ export function AdminFineOnGroundCard() {
       const { data: batch, error: batchError } = await supabase
         .from("fine_on_ground_batches")
         .insert({
-          title: title.trim() || `Fine on ground — ${new Date().toLocaleDateString()}`,
-          notes: notes.trim() || null,
+          title: title.trim() || `Disciplinary fines — ${new Date().toLocaleDateString()}`,
+          notes: reason.trim() || null,
           created_by: user?.id ?? null,
         })
         .select("id")
@@ -99,13 +122,15 @@ export function AdminFineOnGroundCard() {
         team_member_id: p.candidate?.teamMemberId ?? null,
         fiverr_account_id: p.candidate?.accountId ?? null,
         match_label: p.candidate?.matchLabel ?? null,
+        amount: p.amount ?? 0,
+        currency,
+        reason: reason.trim() || null,
         is_active: true,
       }));
 
       const { error: entriesError } = await supabase.from("fine_on_ground_entries").insert(rows);
       if (entriesError) throw new Error(entriesError.message);
 
-      // Notify linked login users so it also shows in the bell if present
       const notifyUserIds = [
         ...new Set(
           preview
@@ -117,25 +142,31 @@ export function AdminFineOnGroundCard() {
 
       if (notifyUserIds.length > 0) {
         await supabase.from("user_notifications").insert(
-          notifyUserIds.map((userId) => ({
-            user_id: userId,
-            title: "You're fine on ground",
-            message:
-              "Admin confirmed you are fine on ground. Open your dashboard to see the clearance notice.",
-            link: "/dashboard",
-          }))
+          notifyUserIds.map((userId) => {
+            const entry = preview.find(
+              (p) => members.find((m) => m.id === p.candidate?.teamMemberId)?.user_id === userId
+            );
+            const money = formatFineMoney(entry?.amount ?? 0, currency);
+            return {
+              user_id: userId,
+              title: "Disciplinary fine assigned",
+              message: `You have a fine of ${money}. Open your dashboard for details.`,
+              link: "/dashboard",
+            };
+          })
         );
       }
 
       setLastSummary(
-        `Published ${preview.length} names — ${matchedCount} matched to owners, ${unmatchedCount} unmatched.`
+        `Published ${preview.length} fine${preview.length === 1 ? "" : "s"} totaling ${formatFineMoney(totalAmount, currency)} — ${matchedCount} on member dashboards, ${unmatchedCount} unmatched.`
       );
       toast.success(
-        `Saved. ${matchedCount} member dashboard${matchedCount === 1 ? "" : "s"} will show “fine on ground”.`
+        `${matchedCount} member dashboard${matchedCount === 1 ? "" : "s"} will show the fine amount.`
       );
       setRawList("");
       setTitle("");
-      setNotes("");
+      setReason("");
+      setDefaultAmount("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to publish");
     } finally {
@@ -144,72 +175,110 @@ export function AdminFineOnGroundCard() {
   }
 
   return (
-    <Card className="border-emerald-200/80 bg-gradient-to-r from-white to-emerald-50/60">
+    <Card className="border-amber-200/80 bg-gradient-to-r from-white to-amber-50/50">
       <CardContent className="p-5 space-y-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-            <ShieldCheck className="h-5 w-5" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="font-semibold text-neutral-900">Fine on Ground</h2>
+            <h2 className="font-semibold text-neutral-900">Disciplinary Fines</h2>
             <p className="text-sm text-neutral-500 mt-0.5 max-w-2xl">
-              Paste names or Fiverr usernames of people who are fine. When a name matches an account
-              owner, it pops up on <strong>their</strong> dashboard so they know they are fine on ground.
+              Enter people who owe a <strong>fine</strong> (money discipline). When the name matches an
+              account owner, the <strong>amount</strong> pops up on <strong>their</strong> dashboard.
             </p>
           </div>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
           </div>
         ) : (
           <>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
                 <Label htmlFor="fine-title">List title (optional)</Label>
                 <Input
                   id="fine-title"
-                  placeholder="e.g. September 2 clearance"
+                  placeholder="e.g. Sept discipline fines"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="fine-notes">Notes (optional)</Label>
+                <Label htmlFor="fine-default-amount">Default amount *</Label>
                 <Input
-                  id="fine-notes"
-                  placeholder="Short note for your records"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  id="fine-default-amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="50"
+                  value={defaultAmount}
+                  onChange={(e) => setDefaultAmount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="fine-currency">Currency</Label>
+                <Select
+                  id="fine-currency"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  <option value="USD">USD</option>
+                  <option value="NGN">NGN</option>
+                  <option value="GBP">GBP</option>
+                  <option value="EUR">EUR</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+                <Label htmlFor="fine-reason">Reason (optional)</Label>
+                <Input
+                  id="fine-reason"
+                  placeholder="e.g. Late report / missed target"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="fine-list">Names / usernames (one per line)</Label>
+              <Label htmlFor="fine-list">Names (one per line) — optional amount on the line</Label>
               <Textarea
                 id="fine-list"
                 rows={5}
-                placeholder={"Mr Femi\nMr Samuel\n@someusername\nMiss Ope"}
+                placeholder={"Mr Femi, 50\nMr Samuel\n@username | 25\nMiss Ope 100"}
                 value={rawList}
                 onChange={(e) => setRawList(e.target.value)}
                 className="font-mono text-sm"
               />
+              <p className="text-xs text-neutral-500">
+                If a line has no amount, the <strong>Default amount</strong> above is used. Examples:{" "}
+                <code className="bg-neutral-100 px-1 rounded">Mr Femi, 50</code> or just{" "}
+                <code className="bg-neutral-100 px-1 rounded">Mr Femi</code>.
+              </p>
             </div>
 
             {preview.length > 0 && (
-              <div className="rounded-xl border border-emerald-100 bg-white p-3 space-y-2">
+              <div className="rounded-xl border border-amber-100 bg-white p-3 space-y-2">
                 <p className="text-sm font-medium text-neutral-800">
-                  Preview — {matchedCount} matched, {unmatchedCount} not found
+                  Preview — {matchedCount} matched, {unmatchedCount} not found · Total{" "}
+                  {formatFineMoney(totalAmount, currency)}
                 </p>
-                <ul className="max-h-40 overflow-y-auto space-y-1.5 text-xs">
+                <ul className="max-h-48 overflow-y-auto space-y-1.5 text-xs">
                   {preview.map((p) => (
                     <li
                       key={p.inputName}
                       className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5"
                     >
-                      <span className="font-medium text-neutral-900">{p.inputName}</span>
+                      <span className="font-medium text-neutral-900">
+                        {p.inputName}{" "}
+                        <span className="text-amber-800 font-semibold">
+                          {p.amount != null && p.amount > 0
+                            ? formatFineMoney(p.amount, currency)
+                            : "(no amount)"}
+                        </span>
+                      </span>
                       {p.matched ? (
                         <span className="text-emerald-700 flex items-center gap-1">
                           <CheckCircle2 className="h-3.5 w-3.5" />
@@ -225,13 +294,17 @@ export function AdminFineOnGroundCard() {
             )}
 
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={handlePublish} disabled={saving || preview.length === 0}>
+              <Button
+                onClick={handlePublish}
+                disabled={saving || preview.length === 0 || missingAmount}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
                     <Upload className="h-4 w-4" />
-                    Publish to member dashboards
+                    Publish fines to dashboards
                   </>
                 )}
               </Button>

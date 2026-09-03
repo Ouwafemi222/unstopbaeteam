@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { formatFineMoney } from "@/lib/members/fine-on-ground";
 import type { FineOnGroundEntry } from "@/types/database";
 
 interface MemberFineOnGroundBannerProps {
@@ -24,6 +25,7 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
       .eq("team_member_id", teamMemberId)
       .eq("is_active", true)
       .is("seen_at", null)
+      .is("paid_at", null)
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -50,6 +52,11 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
 
   if (loading || entries.length === 0) return null;
 
+  const total = entries.reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
+  const currency = entries[0]?.currency ?? "USD";
+  const reasons = [
+    ...new Set(entries.map((e) => e.reason).filter((r): r is string => Boolean(r))),
+  ];
   const accountNames = [
     ...new Set(
       entries
@@ -59,22 +66,36 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
   ];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 shadow-sm">
-      <div className="absolute inset-y-0 left-0 w-1.5 bg-emerald-500" />
+    <div className="relative overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 via-white to-amber-50 shadow-sm">
+      <div className="absolute inset-y-0 left-0 w-1.5 bg-amber-500" />
       <div className="p-5 md:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-          <ShieldCheck className="h-6 w-6" />
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+          <AlertTriangle className="h-6 w-6" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-            Clearance update
+          <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+            Disciplinary fine
           </p>
-          <h2 className="text-lg md:text-xl font-bold text-neutral-900 mt-0.5 flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            You are fine on ground
+          <h2 className="text-lg md:text-xl font-bold text-neutral-900 mt-0.5">
+            You owe a fine of{" "}
+            <span className="text-amber-800">{formatFineMoney(total, currency)}</span>
           </h2>
           <p className="text-sm text-neutral-600 mt-1">
-            Admin confirmed your name matches an account owner who is fine on ground.
+            Admin assigned this as discipline (money fine)
+            {reasons.length > 0 && (
+              <>
+                {" "}
+                — reason: <strong>{reasons.join("; ")}</strong>
+              </>
+            )}
+            .
+            {entries.length > 1 && (
+              <>
+                {" "}
+                ({entries.length} fine{entries.length === 1 ? "" : "s"} totaling{" "}
+                {formatFineMoney(total, currency)})
+              </>
+            )}
             {accountNames.length > 0 && (
               <>
                 {" "}
@@ -87,11 +108,11 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+          className="shrink-0 border-amber-300 text-amber-900 hover:bg-amber-50"
           onClick={markSeen}
           disabled={dismissing}
         >
-          {dismissing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Got it"}
+          {dismissing ? <Loader2 className="h-4 w-4 animate-spin" /> : "I understand"}
         </Button>
       </div>
     </div>

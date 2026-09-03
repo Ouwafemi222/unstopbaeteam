@@ -8,8 +8,13 @@ export interface FineMatchCandidate {
   matchLabel: string;
 }
 
-export interface FineMatchResult {
+export interface ParsedFineLine {
   inputName: string;
+  amount: number | null;
+  rawLine: string;
+}
+
+export interface FineMatchResult extends ParsedFineLine {
   matched: boolean;
   candidate: FineMatchCandidate | null;
 }
@@ -24,7 +29,6 @@ function normalizeLoose(name: string): string {
 
 /**
  * Match an uploaded name/username to a team member who owns Fiverr accounts.
- * Prefer exact member name, then preferred name, then Fiverr username/display name.
  */
 export function matchFineOnGroundName(
   input: string,
@@ -35,7 +39,7 @@ export function matchFineOnGroundName(
     username: string;
     display_name?: string | null;
   }[]
-): FineMatchResult {
+): Omit<FineMatchResult, "amount" | "rawLine"> {
   const raw = input.trim();
   if (!raw) {
     return { inputName: raw, matched: false, candidate: null };
@@ -46,7 +50,6 @@ export function matchFineOnGroundName(
   const loose = normalizeLoose(raw);
   const rawLower = raw.toLowerCase();
 
-  // 1) Exact / normalized team member name
   for (const m of members) {
     if (
       toRegistrationKey(m.full_name) === key ||
@@ -76,7 +79,6 @@ export function matchFineOnGroundName(
     }
   }
 
-  // 2) Fiverr username / display name → account owner
   const usernameKey = raw.replace(/^@/, "").toLowerCase();
   for (const acc of accounts) {
     if (
@@ -99,7 +101,6 @@ export function matchFineOnGroundName(
     }
   }
 
-  // 3) Partial first-name match only if unique among members
   const firstHits = members.filter((m) => {
     const parts = m.full_name.split(/\s+/);
     const first = parts[parts.length - 1] ?? "";
@@ -121,16 +122,51 @@ export function matchFineOnGroundName(
   return { inputName: raw, matched: false, candidate: null };
 }
 
-export function parseFineOnGroundLines(text: string): string[] {
+/**
+ * Parse lines like:
+ * - Mr Femi
+ * - Mr Femi, 50
+ * - Mr Femi | $50
+ * - Mr Femi 50 USD
+ * - @username - 25
+ */
+export function parseFineLine(line: string, defaultAmount: number | null): ParsedFineLine | null {
+  const rawLine = line.trim().replace(/^[-•*]\s*/, "");
+  if (!rawLine) return null;
+
+  const amountMatch = rawLine.match(
+    /(?:[,|:-]\s*|\s+)\$?\s*([\d]+(?:\.\d{1,2})?)\s*(?:usd|ngn|gbp|eur)?\s*$/i
+  );
+
+  if (amountMatch) {
+    const amount = parseFloat(amountMatch[1]);
+    const namePart = rawLine.slice(0, amountMatch.index).trim().replace(/[,|:-]\s*$/, "");
+    if (!namePart || Number.isNaN(amount)) {
+      return { inputName: rawLine, amount: defaultAmount, rawLine };
+    }
+    return { inputName: namePart, amount, rawLine };
+  }
+
+  return { inputName: rawLine, amount: defaultAmount, rawLine };
+}
+
+export function parseFineOnGroundLines(
+  text: string,
+  defaultAmount: number | null = null
+): ParsedFineLine[] {
   const seen = new Set<string>();
-  const lines: string[] = [];
-  for (const line of text.split(/\r?\n|,|;|\t/)) {
-    const trimmed = line.trim().replace(/^[-•*]\s*/, "");
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
+  const lines: ParsedFineLine[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const parsed = parseFineLine(line, defaultAmount);
+    if (!parsed) continue;
+    const key = parsed.inputName.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    lines.push(trimmed);
+    lines.push(parsed);
   }
   return lines;
+}
+
+export function formatFineMoney(amount: number, currency = "USD") {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
 }

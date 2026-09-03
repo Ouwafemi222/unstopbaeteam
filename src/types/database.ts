@@ -236,6 +236,10 @@ export interface FineOnGroundEntry {
   team_member_id: string | null;
   fiverr_account_id: string | null;
   match_label: string | null;
+  amount: number;
+  currency: string;
+  reason: string | null;
+  paid_at: string | null;
   is_active: boolean;
   seen_at: string | null;
   created_at: string;
