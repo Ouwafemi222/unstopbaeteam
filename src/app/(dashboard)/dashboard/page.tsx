@@ -32,7 +32,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ? await supabase.from("team_members").select("full_name").eq("id", scope.teamMember.sponsor_id).single()
       : { data: null };
 
-    return <MemberDashboard member={scope.teamMember} sponsorName={sponsor?.full_name} />;
+    return (
+      <MemberDashboard
+        member={scope.teamMember}
+        sponsorName={sponsor?.full_name}
+        isSuperAdmin={scope.roleSlugs.includes("super_admin")}
+      />
+    );
   }
 
   const params = await searchParams;

@@ -94,6 +94,26 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     monthlyPlans: (monthlyPlans ?? []) as MemberMonthlyPlan[],
   });
 
+  let memberIsSuperAdmin = false;
+  if (member.user_id) {
+    if (isOwnProfile && scope.roleSlugs.includes("super_admin")) {
+      memberIsSuperAdmin = true;
+    } else {
+      const { data: memberRoles } = await supabase
+        .from("user_roles")
+        .select("role:roles(slug)")
+        .eq("user_id", member.user_id);
+      memberIsSuperAdmin =
+        (memberRoles as { role: { slug: string } | null }[] | null)?.some(
+          (r) => r.role?.slug === "super_admin"
+        ) ?? false;
+    }
+  }
+
+  const yearMonth = thisMonth.from.slice(0, 7);
+  const currentPlan =
+    ((monthlyPlans ?? []) as MemberMonthlyPlan[]).find((p) => p.year_month === yearMonth) ?? null;
+
   return (
     <div className="space-y-8">
       {isSponsorView && (
@@ -129,6 +149,7 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         showAddMessage={isOwnProfile}
         accountsBasePath={isOwnProfile ? "/my-accounts" : undefined}
         messagesBasePath={isOwnProfile ? "/my-messages" : undefined}
+        isSuperAdmin={memberIsSuperAdmin}
         subtitle={
           isOwnProfile
             ? scope.isScopedMember
@@ -143,6 +164,8 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
           messages: messages ?? [],
           messagesThisMonth: messagesThisMonth ?? 0,
           messagesLastMonth: messagesLastMonth ?? 0,
+          monthlyPlan: currentPlan,
+          earnings: earningsList,
         }}
       />
 

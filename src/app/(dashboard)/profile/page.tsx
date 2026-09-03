@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Camera, Loader2, User2 } from "lucide-react";
 import Image from "next/image";
+import { SuperAdminStar } from "@/components/shared/super-admin-star";
 import type { Profile } from "@/types/database";
 
 const BUCKET = "attachments";
@@ -19,6 +20,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
@@ -26,10 +28,17 @@ export default function ProfilePage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+        const [{ data }, { data: roles }] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", user.id).single(),
+          supabase.from("user_roles").select("role:roles(slug)").eq("user_id", user.id),
+        ]);
         setProfile(data);
+        setIsSuperAdmin(
+          (roles as { role: { slug: string } | null }[] | null)?.some(
+            (r) => r.role?.slug === "super_admin"
+          ) ?? false
+        );
         if (data?.avatar_url) {
-          // Try to get a signed URL if it's a storage path, otherwise use as-is
           if (data.avatar_url.startsWith("http")) {
             setAvatarUrl(data.avatar_url);
           } else {
@@ -69,7 +78,7 @@ export default function ProfilePage() {
         .from(BUCKET)
         .createSignedUrl(storagePath, 3600);
       setAvatarUrl(signed?.signedUrl ?? null);
-      setProfile((p) => p ? { ...p, avatar_url: storagePath } : p);
+      setProfile((p) => (p ? { ...p, avatar_url: storagePath } : p));
       toast.success("Profile picture updated!");
     } catch (err: unknown) {
       toast.error((err as Error).message ?? "Upload failed");
@@ -82,11 +91,14 @@ export default function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     const form = new FormData(e.currentTarget);
-    const { error } = await supabase.from("profiles").update({
-      full_name: form.get("full_name") as string,
-      preferred_name: (form.get("preferred_name") as string) || null,
-      phone: (form.get("phone") as string) || null,
-    }).eq("id", profile!.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: form.get("full_name") as string,
+        preferred_name: (form.get("preferred_name") as string) || null,
+        phone: (form.get("phone") as string) || null,
+      })
+      .eq("id", profile!.id);
 
     if (error) toast.error(error.message);
     else toast.success("Profile updated");
@@ -101,22 +113,21 @@ export default function ProfilePage() {
     );
   }
 
-  const initials = profile?.full_name
-    ?.split(" ")
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() ?? "?";
+  const initials =
+    profile?.full_name
+      ?.split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() ?? "?";
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">My Profile</h1>
         <p className="text-neutral-500 mt-1">Update your personal info and profile picture.</p>
       </div>
 
-      {/* Avatar card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Profile Picture</CardTitle>
@@ -137,6 +148,11 @@ export default function ProfilePage() {
                   <span className="text-3xl font-bold text-brand-green">{initials}</span>
                 )}
               </div>
+              {isSuperAdmin && (
+                <span className="absolute -top-1 -left-1">
+                  <SuperAdminStar size="lg" />
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -160,8 +176,16 @@ export default function ProfilePage() {
             </div>
             <div>
               <p className="font-semibold text-neutral-900 text-lg">{profile?.full_name}</p>
-              <p className="text-sm text-neutral-500 mt-0.5">
-                {profile?.preferred_name ? `Goes by "${profile.preferred_name}"` : "No preferred name set"}
+              {isSuperAdmin && (
+                <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-bold text-amber-700">
+                  <SuperAdminStar size="sm" />
+                  SA · Super Admin
+                </p>
+              )}
+              <p className="text-sm text-neutral-500 mt-1">
+                {profile?.preferred_name
+                  ? `Goes by "${profile.preferred_name}"`
+                  : "No preferred name set"}
               </p>
               <button
                 type="button"
@@ -177,7 +201,6 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Info form */}
       <form onSubmit={handleSave}>
         <Card>
           <CardHeader>
@@ -190,14 +213,31 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="preferred_name">Preferred Name</Label>
-              <Input id="preferred_name" name="preferred_name" defaultValue={profile?.preferred_name ?? ""} placeholder="What people call you" />
+              <Input
+                id="preferred_name"
+                name="preferred_name"
+                defaultValue={profile?.preferred_name ?? ""}
+                placeholder="What people call you"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" name="phone" defaultValue={profile?.phone ?? ""} placeholder="+234..." />
+              <Input
+                id="phone"
+                name="phone"
+                defaultValue={profile?.phone ?? ""}
+                placeholder="+234..."
+              />
             </div>
             <Button type="submit" disabled={saving}>
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</> : "Save Changes"}
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Saving…
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </CardContent>
         </Card>

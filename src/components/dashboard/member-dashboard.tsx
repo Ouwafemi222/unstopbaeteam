@@ -12,8 +12,14 @@ import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 import { CurrencyConverter } from "@/components/shared/currency-converter";
 import { LocationCard } from "@/components/shared/location-card";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
+import { MemberProgressActivityBars } from "@/components/members/member-progress-activity-bars";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
+import {
+  buildMemberProgressMetrics,
+  currentYearMonthLagos,
+} from "@/lib/members/progress-metrics";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
+import { getDateRange } from "@/lib/utils/dates";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,9 +38,10 @@ import type { MemberWeeklyEarning, MemberMonthlyPlan, TeamMember } from "@/types
 interface MemberDashboardProps {
   member: Pick<TeamMember, "id" | "full_name" | "preferred_name" | "status"> & Partial<TeamMember>;
   sponsorName?: string | null;
+  isSuperAdmin?: boolean;
 }
 
-export async function MemberDashboard({ member, sponsorName }: MemberDashboardProps) {
+export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: MemberDashboardProps) {
   const supabase = await createClient();
   const { data: fullMember } = await supabase
     .from("team_members")
@@ -44,6 +51,9 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
 
   const profile = fullMember ?? (member as TeamMember);
   const { members: team } = await getSponsoredMembers(supabase, profile.id);
+  const thisMonth = getDateRange("this_month");
+  const lastMonth = getDateRange("last_month");
+  const yearMonth = currentYearMonthLagos();
 
   const [
     { data: accounts },
@@ -52,6 +62,8 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
     { data: monthlyPlans },
     { count: totalAccounts },
     { count: totalMessages },
+    { count: messagesThisMonth },
+    { count: messagesLastMonth },
   ] = await Promise.all([
     supabase.from("fiverr_accounts").select("*").eq("team_member_id", profile.id).is("archived_at", null),
     supabase.from("messages").select("*").eq("team_member_id", profile.id),
@@ -59,6 +71,8 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
     supabase.from("member_monthly_plans").select("*").eq("team_member_id", profile.id),
     supabase.from("fiverr_accounts").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).is("archived_at", null),
     supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id),
+    supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).gte("received_date", thisMonth.from).lte("received_date", thisMonth.to),
+    supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).gte("received_date", lastMonth.from).lte("received_date", lastMonth.to),
   ]);
 
   const memberActivity = buildMemberActivityFeed({
@@ -76,6 +90,19 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
   const latestPlan = (monthlyPlans ?? []).sort(
     (a, b) => new Date((b as MemberMonthlyPlan).year_month + "-01").getTime() - new Date((a as MemberMonthlyPlan).year_month + "-01").getTime()
   )[0] as MemberMonthlyPlan | undefined;
+
+  const currentPlan =
+    ((monthlyPlans ?? []) as MemberMonthlyPlan[]).find((p) => p.year_month === yearMonth) ??
+    latestPlan ??
+    null;
+
+  const progressMetrics = buildMemberProgressMetrics({
+    yearMonth,
+    plan: currentPlan,
+    earnings: (earnings ?? []) as MemberWeeklyEarning[],
+    messagesThisMonth: messagesThisMonth ?? 0,
+    messagesLastMonth: messagesLastMonth ?? 0,
+  });
 
   const activeAccounts = (accounts ?? []).filter(
     (a) => a.status === "active" || a.status === "verified"
@@ -127,6 +154,8 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
           </div>
         </div>
       </div>
+
+      <MemberProgressActivityBars metrics={progressMetrics} />
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -252,6 +281,16 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         accountsBasePath="/my-accounts"
         messagesBasePath="/my-messages"
         subtitle="Your earnings overview and performance charts."
+        isSuperAdmin={isSuperAdmin}
+        showProgressBars={false}
+        preloaded={{
+          accounts: accounts ?? [],
+          messages: messages ?? [],
+          messagesThisMonth: messagesThisMonth ?? 0,
+          messagesLastMonth: messagesLastMonth ?? 0,
+          monthlyPlan: currentPlan,
+          earnings: (earnings ?? []) as MemberWeeklyEarning[],
+        }}
       />
 
       {/* Accounts */}

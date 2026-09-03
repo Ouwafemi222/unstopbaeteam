@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AccountStatusBadge } from "@/components/shared/status-badges";
+import { SuperAdminStar } from "@/components/shared/super-admin-star";
+import { MemberProgressActivityBars } from "@/components/members/member-progress-activity-bars";
 import {
   Briefcase,
   MessageSquare,
@@ -18,13 +20,25 @@ import {
 import { formatDate, getMessageServiceLabel, getGreeting } from "@/lib/utils";
 import { getDateRange, MEMBER_STATUS_LABELS } from "@/lib/utils/dates";
 import { MemberCharts } from "@/components/dashboard/member-charts";
-import type { FiverrAccount, Message, TeamMember } from "@/types/database";
+import {
+  buildMemberProgressMetrics,
+  currentYearMonthLagos,
+} from "@/lib/members/progress-metrics";
+import type {
+  FiverrAccount,
+  Message,
+  MemberMonthlyPlan,
+  MemberWeeklyEarning,
+  TeamMember,
+} from "@/types/database";
 
 interface PreloadedData {
   accounts: FiverrAccount[];
   messages: Message[];
   messagesThisMonth: number;
   messagesLastMonth: number;
+  monthlyPlan?: MemberMonthlyPlan | null;
+  earnings?: MemberWeeklyEarning[];
 }
 
 interface PersonalDashboardProps {
@@ -37,6 +51,10 @@ interface PersonalDashboardProps {
   messagesBasePath?: string;
   subtitle?: string;
   preloaded?: PreloadedData;
+  /** Show Super Admin star on this member's hero (own profile). */
+  isSuperAdmin?: boolean;
+  /** When false, skip the progress/activity bars (parent already shows them). */
+  showProgressBars?: boolean;
 }
 
 function buildChartData(
@@ -86,6 +104,8 @@ export async function PersonalDashboard({
   messagesBasePath,
   subtitle,
   preloaded,
+  isSuperAdmin,
+  showProgressBars = true,
 }: PersonalDashboardProps) {
   const accountsPath = accountsBasePath ?? `/team-members/${member.id}/accounts`;
   const accountsTabHref = accountsBasePath ?? `/team-members/${member.id}?tab=accounts`;
@@ -94,14 +114,17 @@ export async function PersonalDashboard({
   const supabase = await createClient();
   const thisMonth = getDateRange("this_month");
   const lastMonth = getDateRange("last_month");
+  const yearMonth = currentYearMonthLagos();
 
   let accounts = preloaded?.accounts;
   let messages = preloaded?.messages;
   let messagesThisMonth = preloaded?.messagesThisMonth;
   let messagesLastMonth = preloaded?.messagesLastMonth;
+  let monthlyPlan = preloaded?.monthlyPlan;
+  let earnings = preloaded?.earnings;
 
   if (!preloaded) {
-    const [accRes, msgRes, monthRes, lastRes] = await Promise.all([
+    const [accRes, msgRes, monthRes, lastRes, planRes, earnRes] = await Promise.all([
       supabase
         .from("fiverr_accounts")
         .select("*, country:countries(name, flag_emoji)")
@@ -125,11 +148,44 @@ export async function PersonalDashboard({
         .eq("team_member_id", member.id)
         .gte("received_date", lastMonth.from)
         .lte("received_date", lastMonth.to),
+      supabase
+        .from("member_monthly_plans")
+        .select("*")
+        .eq("team_member_id", member.id)
+        .eq("year_month", yearMonth)
+        .maybeSingle(),
+      supabase
+        .from("member_weekly_earnings")
+        .select("*")
+        .eq("team_member_id", member.id)
+        .eq("year_month", yearMonth),
     ]);
     accounts = accRes.data ?? [];
     messages = msgRes.data ?? [];
     messagesThisMonth = monthRes.count ?? 0;
     messagesLastMonth = lastRes.count ?? 0;
+    monthlyPlan = planRes.data as MemberMonthlyPlan | null;
+    earnings = (earnRes.data as MemberWeeklyEarning[]) ?? [];
+  } else if (monthlyPlan === undefined || earnings === undefined) {
+    const [planRes, earnRes] = await Promise.all([
+      monthlyPlan === undefined
+        ? supabase
+            .from("member_monthly_plans")
+            .select("*")
+            .eq("team_member_id", member.id)
+            .eq("year_month", yearMonth)
+            .maybeSingle()
+        : Promise.resolve({ data: monthlyPlan }),
+      earnings === undefined
+        ? supabase
+            .from("member_weekly_earnings")
+            .select("*")
+            .eq("team_member_id", member.id)
+            .eq("year_month", yearMonth)
+        : Promise.resolve({ data: earnings }),
+    ]);
+    if (monthlyPlan === undefined) monthlyPlan = planRes.data as MemberMonthlyPlan | null;
+    if (earnings === undefined) earnings = (earnRes.data as MemberWeeklyEarning[]) ?? [];
   }
 
   const accountList = accounts ?? [];
@@ -168,6 +224,14 @@ export async function PersonalDashboard({
     },
   ];
 
+  const progressMetrics = buildMemberProgressMetrics({
+    yearMonth,
+    plan: monthlyPlan ?? null,
+    earnings: earnings ?? [],
+    messagesThisMonth: messagesThisMonth ?? 0,
+    messagesLastMonth: messagesLastMonth ?? 0,
+  });
+
   return (
     <div className="space-y-6">
       {/* Hero */}
@@ -179,8 +243,15 @@ export async function PersonalDashboard({
         <div className="relative p-6 md:p-8">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-2xl font-bold text-white shadow-lg">
-                {initials}
+              <div className="relative shrink-0">
+                <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-2xl font-bold text-white shadow-lg">
+                  {initials}
+                </div>
+                {isSuperAdmin && (
+                  <span className="absolute -bottom-1 -right-1">
+                    <SuperAdminStar size="md" />
+                  </span>
+                )}
               </div>
               <div>
                 <p className="text-white/80 text-sm font-medium">{getGreeting()}</p>
@@ -195,6 +266,12 @@ export async function PersonalDashboard({
                   <span className="inline-flex items-center rounded-full bg-white/20 backdrop-blur px-3 py-1 text-xs font-medium text-white border border-white/20">
                     {MEMBER_STATUS_LABELS[member.status]}
                   </span>
+                  {isSuperAdmin && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/40 backdrop-blur px-3 py-1 text-xs font-bold text-amber-50 border border-amber-200/40">
+                      <SuperAdminStar size="sm" />
+                      SA · Super Admin
+                    </span>
+                  )}
                   {sponsorName && (
                     <span className="inline-flex items-center rounded-full bg-white/15 backdrop-blur px-3 py-1 text-xs font-medium text-white/90 border border-white/15">
                       Sponsor: {sponsorName}
@@ -231,6 +308,8 @@ export async function PersonalDashboard({
           </div>
         </div>
       </div>
+
+      {showProgressBars && <MemberProgressActivityBars metrics={progressMetrics} />}
 
       {/* Secondary stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

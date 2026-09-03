@@ -8,6 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { LocationBadge } from "@/components/shared/location-badge";
+import { SuperAdminStar } from "@/components/shared/super-admin-star";
 import type { Profile } from "@/types/database";
 
 const BUCKET = "attachments";
@@ -19,9 +20,18 @@ interface AppShellProps {
   teamMemberId?: string | null;
   isScopedMember?: boolean;
   displayName?: string;
+  isSuperAdmin?: boolean;
 }
 
-export function AppShell({ children, permissions, profile, teamMemberId, isScopedMember, displayName }: AppShellProps) {
+export function AppShell({
+  children,
+  permissions,
+  profile,
+  teamMemberId,
+  isScopedMember,
+  displayName,
+  isSuperAdmin,
+}: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -97,12 +107,25 @@ export function AppShell({ children, permissions, profile, teamMemberId, isScope
                     {initials}
                   </div>
                 )}
+                {isSuperAdmin && (
+                  <span className="absolute -bottom-0.5 -right-0.5">
+                    <SuperAdminStar size="sm" />
+                  </span>
+                )}
               </div>
               <div className="hidden md:block text-left">
                 <p className="text-sm font-semibold text-neutral-800 leading-tight">
                   {displayName || profile?.preferred_name || profile?.full_name || "User"}
                 </p>
-                <p className="text-xs text-neutral-400 leading-tight">View profile</p>
+                <p className="text-xs leading-tight">
+                  {isSuperAdmin ? (
+                    <span className="inline-flex items-center gap-1 text-amber-600 font-semibold">
+                      SA · Super Admin
+                    </span>
+                  ) : (
+                    <span className="text-neutral-400">View profile</span>
+                  )}
+                </p>
               </div>
             </Link>
           </div>

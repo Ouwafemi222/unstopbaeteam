@@ -20,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       teamMemberId={scope.teamMember?.id ?? null}
       isScopedMember={scope.isScopedMember}
       displayName={displayName}
+      isSuperAdmin={scope.roleSlugs.includes("super_admin")}
     >
       {children}
     </AppShell>
