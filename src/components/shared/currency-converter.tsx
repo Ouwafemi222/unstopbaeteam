@@ -21,7 +21,7 @@ export function CurrencyConverter() {
   useEffect(() => {
     fetch("/api/currency/rates")
       .then((r) => r.json())
-      .then(setRates)
+      .then((data) => { if (data?.rates) setRates(data); })
       .finally(() => setLoading(false));
   }, []);
 

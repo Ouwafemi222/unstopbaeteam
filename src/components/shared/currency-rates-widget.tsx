@@ -18,10 +18,11 @@ export function CurrencyRatesWidget({ variant = "card" }: CurrencyRatesWidgetPro
     setError(false);
     try {
       const res = await fetch("/api/currency/rates");
-      if (!res.ok) throw new Error("Failed");
       const data = await res.json();
+      if (data?.error || !data?.rates) throw new Error(data?.error ?? "No rates");
       setRates(data);
-    } catch {
+    } catch (e) {
+      console.error("CurrencyRatesWidget:", e);
       setError(true);
     } finally {
       setLoading(false);
