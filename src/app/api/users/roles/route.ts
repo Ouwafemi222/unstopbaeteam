@@ -29,6 +29,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing userId, roleId, or action" }, { status: 400 });
   }
 
+  // Never let non-super-admins touch a super admin account or assign the super_admin role
+  if (!isAdmin) {
+    const { data: targetIsSuper } = await supabase.rpc("user_has_super_admin_role", {
+      target_user_id: userId,
+    });
+    if (targetIsSuper) {
+      return NextResponse.json({ error: "Cannot manage the Super Admin account" }, { status: 403 });
+    }
+    const { data: targetRole } = await supabase.from("roles").select("slug").eq("id", roleId).single();
+    if (targetRole?.slug === "super_admin") {
+      return NextResponse.json({ error: "Cannot assign Super Admin role" }, { status: 403 });
+    }
+  }
+
   if (action === "assign") {
     const { error } = await supabase.from("user_roles").insert({
       user_id: userId,
