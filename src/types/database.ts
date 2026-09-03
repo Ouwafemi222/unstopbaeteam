@@ -24,6 +24,19 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface MemberPresenceLocation {
+  team_member_id: string;
+  city: string | null;
+  region: string | null;
+  country: string;
+  country_code: string | null;
+  flag: string | null;
+  currency_code: string | null;
+  timezone_name: string | null;
+  last_seen_at: string;
+  updated_at: string;
+}
+
 export interface Role {
   id: string;
   name: string;

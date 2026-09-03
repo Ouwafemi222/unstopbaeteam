@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 const API_KEY = process.env.ABSTRACT_API_KEY;
 
@@ -95,8 +96,48 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No location data for this IP" }, { status: 404 });
     }
 
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: member } = await supabase
+          .from("team_members")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (member?.id) {
+          const { data: existing } = await supabase
+            .from("member_presence_locations")
+            .select("last_seen_at")
+            .eq("team_member_id", member.id)
+            .maybeSingle();
+
+          const lastSeen = existing?.last_seen_at ? new Date(existing.last_seen_at).getTime() : 0;
+          const stale = Date.now() - lastSeen > 10 * 60 * 1000;
+
+          if (stale) {
+            await supabase.from("member_presence_locations").upsert({
+              team_member_id: member.id,
+              city: location.city || null,
+              region: location.region || null,
+              country: location.country,
+              country_code: location.country_code || null,
+              flag: location.flag || null,
+              currency_code: location.currency?.currency_code || null,
+              timezone_name: location.timezone?.name || null,
+              last_seen_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }
+      }
+    } catch (persistErr) {
+      console.error("Presence save failed:", persistErr);
+    }
+
     return NextResponse.json(location, {
-      headers: { "Cache-Control": "private, max-age=3600" },
+      headers: { "Cache-Control": "private, max-age=60" },
     });
   } catch (err) {
     console.error("Geo location fetch failed:", err);

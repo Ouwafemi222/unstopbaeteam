@@ -19,6 +19,14 @@ export default async function TeamMembersPage() {
     console.error("team_members fetch error:", error.message);
   }
 
+  const { data: presenceRows } = await supabase
+    .from("member_presence_locations")
+    .select("team_member_id, city, country, flag, last_seen_at");
+
+  const presenceByMember = new Map(
+    (presenceRows ?? []).map((p) => [p.team_member_id, p])
+  );
+
   const { data: accountCounts } = await supabase
     .from("fiverr_accounts")
     .select("team_member_id")
@@ -77,6 +85,12 @@ export default async function TeamMembersPage() {
                       <h3 className="font-semibold text-neutral-900 truncate">{member.full_name}</h3>
                       {member.preferred_name && (
                         <p className="text-sm text-neutral-500">{member.preferred_name}</p>
+                      )}
+                      {presenceByMember.get(member.id) && (
+                        <p className="text-xs text-sky-700 mt-1 truncate">
+                          {presenceByMember.get(member.id)?.flag}{" "}
+                          {presenceByMember.get(member.id)?.city || presenceByMember.get(member.id)?.country}
+                        </p>
                       )}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <Badge variant={member.status === "active" ? "success" : "neutral"}>

@@ -8,7 +8,7 @@ export function LocationBadge() {
   const [loc, setLoc] = useState<GeoLocation | null>(null);
 
   useEffect(() => {
-    fetch("/api/geo/location")
+    fetch("/api/geo/location", { cache: "no-store" })
       .then((r) => r.json())
       .then((data: GeoLocation) => {
         if (data?.country) setLoc(data);

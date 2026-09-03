@@ -10,7 +10,7 @@ export function LocationCard() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/geo/location")
+    fetch("/api/geo/location", { cache: "no-store" })
       .then(async (r) => {
         const data = await r.json();
         if (data?.country) setLoc(data);

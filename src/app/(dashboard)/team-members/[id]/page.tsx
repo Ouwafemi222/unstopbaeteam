@@ -6,6 +6,7 @@ import { getUserScope } from "@/lib/auth/scope";
 import { canViewMemberProfile } from "@/lib/auth/sponsor-access";
 import { MemberTabs } from "@/components/members/member-tabs";
 import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
+import { MemberPresenceCard } from "@/components/members/member-presence-card";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
 import { getMessageServiceLabel } from "@/lib/utils";
 import { getDateRange } from "@/lib/utils/dates";
@@ -54,6 +55,7 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     { data: notes },
     { data: earnings },
     { data: monthlyPlans },
+    { data: presence },
   ] = await Promise.all([
     supabase.from("fiverr_accounts")
       .select("*, country:countries(name, flag_emoji)")
@@ -68,6 +70,9 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     supabase.from("member_notes").select("*, profile:profiles(full_name)").eq("team_member_id", id).order("created_at", { ascending: false }),
     supabase.from("member_weekly_earnings").select("*").eq("team_member_id", id).order("updated_at", { ascending: false }).limit(100),
     supabase.from("member_monthly_plans").select("*").eq("team_member_id", id).order("updated_at", { ascending: false }),
+    scope.isAdmin
+      ? supabase.from("member_presence_locations").select("*").eq("team_member_id", id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const serviceCounts = new Map<string, number>();
@@ -110,6 +115,10 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         <div className="rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-brand-green-light/30 px-5 py-4 text-sm text-green-800 shadow-sm">
           Welcome! Your email is confirmed and your accounts &amp; messages are synced to this profile.
         </div>
+      )}
+
+      {scope.isAdmin && (
+        <MemberPresenceCard presence={presence} memberName={member.full_name} />
       )}
 
       <PersonalDashboard
