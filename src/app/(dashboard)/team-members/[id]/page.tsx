@@ -4,7 +4,6 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { canViewMemberProfile } from "@/lib/auth/sponsor-access";
-import { isSuperAdmin } from "@/lib/auth/permissions";
 import { MemberTabs } from "@/components/members/member-tabs";
 import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
 import { MemberPresenceCard } from "@/components/members/member-presence-card";
@@ -34,16 +33,6 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     .single();
 
   if (!member) notFound();
-
-  // Finance managers / other staff must not open the super admin's team profile
-  if (!scope.isAdmin || !(await isSuperAdmin())) {
-    if (member.user_id) {
-      const { data: isTargetSuperAdmin } = await supabase.rpc("user_has_super_admin_role", {
-        target_user_id: member.user_id,
-      });
-      if (isTargetSuperAdmin) notFound();
-    }
-  }
 
   const viewAccess = canViewMemberProfile(scope.teamMember?.id, member, scope.isAdmin);
   if (!viewAccess) redirect("/dashboard");

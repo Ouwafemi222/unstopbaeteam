@@ -16,22 +16,6 @@ export default async function UsersPage() {
     supabase.from("user_roles").select("*, role:roles(name, slug)"),
   ]);
 
-  // Extra filter: never show Super Admin accounts to non-super-admins
-  const superAdminIds = new Set(
-    (userRoles ?? [])
-      .filter((ur) => (ur.role as { slug?: string } | null)?.slug === "super_admin")
-      .map((ur) => ur.user_id)
-  );
-  const visibleProfiles = admin
-    ? (profiles ?? [])
-    : (profiles ?? []).filter((p) => !superAdminIds.has(p.id));
-  const visibleUserRoles = admin
-    ? (userRoles ?? [])
-    : (userRoles ?? []).filter((ur) => !superAdminIds.has(ur.user_id));
-  const visibleRoles = admin
-    ? (roles ?? [])
-    : (roles ?? []).filter((r) => r.slug !== "super_admin");
-
   return (
     <div className="space-y-6">
       <div>
@@ -56,16 +40,16 @@ export default async function UsersPage() {
       {admin && <CreateUserForm roles={roles ?? []} />}
 
       <UsersRoleManager
-        profiles={visibleProfiles}
-        roles={visibleRoles}
-        userRoles={visibleUserRoles as { id: string; user_id: string; role_id: string; role: { name: string; slug: string } | null }[]}
+        profiles={profiles ?? []}
+        roles={roles ?? []}
+        userRoles={(userRoles ?? []) as { id: string; user_id: string; role_id: string; role: { name: string; slug: string } | null }[]}
         canManage={canManage}
       />
 
       <div>
         <h2 className="text-lg font-semibold text-neutral-900 mb-4">Role Descriptions</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visibleRoles.map((role) => (
+          {roles?.map((role) => (
             <Card key={role.id}>
               <CardContent className="p-4">
                 <h3 className="font-medium">{role.name}</h3>
