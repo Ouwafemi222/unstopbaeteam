@@ -6,12 +6,23 @@ import { MemberMessagesPanel } from "@/components/messages/member-messages-panel
 import { MemberVerificationPanel } from "@/components/accounts/member-verification-panel";
 import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
 import { MemberFineOnGroundBanner } from "@/components/members/member-fine-on-ground-banner";
+import { MemberMyDebtPanel } from "@/components/members/member-my-debt-panel";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Users, ChevronRight, MessageSquare } from "lucide-react";
+import {
+  Plus,
+  Users,
+  ChevronRight,
+  MessageSquare,
+  Briefcase,
+  TrendingUp,
+  Star,
+  Target,
+} from "lucide-react";
+import { getGreeting } from "@/lib/utils";
 import type { MemberWeeklyEarning, MemberMonthlyPlan, TeamMember } from "@/types/database";
 
 interface MemberDashboardProps {
@@ -30,13 +41,21 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
   const profile = fullMember ?? (member as TeamMember);
   const { members: team } = await getSponsoredMembers(supabase, profile.id);
 
-  const [{ data: accounts }, { data: messages }, { data: earnings }, { data: monthlyPlans }] =
-    await Promise.all([
-      supabase.from("fiverr_accounts").select("*").eq("team_member_id", profile.id).is("archived_at", null),
-      supabase.from("messages").select("*").eq("team_member_id", profile.id),
-      supabase.from("member_weekly_earnings").select("*").eq("team_member_id", profile.id).order("updated_at", { ascending: false }).limit(50),
-      supabase.from("member_monthly_plans").select("*").eq("team_member_id", profile.id),
-    ]);
+  const [
+    { data: accounts },
+    { data: messages },
+    { data: earnings },
+    { data: monthlyPlans },
+    { count: totalAccounts },
+    { count: totalMessages },
+  ] = await Promise.all([
+    supabase.from("fiverr_accounts").select("*").eq("team_member_id", profile.id).is("archived_at", null),
+    supabase.from("messages").select("*").eq("team_member_id", profile.id),
+    supabase.from("member_weekly_earnings").select("*").eq("team_member_id", profile.id).order("updated_at", { ascending: false }).limit(50),
+    supabase.from("member_monthly_plans").select("*").eq("team_member_id", profile.id),
+    supabase.from("fiverr_accounts").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).is("archived_at", null),
+    supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id),
+  ]);
 
   const memberActivity = buildMemberActivityFeed({
     accounts: accounts ?? [],
@@ -46,56 +65,155 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
     limit: 12,
   });
 
+  const displayName = profile.preferred_name ?? profile.full_name?.split(" ")[0] ?? "there";
+  const greeting = getGreeting();
+
+  // Latest monthly plan for earning overview
+  const latestPlan = (monthlyPlans ?? []).sort(
+    (a, b) => new Date((b as MemberMonthlyPlan).year_month + "-01").getTime() - new Date((a as MemberMonthlyPlan).year_month + "-01").getTime()
+  )[0] as MemberMonthlyPlan | undefined;
+
+  const activeAccounts = (accounts ?? []).filter(
+    (a) => a.status === "active" || a.status === "verified"
+  ).length;
+
   return (
     <div className="space-y-8">
+      {/* Alerts */}
       <MemberFineOnGroundBanner teamMemberId={profile.id} />
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-brand-green/20 bg-gradient-to-r from-brand-green-light/40 to-white p-5 shadow-sm">
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-green via-brand-green-dark to-emerald-900 text-white px-6 py-8 md:px-10 md:py-10 shadow-lg">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-white/5 translate-y-1/2 -translate-x-1/4" />
+
+        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
           <div>
-            <p className="text-sm font-medium text-brand-green-dark">Quick action</p>
-            <h2 className="text-lg font-bold text-neutral-900 mt-0.5">Add Fiverr account</h2>
-            <p className="text-sm text-neutral-600 mt-1">Record an account you opened.</p>
+            <p className="text-emerald-200 text-sm font-medium uppercase tracking-widest">
+              {greeting}
+            </p>
+            <h1 className="text-3xl md:text-4xl font-extrabold mt-1">
+              {displayName} 👋
+            </h1>
+            <p className="text-emerald-100/80 mt-2 text-sm md:text-base max-w-lg">
+              Welcome to your dashboard — track your accounts, earnings, and goals all in one place.
+            </p>
+            {profile.status && (
+              <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold bg-white/15 text-white rounded-full px-3 py-1 border border-white/20">
+                <Star className="h-3 w-3" />
+                {profile.status.charAt(0).toUpperCase() + profile.status.slice(1)} member
+              </span>
+            )}
           </div>
-          <Link href="/my-accounts/new">
-            <Button size="lg" className="w-full sm:w-auto shrink-0">
-              <Plus className="h-4 w-4" />
-              Add Account
-            </Button>
-          </Link>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-brand-orange/20 bg-gradient-to-r from-brand-orange-light/40 to-white p-5 shadow-sm">
-          <div>
-            <p className="text-sm font-medium text-brand-orange-dark">Quick action</p>
-            <h2 className="text-lg font-bold text-neutral-900 mt-0.5">Record a message</h2>
-            <p className="text-sm text-neutral-600 mt-1">Log a Fiverr message you received.</p>
+
+          <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+            <Link href="/my-accounts/new">
+              <Button size="sm" className="bg-white text-brand-green hover:bg-emerald-50 font-semibold shadow">
+                <Plus className="h-4 w-4 mr-1" />
+                Add Account
+              </Button>
+            </Link>
+            <Link href="/my-messages/new">
+              <Button size="sm" variant="outline" className="border-white/40 text-white hover:bg-white/10">
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Record Message
+              </Button>
+            </Link>
           </div>
-          <Link href="/my-messages/new">
-            <Button size="lg" variant="secondary" className="w-full sm:w-auto shrink-0">
-              <MessageSquare className="h-4 w-4" />
-              Record Message
-            </Button>
-          </Link>
         </div>
       </div>
 
+      {/* Stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link href="/my-accounts" className="block group">
+          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-brand-green/30 transition-all">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Accounts</p>
+                <p className="text-3xl font-extrabold text-neutral-900 mt-1">{totalAccounts ?? 0}</p>
+                <p className="text-xs text-neutral-400 mt-0.5">{activeAccounts} active</p>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-brand-green/10 flex items-center justify-center group-hover:bg-brand-green/20 transition-colors">
+                <Briefcase className="h-5 w-5 text-brand-green" />
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/my-messages" className="block group">
+          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-brand-orange/30 transition-all">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Messages</p>
+                <p className="text-3xl font-extrabold text-neutral-900 mt-1">{totalMessages ?? 0}</p>
+                <p className="text-xs text-neutral-400 mt-0.5">all time</p>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-brand-orange/10 flex items-center justify-center group-hover:bg-brand-orange/20 transition-colors">
+                <MessageSquare className="h-5 w-5 text-brand-orange" />
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/my-monthly-plan" className="block group">
+          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-violet-200 transition-all">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Monthly Goal</p>
+                <p className="text-3xl font-extrabold text-neutral-900 mt-1">
+                  {latestPlan ? `₦${Number(latestPlan.income_goal ?? 0).toLocaleString()}` : "—"}
+                </p>
+                <p className="text-xs text-neutral-400 mt-0.5">this month</p>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
+                <Target className="h-5 w-5 text-violet-600" />
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/my-team" className="block group">
+          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-sky-200 transition-all">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">My Team</p>
+                <p className="text-3xl font-extrabold text-neutral-900 mt-1">{team.length}</p>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  {team.length === 0 ? "no members yet" : team.length === 1 ? "member" : "members"}
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-sky-100 flex items-center justify-center group-hover:bg-sky-200 transition-colors">
+                <Users className="h-5 w-5 text-sky-600" />
+              </div>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Debt panel */}
+      <MemberMyDebtPanel teamMemberId={profile.id} variant="dashboard" />
+
+      {/* Team card (if has team) */}
       {team.length > 0 && (
-        <Card className="border-brand-green/20 bg-gradient-to-r from-white to-brand-green-light/20">
+        <Card className="border-sky-100 bg-gradient-to-r from-sky-50/60 to-white">
           <CardContent className="p-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-start gap-3">
-                <Users className="h-6 w-6 text-brand-green shrink-0 mt-0.5" />
+                <div className="h-10 w-10 rounded-xl bg-sky-100 flex items-center justify-center shrink-0">
+                  <Users className="h-5 w-5 text-sky-600" />
+                </div>
                 <div>
                   <h2 className="font-semibold text-neutral-900">My Team ({team.length})</h2>
                   <p className="text-sm text-neutral-500 mt-0.5">
-                    {team.map((t) => t.full_name).join(", ")} — view their accounts &amp; messages
+                    {team.map((t) => t.full_name).join(", ")}
                   </p>
                 </div>
               </div>
               <Link href="/my-team">
-                <Button variant="outline" className="shrink-0">
+                <Button variant="outline" size="sm" className="shrink-0">
                   View team
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </Link>
             </div>
@@ -103,6 +221,14 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         </Card>
       )}
 
+      {/* Sponsor info */}
+      {sponsorName && (
+        <div className="text-sm text-neutral-500 px-1">
+          Sponsored by <span className="font-semibold text-neutral-700">{sponsorName}</span>
+        </div>
+      )}
+
+      {/* Personal stats + charts */}
       <PersonalDashboard
         member={profile}
         sponsorName={sponsorName}
@@ -110,32 +236,72 @@ export async function MemberDashboard({ member, sponsorName }: MemberDashboardPr
         showAddMessage
         accountsBasePath="/my-accounts"
         messagesBasePath="/my-messages"
-        subtitle="Your personal command center — add Fiverr accounts and track your messages."
+        subtitle="Your earnings overview and performance charts."
       />
 
-      <MemberAccountsPanel
-        memberId={profile.id}
-        memberName={profile.full_name}
-        basePath="/my-accounts"
-      />
+      {/* Accounts */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-brand-green" />
+            My Fiverr Accounts
+          </h2>
+          <Link href="/my-accounts/new">
+            <Button size="sm" variant="ghost" className="text-brand-green text-xs h-7">
+              <Plus className="h-3.5 w-3.5 mr-1" /> Add
+            </Button>
+          </Link>
+        </div>
+        <MemberAccountsPanel
+          memberId={profile.id}
+          memberName={profile.full_name}
+          basePath="/my-accounts"
+        />
+      </div>
 
+      {/* Verification */}
       <MemberVerificationPanel teamMemberId={profile.id} />
 
-      <MemberMessagesPanel
-        memberId={profile.id}
-        memberName={profile.full_name}
-        basePath="/my-messages"
-      />
+      {/* Messages */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-brand-orange" />
+            My Messages
+          </h2>
+          <Link href="/my-messages/new">
+            <Button size="sm" variant="ghost" className="text-brand-orange text-xs h-7">
+              <Plus className="h-3.5 w-3.5 mr-1" /> Record
+            </Button>
+          </Link>
+        </div>
+        <MemberMessagesPanel
+          memberId={profile.id}
+          memberName={profile.full_name}
+          basePath="/my-messages"
+        />
+      </div>
 
-      <MemberMonthlyPlanPanel
-        teamMemberId={profile.id}
-        memberName={profile.full_name}
-      />
+      {/* Monthly Plan */}
+      <div className="space-y-2">
+        <div className="flex items-center px-1 gap-2">
+          <TrendingUp className="h-4 w-4 text-violet-600" />
+          <h2 className="font-semibold text-neutral-900">Monthly Goals & Earnings</h2>
+        </div>
+        <MemberMonthlyPlanPanel
+          teamMemberId={profile.id}
+          memberName={profile.full_name}
+        />
+      </div>
 
+      {/* Activity */}
       {memberActivity.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Your Activity</CardTitle>
+        <Card className="border-neutral-100">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Star className="h-4 w-4 text-amber-500" />
+              Your Recent Activity
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <MemberActivityFeed items={memberActivity} />

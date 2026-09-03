@@ -1,8 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Briefcase, Clock3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/utils";
+import { RelativeTime } from "@/components/shared/relative-time";
 import { AccountStatusBadge } from "@/components/shared/status-badges";
 import type { AccountStatus } from "@/types/database";
 
@@ -16,28 +18,6 @@ export interface AccountActivityItem {
   country?: { name: string; flag_emoji: string } | null;
 }
 
-function relativeWhenAdded(iso: string): string {
-  const created = new Date(iso);
-  const now = new Date();
-  const lagosNow = new Date(now.toLocaleString("en-US", { timeZone: "Africa/Lagos" }));
-  const lagosCreated = new Date(created.toLocaleString("en-US", { timeZone: "Africa/Lagos" }));
-
-  const startToday = new Date(lagosNow);
-  startToday.setHours(0, 0, 0, 0);
-  const startYesterday = new Date(startToday);
-  startYesterday.setDate(startYesterday.getDate() - 1);
-
-  if (lagosCreated >= startToday) return "today";
-  if (lagosCreated >= startYesterday) return "yesterday";
-
-  return lagosCreated.toLocaleDateString("en-NG", {
-    timeZone: "Africa/Lagos",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 interface AdminAccountActivityFeedProps {
   todayAccounts: AccountActivityItem[];
   recentAccounts: AccountActivityItem[];
@@ -49,6 +29,7 @@ export function AdminAccountActivityFeed({
 }: AdminAccountActivityFeedProps) {
   return (
     <div className="grid lg:grid-cols-2 gap-6">
+      {/* Today's accounts */}
       <Card className="border-brand-green/25 bg-gradient-to-br from-brand-green-light/20 to-white">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -61,7 +42,7 @@ export function AdminAccountActivityFeed({
             )}
           </CardTitle>
           <p className="text-sm text-neutral-500 font-normal">
-            Real date/time each team member saved an account on this website (Lagos time).
+            Live — shows how long ago each account was saved (e.g. 5 minutes ago).
           </p>
         </CardHeader>
         <CardContent>
@@ -80,15 +61,14 @@ export function AdminAccountActivityFeed({
                   >
                     <div>
                       <p className="text-sm font-semibold text-neutral-900">
-                        {name} added account{" "}
+                        {name} added{" "}
                         <Link href={`/accounts/${acc.id}`} className="text-brand-green hover:underline">
                           @{acc.username}
-                        </Link>{" "}
-                        today
+                        </Link>
                       </p>
                       <p className="text-xs text-neutral-500 mt-1 flex items-center gap-1.5">
-                        <Clock3 className="h-3.5 w-3.5" />
-                        {formatDateTime(acc.created_at)}
+                        <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                        <RelativeTime iso={acc.created_at} className="font-medium text-neutral-700" />
                         {acc.country && (
                           <span className="ml-1">
                             · {(acc.country as { flag_emoji?: string }).flag_emoji}{" "}
@@ -106,11 +86,12 @@ export function AdminAccountActivityFeed({
         </CardContent>
       </Card>
 
+      {/* Recent accounts */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Recent accounts on the website</CardTitle>
           <p className="text-sm text-neutral-500 font-normal">
-            Latest accounts members recorded — by when they were added here.
+            Latest accounts members recorded — time shown as &quot;5 minutes ago&quot; etc.
           </p>
         </CardHeader>
         <CardContent>
@@ -130,13 +111,12 @@ export function AdminAccountActivityFeed({
                   {recentAccounts.map((acc) => {
                     const name =
                       (acc.team_member as { full_name?: string } | null)?.full_name ?? "A member";
-                    const when = relativeWhenAdded(acc.created_at);
                     return (
                       <tr key={acc.id} className="border-b border-neutral-100 hover:bg-neutral-50">
                         <td className="py-2.5">
                           <Link href={`/accounts/${acc.id}`} className="text-neutral-900 hover:text-brand-green">
                             <span className="font-medium">{name}</span> added{" "}
-                            <span className="text-brand-green">@{acc.username}</span> {when}
+                            <span className="text-brand-green">@{acc.username}</span>
                           </Link>
                           {acc.country && (
                             <span className="block text-xs text-neutral-500 mt-0.5">
@@ -146,7 +126,7 @@ export function AdminAccountActivityFeed({
                           )}
                         </td>
                         <td className="py-2.5 text-neutral-600 whitespace-nowrap">
-                          {formatDateTime(acc.created_at)}
+                          <RelativeTime iso={acc.created_at} />
                         </td>
                         <td className="py-2.5">
                           <AccountStatusBadge status={acc.status as AccountStatus} />
