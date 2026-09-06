@@ -16,7 +16,7 @@ function pct(actual: number, target: number | null | undefined): number | null {
   return Math.min(100, Math.round((actual / target) * 100));
 }
 
-function hasWeekActivity(e: MemberWeeklyEarning): boolean {
+export function hasWeekActivity(e: MemberWeeklyEarning): boolean {
   return (
     Number(e.amount) > 0 ||
     Number(e.prospects_count ?? 0) > 0 ||

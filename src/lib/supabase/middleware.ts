@@ -11,6 +11,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/settings",
   "/reports",
   "/performance",
+  "/weekly-activity",
   "/services",
   "/search",
 ];
