@@ -13,6 +13,7 @@ import { CurrencyConverter } from "@/components/shared/currency-converter";
 import { LocationCard } from "@/components/shared/location-card";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { MemberProgressActivityBars } from "@/components/members/member-progress-activity-bars";
+import { MemberWeeklyActivitySection } from "@/components/members/member-weekly-activity-section";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import {
   buildMemberProgressMetrics,
@@ -156,6 +157,11 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
       </div>
 
       <MemberProgressActivityBars metrics={progressMetrics} />
+
+      <MemberWeeklyActivitySection
+        yearMonth={yearMonth}
+        earnings={(earnings ?? []) as MemberWeeklyEarning[]}
+      />
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
