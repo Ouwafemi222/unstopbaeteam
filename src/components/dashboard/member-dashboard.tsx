@@ -14,11 +14,13 @@ import { LocationCard } from "@/components/shared/location-card";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { MemberProgressActivityBars } from "@/components/members/member-progress-activity-bars";
 import { MemberWeeklyActivitySection } from "@/components/members/member-weekly-activity-section";
+import { MemberStandingCard } from "@/components/members/member-standing-card";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import {
   buildMemberProgressMetrics,
   currentYearMonthLagos,
 } from "@/lib/members/progress-metrics";
+import { parseStanding } from "@/lib/members/member-standing";
 import { getSponsoredMembers } from "@/lib/auth/sponsor-access";
 import { getDateRange } from "@/lib/utils/dates";
 import { Button } from "@/components/ui/button";
@@ -65,6 +67,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
     { count: totalMessages },
     { count: messagesThisMonth },
     { count: messagesLastMonth },
+    { data: standingRaw },
   ] = await Promise.all([
     supabase.from("fiverr_accounts").select("*").eq("team_member_id", profile.id).is("archived_at", null),
     supabase.from("messages").select("*").eq("team_member_id", profile.id),
@@ -74,8 +77,13 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
     supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id),
     supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).gte("received_date", thisMonth.from).lte("received_date", thisMonth.to),
     supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).gte("received_date", lastMonth.from).lte("received_date", lastMonth.to),
+    supabase.rpc("get_my_team_standing", {
+      p_from: thisMonth.from,
+      p_to: thisMonth.to,
+    }),
   ]);
 
+  const standing = parseStanding(standingRaw);
   const memberActivity = buildMemberActivityFeed({
     accounts: accounts ?? [],
     messages: messages ?? [],
@@ -157,6 +165,8 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
       </div>
 
       <MemberProgressActivityBars metrics={progressMetrics} />
+
+      <MemberStandingCard standing={standing} />
 
       <MemberWeeklyActivitySection
         yearMonth={yearMonth}

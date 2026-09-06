@@ -141,7 +141,6 @@ export async function GET(request: Request) {
     weekNumber,
     skippedSubmitted: submittedIds.size,
     skippedDuplicate: alreadyNotified.size,
-    dayStartIso,
     at: new Date().toISOString(),
   });
 }
