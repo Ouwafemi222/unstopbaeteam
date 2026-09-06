@@ -1,4 +1,4 @@
-import { Briefcase, MessageSquare, Trophy, Sparkles } from "lucide-react";
+import { Briefcase, MessageSquare, Trophy, Sparkles, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MemberTeamStanding, StandingMetric } from "@/lib/members/member-standing";
 
@@ -6,15 +6,17 @@ interface MemberStandingCardProps {
   standing: MemberTeamStanding;
 }
 
-function ScaleBar({ pct, tone }: { pct: number; tone: "green" | "orange" | "violet" }) {
+function ScaleBar({ pct, tone }: { pct: number; tone: "green" | "orange" | "violet" | "sky" }) {
   const fill =
     tone === "orange"
       ? "bg-brand-orange"
       : tone === "violet"
         ? "bg-violet-500"
-        : "bg-brand-green";
+        : tone === "sky"
+          ? "bg-sky-500"
+          : "bg-brand-green";
   return (
-    <div className="h-2.5 w-full rounded-full bg-neutral-200/80 overflow-hidden">
+    <div className="h-1.5 w-full rounded-full bg-neutral-200/80 overflow-hidden">
       <div
         className={cn("h-full rounded-full transition-all duration-700 ease-out", fill)}
         style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
@@ -23,60 +25,104 @@ function ScaleBar({ pct, tone }: { pct: number; tone: "green" | "orange" | "viol
   );
 }
 
-function MetricBlock({
+function LeaderBoard({
+  title,
   icon,
-  label,
   metric,
   teamSize,
-  tone,
   unit,
+  tone,
 }: {
+  title: string;
   icon: React.ReactNode;
-  label: string;
   metric: StandingMetric;
   teamSize: number;
-  tone: "green" | "orange";
   unit: string;
+  tone: "green" | "orange" | "sky";
 }) {
+  const toneText =
+    tone === "orange" ? "text-brand-orange" : tone === "sky" ? "text-sky-600" : "text-brand-green";
+  const toneBg =
+    tone === "orange"
+      ? "bg-brand-orange/10 text-brand-orange"
+      : tone === "sky"
+        ? "bg-sky-100 text-sky-600"
+        : "bg-brand-green/10 text-brand-green";
+
   return (
     <div className="rounded-xl border border-neutral-100 bg-white p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-lg",
-              tone === "green" ? "bg-brand-green/10 text-brand-green" : "bg-brand-orange/10 text-brand-orange"
-            )}
-          >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg shrink-0", toneBg)}>
             {icon}
           </span>
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">{label}</p>
-            <p className="text-xs text-neutral-400">
-              Your place · no other names shown
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-neutral-900">{title}</p>
+            <p className="text-xs text-neutral-400 truncate">
+              You&apos;re #{metric.rank}
+              {teamSize > 0 ? ` of ${teamSize}` : ""} · {metric.mine} {unit}
             </p>
           </div>
         </div>
-        <p
-          className={cn(
-            "text-2xl font-extrabold tabular-nums",
-            tone === "green" ? "text-brand-green" : "text-brand-orange"
-          )}
-        >
+        <p className={cn("text-xl font-extrabold tabular-nums shrink-0", toneText)}>
           {metric.scorePct}%
         </p>
       </div>
 
       <ScaleBar pct={metric.scorePct} tone={tone} />
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600">
-        <span>
-          You have <span className="font-semibold text-neutral-900">{metric.mine}</span> {unit}
-        </span>
-        <span className="font-medium text-neutral-800">
-          #{metric.rank}
-          {teamSize > 0 ? ` of ${teamSize}` : ""}
-        </span>
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+          Top members
+        </p>
+        {metric.leaders.length === 0 ? (
+          <p className="text-xs text-neutral-400 py-2">No activity logged yet this month.</p>
+        ) : (
+          <ul className="space-y-2">
+            {metric.leaders.map((leader) => (
+              <li
+                key={`${title}-${leader.memberId}`}
+                className={cn(
+                  "rounded-lg border px-3 py-2",
+                  leader.isMe
+                    ? "border-brand-green/30 bg-brand-green-light/40"
+                    : "border-neutral-100 bg-neutral-50/80"
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={cn(
+                        "inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold",
+                        leader.rank === 1
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-white text-neutral-500 border border-neutral-200"
+                      )}
+                    >
+                      {leader.rank}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-neutral-900 truncate">
+                        {leader.fullName}
+                        {leader.isMe ? (
+                          <span className="ml-1 text-[10px] font-bold uppercase text-brand-green">
+                            you
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-[11px] text-neutral-400">
+                        {leader.count} {unit} · {leader.scorePct}% of top
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-1.5">
+                  <ScaleBar pct={leader.scorePct} tone={tone} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -101,6 +147,9 @@ export function MemberStandingCard({ standing }: MemberStandingCardProps) {
     );
   }
 
+  const topMessage = standing.messages.leaders[0];
+  const topProspect = standing.prospects.leaders[0];
+
   return (
     <section className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/70 via-white to-brand-green-light/30 shadow-sm overflow-hidden">
       <div className="px-5 py-4 md:px-6 border-b border-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -109,16 +158,16 @@ export function MemberStandingCard({ standing }: MemberStandingCardProps) {
             <Trophy className="h-5 w-5 text-violet-600" />
           </span>
           <div>
-            <h2 className="font-semibold text-neutral-900">Your team standing</h2>
+            <h2 className="font-semibold text-neutral-900">Team leaders board</h2>
             <p className="text-sm text-neutral-500 mt-0.5">
-              How you compare this month — scored out of 100% vs the top performer.
-              Other members&apos; names stay private.
+              Who&apos;s topping messages, accounts, and prospecting this month — scored out of 100%
+              vs the leader.
             </p>
           </div>
         </div>
         <div className="text-right shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-            Overall
+            Your overall
           </p>
           <p className="text-3xl font-extrabold tabular-nums text-violet-600">
             {standing.overallScorePct}%
@@ -127,30 +176,65 @@ export function MemberStandingCard({ standing }: MemberStandingCardProps) {
       </div>
 
       <div className="p-5 md:p-6 space-y-4">
+        {(topMessage || topProspect) && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {topMessage && (
+              <div className="rounded-xl border border-brand-orange/20 bg-orange-50/60 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-orange">
+                  Topping messages
+                </p>
+                <p className="font-bold text-neutral-900 mt-0.5">{topMessage.fullName}</p>
+                <p className="text-xs text-neutral-500">
+                  {topMessage.count} messages · {topMessage.scorePct}%
+                </p>
+              </div>
+            )}
+            {topProspect && (
+              <div className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600">
+                  Topping prospecting
+                </p>
+                <p className="font-bold text-neutral-900 mt-0.5">{topProspect.fullName}</p>
+                <p className="text-xs text-neutral-500">
+                  {topProspect.count} prospects · {topProspect.scorePct}%
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-neutral-500">
-            <span>Overall performance scale</span>
+            <span>Your overall performance scale</span>
             <span className="font-semibold text-violet-600">{standing.overallScorePct}% / 100%</span>
           </div>
           <ScaleBar pct={standing.overallScorePct} tone="violet" />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3">
-          <MetricBlock
+        <div className="grid lg:grid-cols-3 gap-3">
+          <LeaderBoard
+            title="Messages"
             icon={<MessageSquare className="h-4 w-4" />}
-            label="Messages"
             metric={standing.messages}
             teamSize={standing.teamSize}
+            unit="messages"
             tone="orange"
-            unit="messages this month"
           />
-          <MetricBlock
+          <LeaderBoard
+            title="Accounts"
             icon={<Briefcase className="h-4 w-4" />}
-            label="Accounts"
             metric={standing.accounts}
             teamSize={standing.teamSize}
-            tone="green"
             unit="accounts"
+            tone="green"
+          />
+          <LeaderBoard
+            title="Prospecting"
+            icon={<Users className="h-4 w-4" />}
+            metric={standing.prospects}
+            teamSize={standing.teamSize}
+            unit="prospects"
+            tone="sky"
           />
         </div>
 
