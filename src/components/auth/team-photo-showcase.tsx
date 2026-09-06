@@ -38,54 +38,54 @@ export function TeamPhotoShowcase() {
   const photo = TEAM_PHOTOS[index];
 
   return (
-    <div className="relative hidden lg:flex lg:w-1/2 flex-col overflow-hidden bg-neutral-900">
-      {/* Background gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-green/80 via-brand-green-dark/70 to-brand-orange/60 z-10 pointer-events-none" />
-
-      {/* Photo stage */}
-      <div className="relative flex-1 flex items-center justify-center p-8 z-0">
-        <div className="relative w-full max-w-xl aspect-[4/3]">
-          <div
-            key={index}
-            className={`absolute inset-0 team-photo-frame ${
-              phase === "enter"
-                ? "team-photo-enter"
-                : phase === "exit"
-                  ? "team-photo-exit"
-                  : "team-photo-heartbeat"
-            }`}
-          >
-            <div className="relative h-full w-full overflow-hidden rounded-2xl shadow-2xl ring-4 ring-white/20">
-              <Image
-                src={photo.src}
-                alt={photo.alt}
-                fill
-                className="object-cover object-center"
-                priority={index === 0}
-                sizes="(max-width: 1024px) 50vw, 600px"
-              />
-            </div>
-          </div>
+    <div className="relative hidden lg:flex lg:w-1/2 flex-col overflow-hidden bg-neutral-950">
+      {/* Full-bleed clear photo */}
+      <div className="absolute inset-0 z-0">
+        <div
+          key={index}
+          className={`absolute inset-0 ${
+            phase === "enter"
+              ? "team-photo-enter"
+              : phase === "exit"
+                ? "team-photo-exit"
+                : "team-photo-heartbeat"
+          }`}
+        >
+          <Image
+            src={photo.src}
+            alt={photo.alt}
+            fill
+            className="object-cover object-center"
+            priority={index === 0}
+            quality={95}
+            sizes="50vw"
+          />
         </div>
       </div>
 
-      {/* Branding overlay */}
-      <div className="relative z-20 p-10 pt-0">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
+      {/* Soft vignette only at edges — keeps faces clear in the center */}
+      <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.28)_100%)]" />
+
+      {/* Bottom readability gradient for brand text only */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2/5 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
+
+      {/* Branding */}
+      <div className="relative z-20 mt-auto p-10">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-md ring-1 ring-white/25">
             <Laptop className="h-6 w-6 text-white" />
             <Smartphone className="h-3.5 w-3.5 -ml-1 text-white" />
           </div>
           <div>
-            <p className="text-xl font-bold text-white leading-tight">UNSTOPPABLE</p>
+            <p className="text-xl font-bold text-white leading-tight drop-shadow-sm">UNSTOPPABLE</p>
             <p className="text-sm font-semibold text-brand-orange-light">TEAM</p>
           </div>
         </div>
-        <p className="text-white/90 text-sm leading-relaxed max-w-sm">
-          Your internal command center for managing Fiverr accounts, tracking messages, and monitoring team performance.
+        <p className="text-white/95 text-sm leading-relaxed max-w-sm drop-shadow-sm">
+          Your internal command center for managing Fiverr accounts, tracking messages, and
+          monitoring team performance.
         </p>
 
-        {/* Slide indicators */}
         <div className="flex gap-2 mt-6">
           {TEAM_PHOTOS.map((_, i) => (
             <button
@@ -97,7 +97,7 @@ export function TeamPhotoShowcase() {
                 setPhase("enter");
               }}
               className={`h-1.5 rounded-full transition-all duration-500 ${
-                i === index ? "w-8 bg-white" : "w-1.5 bg-white/40 hover:bg-white/60"
+                i === index ? "w-8 bg-white" : "w-1.5 bg-white/45 hover:bg-white/70"
               }`}
             />
           ))}
