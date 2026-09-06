@@ -62,7 +62,10 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/auth/callback");
 
-  const isPublicApi = pathname === "/api/join/register";
+  const isPublicApi =
+    pathname === "/api/join/register" ||
+    pathname === "/api/keep-alive" ||
+    pathname.startsWith("/api/cron/");
 
   if (!user && !isAuthPage && !isPublicApi && pathname !== "/") {
     const url = request.nextUrl.clone();

@@ -3,6 +3,10 @@
     {
       "path": "/api/keep-alive",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-evaluation-reminder",
+      "schedule": "0 7 * * 0"
     }
   ]
 }
