@@ -16,9 +16,11 @@ export interface ParsedAccountFromOcr {
   rate_currency: string | null;
 }
 
+/** Max accounts accepted from one OCR photo. */
+export const MAX_ACCOUNTS_PER_OCR = 20;
+
 const EMAIL_RE = /[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i;
 const PHONE_RE = /(?:\+?\d[\d\s\-()]{7,}\d)/;
-const USERNAME_RE = /(?:@|username[:\s]*)([a-zA-Z0-9._-]{3,30})/i;
 const TIME_RE = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 const ISO_DATE_RE = /\b(20\d{2})-(\d{2})-(\d{2})\b/;
 const SLASH_DATE_RE = /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/;
@@ -44,7 +46,6 @@ function parseDate(raw: string): string | null {
   if (!slash) return null;
   let [, d, m, y] = slash;
   if (y.length === 2) y = `20${y}`;
-  // Prefer day-first (NG/UK style) when day > 12
   let day = d;
   let month = m;
   if (parseInt(d, 10) > 12 && parseInt(m, 10) <= 12) {
@@ -79,15 +80,34 @@ function cleanPhone(raw: string): string {
   return raw.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
 }
 
+function usernameFromEmail(email: string | null): string | null {
+  if (!email) return null;
+  const local = email.split("@")[0]?.replace(/[^a-zA-Z0-9._-]/g, "") ?? "";
+  if (local.length < 3) return null;
+  return local.slice(0, 30);
+}
+
+function isUsefulAccount(row: ParsedAccountFromOcr): boolean {
+  return Boolean(row.email || row.username || row.phone);
+}
+
+function accountKey(row: ParsedAccountFromOcr): string {
+  if (row.email) return `e:${row.email.toLowerCase()}`;
+  if (row.username) return `u:${row.username.toLowerCase()}`;
+  if (row.phone) return `p:${row.phone}`;
+  return `n:${row.display_name ?? Math.random()}`;
+}
+
 /**
  * Parse a single handwritten / typed Fiverr account slip into form fields.
  */
 export function parseAccountFromOcrText(text: string): ParsedAccountFromOcr {
   const normalized = text.replace(/\r/g, "\n");
 
+  const emailLabeled = valueAfterLabel(normalized, ["email", "gmail", "account email", "mail"]);
   const email =
-    valueAfterLabel(normalized, ["email", "gmail", "account email", "mail"]) ??
-    normalized.match(EMAIL_RE)?.[0] ??
+    (emailLabeled?.match(EMAIL_RE)?.[0] ?? null) ||
+    normalized.match(EMAIL_RE)?.[0] ||
     null;
 
   const phoneRaw =
@@ -102,10 +122,18 @@ export function parseAccountFromOcrText(text: string): ParsedAccountFromOcr {
     "user name",
     "handle",
   ]);
-  const usernameFromAt = normalized.match(USERNAME_RE)?.[1] ?? null;
-  let username = usernameLabeled?.replace(/^@/, "") ?? usernameFromAt;
-  if (username && email && username.toLowerCase() === email.toLowerCase()) username = null;
+  let username = usernameLabeled?.replace(/^@/, "") ?? null;
   if (username && username.includes("@")) username = null;
+  if (username && email && username.toLowerCase() === email.toLowerCase()) username = null;
+  // Avoid treating "@domain" from an email address as a Fiverr username
+  if (!username) {
+    const atUser = normalized.match(/(?:^|[\s:(])@([a-zA-Z0-9._-]{3,30})\b/);
+    const candidate = atUser?.[1] ?? null;
+    if (candidate && (!email || !email.toLowerCase().includes(`@${candidate.toLowerCase()}`))) {
+      username = candidate;
+    }
+  }
+  if (!username) username = usernameFromEmail(email);
 
   const display_name =
     valueAfterLabel(normalized, [
@@ -182,4 +210,93 @@ export function parseAccountFromOcrText(text: string): ParsedAccountFromOcr {
     rate_amount: Number.isFinite(rate_amount) ? rate_amount : null,
     rate_currency,
   };
+}
+
+function splitIntoAccountBlocks(text: string): string[] {
+  const normalized = text.replace(/\r/g, "\n").replace(/\f/g, "\n").trim();
+  if (!normalized) return [];
+
+  const bySeparator = normalized
+    .split(
+      /\n\s*\n+|(?=^\s*(?:account\s*#?\d+|acc(?:ount)?\s*\d+|\d{1,2}[\).:-]\s))/gim
+    )
+    .map((b) => b.trim())
+    .filter((b) => b.length > 8);
+
+  if (bySeparator.length > 1) return bySeparator;
+
+  const lines = normalized.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const blocks: string[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const emails = lines[i].match(/[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi);
+    if (!emails) continue;
+    for (const email of emails) {
+      const key = email.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const slice = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 4)).join("\n");
+      blocks.push(slice);
+    }
+  }
+
+  if (blocks.length > 0) return blocks;
+  return [normalized];
+}
+
+/**
+ * Parse a full page / sheet that may list many accounts (up to max).
+ */
+export function parseAccountsFromOcrText(
+  text: string,
+  max = MAX_ACCOUNTS_PER_OCR
+): ParsedAccountFromOcr[] {
+  const blocks = splitIntoAccountBlocks(text);
+  const rows: ParsedAccountFromOcr[] = [];
+  const seen = new Set<string>();
+
+  for (const block of blocks) {
+    if (rows.length >= max) break;
+    const parsed = parseAccountFromOcrText(block);
+    if (!isUsefulAccount(parsed)) continue;
+    const key = accountKey(parsed);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(parsed);
+  }
+
+  if (rows.length <= 1) {
+    const emails = [
+      ...new Set(
+        (text.match(/[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi) ?? []).map((e) =>
+          e.toLowerCase()
+        )
+      ),
+    ];
+    if (emails.length > 1) {
+      const rebuilt: ParsedAccountFromOcr[] = [];
+      const lines = text.replace(/\r/g, "\n").split(/\n/).map((l) => l.trim()).filter(Boolean);
+      const rebuiltSeen = new Set<string>();
+      for (const email of emails) {
+        if (rebuilt.length >= max) break;
+        const idx = lines.findIndex((l) => l.toLowerCase().includes(email));
+        const context =
+          idx >= 0
+            ? lines.slice(Math.max(0, idx - 2), Math.min(lines.length, idx + 4)).join("\n")
+            : email;
+        const parsed = parseAccountFromOcrText(context);
+        if (!parsed.email) parsed.email = email;
+        if (!parsed.username) parsed.username = usernameFromEmail(email);
+        if (!isUsefulAccount(parsed)) continue;
+        const key = accountKey(parsed);
+        if (rebuiltSeen.has(key)) continue;
+        rebuiltSeen.add(key);
+        rebuilt.push(parsed);
+      }
+      if (rebuilt.length > rows.length) return rebuilt.slice(0, max);
+    }
+  }
+
+  return rows.slice(0, max);
 }

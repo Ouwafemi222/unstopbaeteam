@@ -147,14 +147,135 @@ export function AccountForm({
     setFillMode("manual");
   }
 
+  function resolveCountryId(parsed: ParsedAccountFromOcr): string | null {
+    if (parsed.country_code || parsed.country_name) {
+      const match = countries.find(
+        (c) =>
+          (parsed.country_code && c.code.toUpperCase() === parsed.country_code.toUpperCase()) ||
+          (parsed.country_name && c.name.toLowerCase() === parsed.country_name.toLowerCase())
+      );
+      if (match) return match.id;
+    }
+    return formValues.country_id || null;
+  }
+
+  async function saveManyFromOcr(accounts: ParsedAccountFromOcr[]) {
+    if (mode !== "create") return;
+    setLoading(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const teamMemberId = lockedTeamMemberId || formValues.team_member_id;
+    if (!teamMemberId) {
+      toast.error("Select a team member first (or open Add Account from your profile)");
+      setLoading(false);
+      return;
+    }
+
+    // Final safety: skip any that still match listed username/email/phone/code
+    try {
+      const checkRes = await fetch("/api/accounts/ocr/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accounts }),
+      });
+      const checkData = await checkRes.json();
+      if (checkRes.ok && Array.isArray(checkData.accounts)) {
+        const fresh = checkData.accounts as Array<
+          ParsedAccountFromOcr & { duplicate?: { alreadyListed?: boolean; label?: string } }
+        >;
+        const blocked = fresh.filter((a) => a.duplicate?.alreadyListed);
+        accounts = fresh.filter((a) => !a.duplicate?.alreadyListed);
+        if (blocked.length > 0) {
+          toast.message(
+            `Skipped ${blocked.length} already listed (${blocked
+              .map((b) => b.username || b.email || b.verification_code || "row")
+              .slice(0, 3)
+              .join(", ")}${blocked.length > 3 ? "…" : ""})`
+          );
+        }
+      }
+    } catch {
+      // continue with client selection
+    }
+
+    if (accounts.length === 0) {
+      toast.error("Nothing new to save — all selected accounts are already listed");
+      setLoading(false);
+      return;
+    }
+
+    const payloads = accounts.map((parsed) => {
+      const username = (parsed.username ?? "").trim();
+      return {
+        team_member_id: teamMemberId,
+        display_name: parsed.display_name,
+        username,
+        email: parsed.email,
+        phone: parsed.phone,
+        country_id: resolveCountryId(parsed),
+        opening_date: parsed.opening_date,
+        opening_time: parsed.opening_time,
+        status: "new",
+        rate_amount: parsed.rate_amount,
+        rate_currency: parsed.rate_currency ?? "USD",
+        secret_question: parsed.secret_question,
+        secret_answer: parsed.secret_answer,
+        info_supplied_by: parsed.info_supplied_by,
+        notes: parsed.notes,
+        verification_code: parsed.verification_code,
+        verification_screenshot_paths: [] as string[],
+        phone_verified: false,
+        email_verified: false,
+        created_by: user?.id,
+        updated_by: user?.id,
+      };
+    });
+
+    const { data, error } = await supabase.from("fiverr_accounts").insert(payloads).select("id, username");
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+      return;
+    }
+
+    for (const row of data ?? []) {
+      try {
+        await fetch("/api/accounts/created-alert", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: row.id, username: row.username }),
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    toast.success(`Saved ${data?.length ?? payloads.length} new accounts from OCR`);
+    setLoading(false);
+    router.push(returnTo ?? (isSelfService ? "/my-accounts" : "/accounts"));
+    router.refresh();
+  }
+
   async function checkDuplicate(field: string, value: string) {
     if (!value || (mode === "edit" && account && account[field as keyof FiverrAccount] === value)) {
       setDuplicateWarning(null);
       return;
     }
-    const { data } = await supabase.from("fiverr_accounts").select("username, email").eq(field, value).limit(1);
+    const { data } = await supabase
+      .from("fiverr_accounts")
+      .select("username, email, phone, verification_code")
+      .eq(field, value)
+      .is("archived_at", null)
+      .limit(1);
     if (data && data.length > 0) {
-      setDuplicateWarning(`Possible duplicate: ${data[0].username || data[0].email} already exists`);
+      const hit = data[0];
+      const label =
+        field === "verification_code"
+          ? `code ${hit.verification_code}`
+          : hit.username || hit.email || hit.phone;
+      setDuplicateWarning(`Already listed: ${label} already exists in the system`);
     } else {
       setDuplicateWarning(null);
     }
@@ -270,6 +391,8 @@ export function AccountForm({
         fillMode={fillMode}
         onFillModeChange={setFillMode}
         onApplyOcr={applyOcr}
+        allowBulkSave={mode === "create"}
+        onSaveMany={mode === "create" ? saveManyFromOcr : undefined}
       />
 
       {showForm && (

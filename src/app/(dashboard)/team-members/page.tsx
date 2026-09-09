@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getUserScope } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, Eye } from "lucide-react";
 import { MEMBER_STATUS_LABELS } from "@/lib/utils/dates";
 import { formatDate } from "@/lib/utils";
 
 export default async function TeamMembersPage() {
+  const scope = await getUserScope();
   const supabase = await createClient();
+  const isSuperAdmin = scope?.roleSlugs.includes("super_admin") ?? false;
 
   const { data: members, error } = await supabase
     .from("team_members")
@@ -74,9 +77,9 @@ export default async function TeamMembersPage() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {members?.map((member) => (
-            <Link key={member.id} href={`/team-members/${member.id}`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardContent className="p-5">
+            <Card key={member.id} className="hover:shadow-md transition-shadow h-full flex flex-col">
+              <CardContent className="p-5 flex flex-col flex-1">
+                <Link href={`/team-members/${member.id}`} className="block flex-1">
                   <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-green to-brand-orange text-white font-bold">
                       {member.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
@@ -117,9 +120,20 @@ export default async function TeamMembersPage() {
                   {member.date_joined && (
                     <p className="text-xs text-neutral-400 mt-3">Joined {formatDate(member.date_joined)}</p>
                   )}
-                </CardContent>
-              </Card>
-            </Link>
+                </Link>
+
+                {isSuperAdmin && (
+                  <div className="mt-4 pt-3 border-t border-neutral-100">
+                    <Button asChild variant="outline" size="sm" className="w-full">
+                      <Link href={`/team-members/${member.id}#member-login-details`}>
+                        <Eye className="h-4 w-4" />
+                        View member details
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

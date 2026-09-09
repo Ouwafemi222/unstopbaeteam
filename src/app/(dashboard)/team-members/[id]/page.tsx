@@ -8,6 +8,7 @@ import { MemberTabs } from "@/components/members/member-tabs";
 import { MemberMonthlyPlanPanel } from "@/components/members/member-monthly-plan-panel";
 import { MemberPresenceCard } from "@/components/members/member-presence-card";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
+import { MemberAccessPanel } from "@/components/members/member-access-panel";
 import { getMessageServiceLabel } from "@/lib/utils";
 import { getDateRange } from "@/lib/utils/dates";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
@@ -135,6 +136,10 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
         <div className="rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-brand-green-light/30 px-5 py-4 text-sm text-green-800 shadow-sm">
           Welcome! Your email is confirmed and your accounts &amp; messages are synced to this profile.
         </div>
+      )}
+
+      {scope.roleSlugs.includes("super_admin") && (
+        <MemberAccessPanel teamMemberId={member.id} memberName={member.full_name} />
       )}
 
       {scope.isAdmin && (
