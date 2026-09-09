@@ -41,7 +41,7 @@ export function MemberGoalsOcrEntry({
       return;
     }
     if (selected.size > MAX_OCR_FILE_BYTES) {
-      toast.error("Image must be under 1MB");
+      toast.error("Image must be under 5MB");
       return;
     }
     if (preview) URL.revokeObjectURL(preview);
@@ -151,7 +151,7 @@ export function MemberGoalsOcrEntry({
             <p className="text-sm font-medium text-neutral-900">Upload your goals sheet</p>
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/80 px-4 py-8 cursor-pointer hover:border-brand-green/40 transition-colors">
               <Upload className="h-8 w-8 text-neutral-400" />
-              <span className="text-sm text-neutral-600">Tap to upload photo (max 1MB)</span>
+              <span className="text-sm text-neutral-600">Tap to upload photo (max 5MB)</span>
               <input
                 type="file"
                 accept={ACCEPTED_OCR_TYPES.join(",")}

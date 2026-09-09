@@ -3,6 +3,7 @@ import { toZonedTime } from "date-fns-tz";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentYearMonthLagos, hasWeekActivity } from "@/lib/members/progress-metrics";
 import { getWeeksInMonth } from "@/lib/members/week-utils";
+import { APP_URL, SITE_NAME, sendBrandedEmail } from "@/lib/email/branded-mail";
 import type { MemberWeeklyEarning } from "@/types/database";
 
 const TZ = "Africa/Lagos";
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
 
   const { data: members, error: membersError } = await admin
     .from("team_members")
-    .select("id, full_name, preferred_name, user_id")
+    .select("id, full_name, preferred_name, user_id, email")
     .eq("status", "active")
     .not("user_id", "is", null);
 
@@ -124,7 +125,7 @@ export async function GET(request: Request) {
     return {
       user_id: m.user_id as string,
       title: TITLE,
-      message: `Hi ${name} — don't forget to submit your Week ${weekNumber} team evaluation for ${yearMonth} so admin can review it. Open Monthly Goals and fill in this week's activity.`,
+      message: `Hi ${name} — don't forget to submit your Week ${weekNumber} team evaluation for ${yearMonth} so admin can review it. Open Monthly Goals and fill in this week's activity. Check your dashboard.`,
       link: "/my-monthly-plan",
     };
   });
@@ -134,9 +135,32 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  // Also email members who still need to log activity
+  let emailed = 0;
+  let emailErrors = 0;
+  for (const m of toNotify) {
+    const member = (members ?? []).find((row) => row.id === m.id);
+    const to = member?.email?.trim();
+    if (!to) continue;
+    const name = m.preferred_name || m.full_name.split(" ")[0] || "there";
+    const result = await sendBrandedEmail({
+      to,
+      subject: `Reminder: submit your weekly activity — ${SITE_NAME}`,
+      name,
+      headline: "You haven't added activity this week",
+      body: `Don't forget to submit your Week ${weekNumber} team evaluation for ${yearMonth}. Admin reviews these every week. Open your dashboard, go to Monthly Goals, and log this week's activity.`,
+      ctaLabel: "Check your dashboard",
+      ctaUrl: `${APP_URL}/dashboard`,
+    });
+    if (result.ok) emailed += 1;
+    else emailErrors += 1;
+  }
+
   return NextResponse.json({
     ok: true,
     notified: rows.length,
+    emailed,
+    emailErrors,
     yearMonth,
     weekNumber,
     skippedSubmitted: submittedIds.size,

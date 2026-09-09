@@ -1,12 +1,13 @@
 /** Supabase built-in SMTP: ~2 auth emails/hour project-wide. Use custom SMTP for production. */
-export function isEmailRateLimitError(message: string, code?: string): boolean {
-  const msg = message.toLowerCase();
-  const c = (code ?? "").toLowerCase();
+export function isEmailRateLimitError(message: string, code?: unknown): boolean {
+  const msg = String(message ?? "").toLowerCase();
+  const c = String(code ?? "").toLowerCase();
   return (
     c === "over_email_send_rate_limit" ||
     msg.includes("email rate limit") ||
     msg.includes("rate limit exceeded") ||
-    msg.includes("too many requests")
+    msg.includes("too many requests") ||
+    msg.includes("over_email_send_rate_limit")
   );
 }
 
@@ -18,7 +19,7 @@ export function emailRateLimitMessage(): string {
   );
 }
 
-export function formatAuthError(message: string, code?: string): string {
+export function formatAuthError(message: string, code?: unknown): string {
   if (isEmailRateLimitError(message, code)) return emailRateLimitMessage();
   return message;
 }

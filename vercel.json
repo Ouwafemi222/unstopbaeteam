@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/weekly-evaluation-reminder",
       "schedule": "0 7 * * 0"
+    },
+    {
+      "path": "/api/cron/debt-reminder",
+      "schedule": "0 8 * * 1"
     }
   ]
 }

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
   if (file.size > MAX_OCR_FILE_BYTES) {
     return NextResponse.json(
-      { error: "Image must be under 1MB on the free OCR.space plan. Compress the photo or take a closer crop." },
+      { error: "Image must be under 5MB. Compress the photo or take a closer crop." },
       { status: 400 }
     );
   }

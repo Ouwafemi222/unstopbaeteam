@@ -83,7 +83,7 @@ export function OcrImportWizard() {
       return;
     }
     if (selected.size > MAX_OCR_FILE_BYTES) {
-      toast.error("Image must be under 1MB (OCR.space free plan limit)");
+      toast.error("Image must be under 5MB");
       return;
     }
     resetPreview();
@@ -184,7 +184,7 @@ export function OcrImportWizard() {
         <CardDescription>
           Photograph a handwritten sheet → OCR.space reads it → you review → save to team profiles.
           Uses your <code className="text-xs bg-neutral-100 px-1 rounded">OCR_SPACE_API_KEY</code> (Engine 3 for handwriting).
-          Free plan: max 1MB per image.
+          Free plan: max 5MB per image.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -263,7 +263,7 @@ export function OcrImportWizard() {
               <>
                 <Upload className="h-10 w-10 text-neutral-400 mx-auto mb-3" />
                 <p className="text-neutral-600">Drag & drop or click to upload</p>
-                <p className="text-xs text-neutral-400 mt-1">PNG, JPG, WEBP — max 1MB (OCR.space free). Good lighting helps.</p>
+                <p className="text-xs text-neutral-400 mt-1">PNG, JPG, WEBP — max 5MB. Good lighting helps.</p>
               </>
             )}
             <input

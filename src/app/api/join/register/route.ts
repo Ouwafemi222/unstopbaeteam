@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { linkUserToTeamMember } from "@/lib/forecast/import";
-import { normalizeMemberName } from "@/data/forecast-members";
+import { normalizeMemberName, toRegistrationKey } from "@/data/forecast-members";
 import { emailRateLimitMessage, isEmailRateLimitError } from "@/lib/auth/email-errors";
 import { findAuthUserByEmail, parseAuthApiError } from "@/lib/auth/admin-users";
 import type { MemberStatus } from "@/types/database";
@@ -10,36 +9,48 @@ import type { MemberStatus } from "@/types/database";
 const VALID_TITLES = ["Mr", "Miss"] as const;
 const VALID_STATUSES: MemberStatus[] = ["active", "inactive", "on_leave"];
 
-async function linkTeamMemberProfile(
-  admin: NonNullable<ReturnType<typeof createAdminClient>>,
-  userId: string,
+type AdminClient = NonNullable<ReturnType<typeof createAdminClient>>;
+
+async function completeRegistration(
   opts: {
+    userId: string;
     fullName: string;
     firstName: string;
     email: string;
-    teamMemberId: string;
     sponsorId: string;
     status: MemberStatus;
+    teamMemberId: string | null;
+    admin: AdminClient | null;
+    supabase: Awaited<ReturnType<typeof createClient>>;
   }
-) {
-  await admin.from("profiles").update({
-    full_name: opts.fullName,
-    preferred_name: opts.firstName,
-  }).eq("id", userId);
+): Promise<{ teamMemberId: string } | { error: string; status: number }> {
+  const payload = {
+    p_user_id: opts.userId,
+    p_full_name: opts.fullName,
+    p_preferred_name: opts.firstName,
+    p_email: opts.email,
+    p_sponsor_id: opts.sponsorId,
+    p_status: opts.status,
+    p_existing_member_id: opts.teamMemberId,
+  };
 
-  await admin.from("team_members").update({
-    email: opts.email.trim().toLowerCase(),
-    sponsor_id: opts.sponsorId,
-    status: opts.status,
-    preferred_name: opts.firstName,
-    date_joined: new Date().toISOString().slice(0, 10),
-  }).eq("id", opts.teamMemberId);
+  // Prefer admin RPC when available; otherwise anon/authenticated RPC (SECURITY DEFINER).
+  const db = opts.admin ?? opts.supabase;
+  const { data, error } = await db.rpc("join_register_member", payload);
 
-  await linkUserToTeamMember(userId, opts.teamMemberId);
+  if (error) {
+    return { error: error.message || "Failed to complete registration", status: 400 };
+  }
+  if (!data) {
+    return { error: "Failed to create team profile", status: 500 };
+  }
+
+  return { teamMemberId: data as string };
 }
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const body = await request.json();
   const {
@@ -55,12 +66,12 @@ export async function POST(request: NextRequest) {
     password: string;
     title: string;
     firstName: string;
-    teamMemberId: string;
+    teamMemberId?: string | null;
     sponsorId: string;
     status: MemberStatus;
   };
 
-  if (!email?.trim() || !password || !teamMemberId || !title || !firstName?.trim()) {
+  if (!email?.trim() || !password || !title || !firstName?.trim()) {
     return NextResponse.json({ error: "Please fill in all required fields" }, { status: 400 });
   }
 
@@ -81,32 +92,15 @@ export async function POST(request: NextRequest) {
   }
 
   const fullName = normalizeMemberName(`${title} ${firstName.trim()}`);
+  const preferredName = firstName.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  const existingMemberId = teamMemberId?.trim() || null;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
-  const profilePath = `/welcome`;
-  const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent(profilePath)}`;
+  const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent("/welcome")}`;
 
-  const { data: memberCheck } = await supabase
-    .from("team_members")
-    .select("id, full_name, user_id")
-    .eq("id", teamMemberId)
-    .single();
+  const reader = admin ?? supabase;
 
-  if (!memberCheck) {
-    return NextResponse.json({ error: "Invalid team member selection" }, { status: 400 });
-  }
-
-  if (memberCheck.user_id) {
-    return NextResponse.json({ error: "This profile is already registered. Please login instead." }, { status: 409 });
-  }
-
-  const memberNormalized = normalizeMemberName(memberCheck.full_name);
-  if (fullName.toLowerCase() !== memberNormalized.toLowerCase()) {
-    return NextResponse.json({
-      error: `Your name must match the team list profile: "${memberCheck.full_name}"`,
-    }, { status: 400 });
-  }
-
-  const { data: sponsorCheck } = await supabase
+  const { data: sponsorCheck } = await reader
     .from("team_members")
     .select("id, full_name, status")
     .eq("id", sponsorId)
@@ -117,17 +111,57 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please select a valid sponsor from the list" }, { status: 400 });
   }
 
-  if (sponsorId === teamMemberId) {
-    return NextResponse.json({ error: "You cannot select yourself as your sponsor" }, { status: 400 });
-  }
+  if (existingMemberId) {
+    const { data: memberCheck } = await reader
+      .from("team_members")
+      .select("id, full_name, user_id")
+      .eq("id", existingMemberId)
+      .single();
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const admin = createAdminClient();
+    if (!memberCheck) {
+      return NextResponse.json({ error: "Invalid team member selection" }, { status: 400 });
+    }
+    if (memberCheck.user_id) {
+      return NextResponse.json(
+        { error: "This profile is already registered. Please login instead." },
+        { status: 409 }
+      );
+    }
+    const memberNormalized = normalizeMemberName(memberCheck.full_name);
+    if (fullName.toLowerCase() !== memberNormalized.toLowerCase()) {
+      return NextResponse.json(
+        { error: `Your name must match the team list profile: "${memberCheck.full_name}"` },
+        { status: 400 }
+      );
+    }
+    if (sponsorId === existingMemberId) {
+      return NextResponse.json({ error: "You cannot select yourself as your sponsor" }, { status: 400 });
+    }
+  } else {
+    // Soft check: if this preferred name is already taken by a registered member
+    const key = toRegistrationKey(fullName);
+    const { data: byKey } = await reader
+      .from("team_members")
+      .select("id, full_name, user_id")
+      .eq("registration_key", key)
+      .maybeSingle();
+    if (byKey?.user_id) {
+      return NextResponse.json(
+        {
+          error: `"${byKey.full_name}" is already registered. Please sign in, or use a different preferred name.`,
+        },
+        { status: 409 }
+      );
+    }
+  }
 
   if (admin) {
     const existingAuthUser = await findAuthUserByEmail(admin, normalizedEmail);
     if (existingAuthUser?.email_confirmed_at) {
-      return NextResponse.json({ error: "This email is already registered. Please sign in instead." }, { status: 409 });
+      return NextResponse.json(
+        { error: "This email is already registered. Please sign in instead." },
+        { status: 409 }
+      );
     }
     if (existingAuthUser && !existingAuthUser.email_confirmed_at) {
       return NextResponse.json({
@@ -135,7 +169,6 @@ export async function POST(request: NextRequest) {
         requiresEmailConfirmation: true,
         alreadyRegistered: true,
         message: `An account for ${fullName} already exists. Check ${normalizedEmail} for the confirmation link — do not register again (that uses up email quota).`,
-        teamMemberId,
         sponsorName: sponsorCheck.full_name,
       });
     }
@@ -152,8 +185,8 @@ export async function POST(request: NextRequest) {
       password,
       data: {
         full_name: fullName,
-        preferred_name: firstName.trim(),
-        team_member_id: teamMemberId,
+        preferred_name: preferredName,
+        team_member_id: existingMemberId,
         sponsor_id: sponsorId,
         member_status: status,
       },
@@ -166,109 +199,51 @@ export async function POST(request: NextRequest) {
   const signupData = await signupRes.json();
 
   if (!signupRes.ok) {
-    const rawMessage = signupData.msg ?? signupData.error_description ?? signupData.message ?? "Registration failed";
-    const rawCode = signupData.code as string | undefined;
+    const rawMessage = String(
+      signupData.msg ?? signupData.error_description ?? signupData.message ?? signupData.error ?? "Registration failed"
+    );
+    const rawCode = signupData.code ?? signupData.error_code;
     const rateLimited = isEmailRateLimitError(rawMessage, rawCode);
 
-    if (rateLimited && admin) {
-      const { data: created, error: createError } = await admin.auth.admin.createUser({
-        email: normalizedEmail,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName,
-          preferred_name: firstName.trim(),
-          team_member_id: teamMemberId,
-          sponsor_id: sponsorId,
-          member_status: status,
-        },
-      });
-
-      if (!createError && created.user) {
-        try {
-          await linkTeamMemberProfile(admin, created.user.id, {
-            fullName,
-            firstName: firstName.trim(),
-            email: normalizedEmail,
-            teamMemberId,
-            sponsorId,
-            status,
-          });
-        } catch (err) {
-          await admin.auth.admin.deleteUser(created.user.id);
-          const linkMessage = err instanceof Error ? err.message : "Failed to link profile";
-          return NextResponse.json({ error: linkMessage }, { status: 400 });
-        }
-
-        return NextResponse.json({
-          success: true,
-          requiresEmailConfirmation: false,
-          skipEmailConfirmation: true,
-          message: `Welcome ${fullName}! Your account is ready — sign in now with your email and password (no confirmation email needed).`,
-          teamMemberId,
-          sponsorName: sponsorCheck.full_name,
-        });
-      }
-
-      if (createError?.message.toLowerCase().includes("already been registered")) {
-        return NextResponse.json({
-          success: true,
-          requiresEmailConfirmation: true,
-          alreadyRegistered: true,
-          message: `Account already exists for ${normalizedEmail}. Check your inbox for the confirmation link, or sign in if you already confirmed.`,
-          teamMemberId,
-          sponsorName: sponsorCheck.full_name,
-        });
-      }
-    }
-
+    // Never auto-confirm accounts — email confirmation is required for every signup.
     return NextResponse.json(
       { error: rateLimited ? emailRateLimitMessage() : parseAuthApiError(signupData).message },
       { status: rateLimited ? 429 : 400 }
     );
   }
 
-  const userId = signupData.user?.id;
+  const userId = signupData.user?.id as string | undefined;
   if (!userId) {
     return NextResponse.json({ error: "Account created but user id missing. Contact admin." }, { status: 500 });
   }
 
-  if (admin) {
-    const { data: linked } = await admin
-      .from("team_members")
-      .select("user_id, sponsor_id")
-      .eq("id", teamMemberId)
-      .single();
+  const linked = await completeRegistration({
+    userId,
+    fullName,
+    firstName: preferredName,
+    email: normalizedEmail,
+    sponsorId,
+    status,
+    teamMemberId: existingMemberId,
+    admin,
+    supabase,
+  });
 
-    if (!linked?.user_id) {
-      try {
-        await linkTeamMemberProfile(admin, userId, {
-          fullName,
-          firstName: firstName.trim(),
-          email: normalizedEmail,
-          teamMemberId,
-          sponsorId,
-          status,
-        });
-      } catch (err) {
-        await admin.auth.admin.deleteUser(userId);
-        const linkMessage = err instanceof Error ? err.message : "Failed to link profile";
-        return NextResponse.json({ error: linkMessage }, { status: 400 });
-      }
-    } else if (!linked.sponsor_id) {
-      await admin.from("team_members").update({ sponsor_id: sponsorId }).eq("id", teamMemberId);
-    }
+  if ("error" in linked) {
+    return NextResponse.json(
+      {
+        error: `${linked.error}. If you got a confirmation email, confirm it then try signing in. If not, contact admin.`,
+      },
+      { status: linked.status }
+    );
   }
-
-  const emailConfirmed = signupData.user?.email_confirmed_at ?? signupData.email_confirmed_at;
 
   return NextResponse.json({
     success: true,
-    requiresEmailConfirmation: !emailConfirmed,
-    message: emailConfirmed
-      ? `Welcome ${fullName}! Your profile is ready.`
-      : `Account created for ${fullName}. Please check your email and click the confirmation link before signing in.`,
-    teamMemberId,
+    requiresEmailConfirmation: true,
+    skipEmailConfirmation: false,
+    message: `Account created for ${fullName}. Please check your email and click the confirmation link before signing in.`,
+    teamMemberId: linked.teamMemberId,
     sponsorName: sponsorCheck.full_name,
   });
 }

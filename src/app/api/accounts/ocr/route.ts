@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
   if (file.size > MAX_OCR_FILE_BYTES) {
     return NextResponse.json(
-      { error: "Image must be under 1MB. Compress or crop the photo." },
+      { error: "Image must be under 5MB. Compress or crop the photo." },
       { status: 400 }
     );
   }

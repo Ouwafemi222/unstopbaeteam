@@ -14,7 +14,7 @@ import {
   uploadMemberImage,
 } from "@/lib/storage/member-uploads";
 
-const MAX_SCREENSHOT_BYTES = 1024 * 1024;
+const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
 interface PendingScreenshot {
@@ -110,7 +110,7 @@ export function AccountVerificationCapture({
       return;
     }
     if (file.size > MAX_SCREENSHOT_BYTES) {
-      toast.error("Screenshot must be under 1MB");
+      toast.error("Screenshot must be under 5MB");
       return;
     }
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;

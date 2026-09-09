@@ -2,18 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { Resend } from "npm:resend@4.0.1";
 
-type EmailActionType =
-  | "signup"
-  | "invite"
-  | "magiclink"
-  | "recovery"
-  | "email_change"
-  | "email"
-  | "reauthentication"
-  | string;
+type EmailActionType = string;
 
 interface HookUser {
   email: string;
+  new_email?: string;
   user_metadata?: {
     full_name?: string;
     preferred_name?: string;
@@ -29,6 +22,10 @@ interface EmailData {
   site_url: string;
   token_new: string;
   token_hash_new: string;
+  old_email?: string;
+  old_phone?: string;
+  provider?: string;
+  factor_type?: string;
 }
 
 const PROJECT_URL = Deno.env.get("SUPABASE_URL") ?? "https://ugunmlioollkyshmeelm.supabase.co";
@@ -37,12 +34,42 @@ const APP_URL = Deno.env.get("APP_URL") ?? "https://unsttopableteam.vercel.app";
 const EMAIL_FROM =
   Deno.env.get("EMAIL_FROM") ?? `${SITE_NAME} <onboarding@resend.dev>`;
 
+const ACTION_TYPES = new Set([
+  "signup",
+  "invite",
+  "magiclink",
+  "recovery",
+  "email_change",
+  "email",
+  "reauthentication",
+]);
+
+const NOTIFY_TYPES = new Set([
+  "password_changed_notification",
+  "email_changed_notification",
+  "phone_changed_notification",
+  "identity_linked_notification",
+  "identity_unlinked_notification",
+  "mfa_factor_enrolled_notification",
+  "mfa_factor_unenrolled_notification",
+]);
+
 function buildVerifyUrl(tokenHash: string, type: string, redirectTo: string): string {
   const url = new URL(`${PROJECT_URL}/auth/v1/verify`);
   url.searchParams.set("token", tokenHash);
   url.searchParams.set("type", type);
   if (redirectTo) url.searchParams.set("redirect_to", redirectTo);
   return url.toString();
+}
+
+function greetingName(user: HookUser): string {
+  const meta = user.user_metadata ?? {};
+  return (
+    (typeof meta.preferred_name === "string" && meta.preferred_name) ||
+    (typeof meta.full_name === "string" && meta.full_name.split(" ")[0]) ||
+    user.email.split("@")[0] ||
+    "there"
+  );
 }
 
 function subjectFor(type: EmailActionType): string {
@@ -59,19 +86,23 @@ function subjectFor(type: EmailActionType): string {
       return `Confirm your new email — ${SITE_NAME}`;
     case "reauthentication":
       return `Your verification code — ${SITE_NAME}`;
+    case "password_changed_notification":
+      return `Your password was changed — ${SITE_NAME}`;
+    case "email_changed_notification":
+      return `Your email address was changed — ${SITE_NAME}`;
+    case "phone_changed_notification":
+      return `Your phone number was changed — ${SITE_NAME}`;
+    case "identity_linked_notification":
+      return `A sign-in method was linked — ${SITE_NAME}`;
+    case "identity_unlinked_notification":
+      return `A sign-in method was removed — ${SITE_NAME}`;
+    case "mfa_factor_enrolled_notification":
+      return `MFA method added — ${SITE_NAME}`;
+    case "mfa_factor_unenrolled_notification":
+      return `MFA method removed — ${SITE_NAME}`;
     default:
       return `${SITE_NAME} account notification`;
   }
-}
-
-function greetingName(user: HookUser): string {
-  const meta = user.user_metadata ?? {};
-  return (
-    (typeof meta.preferred_name === "string" && meta.preferred_name) ||
-    (typeof meta.full_name === "string" && meta.full_name.split(" ")[0]) ||
-    user.email.split("@")[0] ||
-    "there"
-  );
 }
 
 function headlineFor(type: EmailActionType): string {
@@ -88,12 +119,26 @@ function headlineFor(type: EmailActionType): string {
       return "Confirm your new email";
     case "reauthentication":
       return "Verification code";
+    case "password_changed_notification":
+      return "Password changed";
+    case "email_changed_notification":
+      return "Email address changed";
+    case "phone_changed_notification":
+      return "Phone number changed";
+    case "identity_linked_notification":
+      return "Sign-in method linked";
+    case "identity_unlinked_notification":
+      return "Sign-in method removed";
+    case "mfa_factor_enrolled_notification":
+      return "MFA method added";
+    case "mfa_factor_unenrolled_notification":
+      return "MFA method removed";
     default:
       return "Account update";
   }
 }
 
-function bodyCopyFor(type: EmailActionType): string {
+function bodyCopyFor(type: EmailActionType, emailData: EmailData, user: HookUser): string {
   switch (type) {
     case "signup":
       return "Welcome to UNSTOPPABLE TEAM. Confirm your email to activate your account and open your dashboard.";
@@ -106,9 +151,23 @@ function bodyCopyFor(type: EmailActionType): string {
     case "email_change":
       return "Confirm this email address to finish updating your account.";
     case "reauthentication":
-      return "Enter this verification code to continue.";
+      return "Enter this verification code to continue with a sensitive account action.";
+    case "password_changed_notification":
+      return "Your password was just changed. If this was you, no action is needed. If not, reset your password immediately and contact admin.";
+    case "email_changed_notification":
+      return `Your account email was changed${emailData.old_email ? ` from ${emailData.old_email}` : ""}${user.new_email || user.email ? ` to ${user.new_email || user.email}` : ""}. If this was not you, contact admin right away.`;
+    case "phone_changed_notification":
+      return "Your phone number on file was changed. If this was not you, contact admin right away.";
+    case "identity_linked_notification":
+      return `A new sign-in method${emailData.provider ? ` (${emailData.provider})` : ""} was linked to your account.`;
+    case "identity_unlinked_notification":
+      return `A sign-in method${emailData.provider ? ` (${emailData.provider})` : ""} was removed from your account.`;
+    case "mfa_factor_enrolled_notification":
+      return `An MFA method${emailData.factor_type ? ` (${emailData.factor_type})` : ""} was added to your account.`;
+    case "mfa_factor_unenrolled_notification":
+      return `An MFA method${emailData.factor_type ? ` (${emailData.factor_type})` : ""} was removed from your account.`;
     default:
-      return "Please use the action below to continue.";
+      return "Please review this account update from UNSTOPPABLE TEAM.";
   }
 }
 
@@ -125,28 +184,38 @@ function ctaLabelFor(type: EmailActionType): string {
     case "email_change":
       return "Confirm new email";
     default:
-      return "Continue";
+      return "Open dashboard";
   }
+}
+
+function isActionEmail(type: EmailActionType): boolean {
+  return ACTION_TYPES.has(type);
+}
+
+function isNotificationEmail(type: EmailActionType): boolean {
+  return NOTIFY_TYPES.has(type);
 }
 
 function renderEmailHtml(opts: {
   name: string;
   type: EmailActionType;
-  actionUrl: string;
+  actionUrl: string | null;
   token: string;
+  body: string;
+  headline: string;
 }): string {
-  const { name, type, actionUrl, token } = opts;
-  const headline = headlineFor(type);
-  const body = bodyCopyFor(type);
+  const { name, type, actionUrl, token, body, headline } = opts;
   const cta = ctaLabelFor(type);
-  const showCode = type === "reauthentication" || type === "signup";
+  const showCode = type === "reauthentication" || (type === "signup" && !!token);
+  const showButton = !!actionUrl && type !== "reauthentication";
+  const dashboardUrl = APP_URL.replace(/\/$/, "") + "/dashboard";
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${headline}</title>
+  <title>${escapeHtml(headline)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:32px 12px;">
@@ -165,7 +234,7 @@ function renderEmailHtml(opts: {
               <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#111827;">${escapeHtml(headline)}</h1>
               <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">${escapeHtml(body)}</p>
               ${
-                type !== "reauthentication"
+                showButton && actionUrl
                   ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
                 <tr>
                   <td style="border-radius:10px;background:#16a34a;">
@@ -174,6 +243,17 @@ function renderEmailHtml(opts: {
                 </tr>
               </table>
               <p style="margin:0 0 16px;font-size:12px;line-height:1.5;color:#9ca3af;">If the button does not work, copy and paste this link into your browser:<br /><a href="${escapeAttr(actionUrl)}" style="color:#15803d;word-break:break-all;">${escapeHtml(actionUrl)}</a></p>`
+                  : ""
+              }
+              ${
+                isNotificationEmail(type)
+                  ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 16px;">
+                <tr>
+                  <td style="border-radius:10px;background:#16a34a;">
+                    <a href="${escapeAttr(dashboardUrl)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Check your dashboard</a>
+                  </td>
+                </tr>
+              </table>`
                   : ""
               }
               ${
@@ -242,17 +322,17 @@ Deno.serve(async (req: Request) => {
     };
 
     const type = email_data.email_action_type;
-    const actionUrl = buildVerifyUrl(
-      email_data.token_hash,
-      type,
-      email_data.redirect_to || APP_URL
-    );
+    const actionUrl = isActionEmail(type) && email_data.token_hash
+      ? buildVerifyUrl(email_data.token_hash, type, email_data.redirect_to || APP_URL)
+      : null;
 
     const html = renderEmailHtml({
       name: greetingName(user),
       type,
       actionUrl,
       token: email_data.token,
+      body: bodyCopyFor(type, email_data, user),
+      headline: headlineFor(type),
     });
 
     const resend = new Resend(resendKey);

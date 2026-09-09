@@ -33,8 +33,8 @@ function getOcrSpaceApiKey(): string {
   return key;
 }
 
-/** Free OCR.space plan: 1 MB max per image */
-export const MAX_OCR_FILE_BYTES = 1024 * 1024;
+/** Max image size for member OCR photo uploads (goals / accounts). */
+export const MAX_OCR_FILE_BYTES = 5 * 1024 * 1024;
 export const ACCEPTED_OCR_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
 const OCR_URL = "https://api.ocr.space/parse/image";
