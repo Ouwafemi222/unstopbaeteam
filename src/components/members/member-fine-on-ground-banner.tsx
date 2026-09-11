@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   formatFineMoney,
+  fineRemaining,
   obligationLabel,
   obligationPhrase,
 } from "@/lib/members/fine-on-ground";
@@ -58,10 +59,13 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
 
   const hasDebt = entries.some((e) => e.obligation_type === "debt");
   const hasFine = entries.some((e) => (e.obligation_type ?? "fine") === "fine");
-  const total = entries.reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
+  const total = entries.reduce((sum, e) => sum + fineRemaining(e), 0);
   const currency = entries[0]?.currency ?? "NGN";
   const reasons = [
     ...new Set(entries.map((e) => e.reason).filter((r): r is string => Boolean(r))),
+  ];
+  const paymentNotes = [
+    ...new Set(entries.map((e) => e.payment_note).filter((r): r is string => Boolean(r))),
   ];
   const accountNames = [
     ...new Set(
@@ -80,7 +84,7 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
 
   const detailParts = entries.map((e) => {
     const kind = obligationLabel(e.obligation_type ?? "fine");
-    return `${kind}: ${formatFineMoney(Number(e.amount), e.currency ?? "NGN")}`;
+    return `${kind}: ${formatFineMoney(fineRemaining(e), e.currency ?? "NGN")} left`;
   });
 
   return (
@@ -143,8 +147,14 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
               </>
             )}
           </p>
+          {paymentNotes.length > 0 && (
+            <p className="text-sm text-emerald-700 mt-1">
+              Payment update: <strong>{paymentNotes.join("; ")}</strong>
+            </p>
+          )}
           <p className="text-xs text-neutral-500 mt-1">
             This is recorded as {entries.map((e) => obligationPhrase(e.obligation_type)).join(" / ")}.
+            Amounts shown are what you still owe after any payments recorded.
           </p>
         </div>
         <Button

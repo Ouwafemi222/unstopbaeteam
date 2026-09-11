@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatFineMoney } from "@/lib/members/fine-on-ground";
+import { formatFineMoney, fineRemaining } from "@/lib/members/fine-on-ground";
 
 /**
  * Called after a member records weekly earnings.
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
   const { data: unpaidFines } = await supabase
     .from("fine_on_ground_entries")
-    .select("id, amount, currency, reason")
+    .select("id, amount, amount_paid, currency, reason")
     .eq("team_member_id", member.id)
     .eq("is_active", true)
     .is("paid_at", null)
@@ -47,7 +47,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, alerted: false, reason: "no_unpaid_fine" });
   }
 
-  const fineTotal = unpaidFines.reduce((sum, f) => sum + Number(f.amount ?? 0), 0);
+  const fineTotal = unpaidFines.reduce((sum, f) => sum + fineRemaining(f), 0);
+  if (fineTotal <= 0) {
+    return NextResponse.json({ ok: true, alerted: false, reason: "no_remaining_balance" });
+  }
   const fineCurrency = unpaidFines[0]?.currency ?? "NGN";
   const primaryFine = unpaidFines[0];
 

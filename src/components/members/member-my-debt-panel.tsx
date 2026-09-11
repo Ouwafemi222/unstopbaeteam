@@ -5,7 +5,13 @@ import Link from "next/link";
 import { HandCoins, Loader2, PartyPopper, Sparkles, UserCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { formatFineMoney } from "@/lib/members/fine-on-ground";
+import {
+  formatFineMoney,
+  fineAmountPaid,
+  fineRemaining,
+  fineTotalAmount,
+  isFineFullySettled,
+} from "@/lib/members/fine-on-ground";
 import { RelativeTime } from "@/components/shared/relative-time";
 import { formatDateTime } from "@/lib/utils";
 import type { FineOnGroundEntry } from "@/types/database";
@@ -45,8 +51,8 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
     }
 
     const all = (data as EntryWithRecorder[]) ?? [];
-    setUnpaid(all.filter((d) => d.is_active && !d.paid_at));
-    setSettled(all.filter((d) => d.paid_at || !d.is_active));
+    setUnpaid(all.filter((d) => d.is_active && !d.paid_at && fineRemaining(d) > 0));
+    setSettled(all.filter((d) => isFineFullySettled(d)));
     setLoading(false);
   }, [supabase, teamMemberId]);
 
@@ -54,7 +60,7 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
     load();
   }, [load]);
 
-  const totalOwed = unpaid.reduce((sum, d) => sum + Number(d.amount ?? 0), 0);
+  const totalOwed = unpaid.reduce((sum, d) => sum + fineRemaining(d), 0);
   const currency = unpaid[0]?.currency ?? settled[0]?.currency ?? "NGN";
   const isDebtFree = !loading && unpaid.length === 0;
 
@@ -114,23 +120,40 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
         ) : (
           <>
             <p className="text-sm text-sky-800 font-medium">
-              Total owed:{" "}
+              Still owed:{" "}
               <span className="text-xl font-bold text-sky-900">{formatFineMoney(totalOwed, currency)}</span>
             </p>
             <ul className="space-y-2">
-              {unpaid.slice(0, 3).map((d) => (
-                <li key={d.id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2.5 border border-sky-100">
-                  <div className="min-w-0">
-                    <span className="font-semibold">{formatFineMoney(Number(d.amount), d.currency ?? "NGN")}</span>
-                    {d.reason && <span className="text-neutral-500 ml-2">— {d.reason}</span>}
-                    <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1">
-                      <UserCircle2 className="h-3 w-3 shrink-0" />
-                      Recorded by {recorderName(d)}
-                    </p>
-                  </div>
-                  <RelativeTime iso={d.created_at} className="text-xs text-neutral-400 shrink-0 ml-3" />
-                </li>
-              ))}
+              {unpaid.slice(0, 3).map((d) => {
+                const paid = fineAmountPaid(d);
+                const remaining = fineRemaining(d);
+                const total = fineTotalAmount(d);
+                const cur = d.currency ?? "NGN";
+                return (
+                  <li key={d.id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2.5 border border-sky-100">
+                    <div className="min-w-0">
+                      <span className="font-semibold">{formatFineMoney(remaining, cur)} left</span>
+                      {paid > 0 && (
+                        <span className="text-xs text-neutral-500 ml-2">
+                          of {formatFineMoney(total, cur)} · paid {formatFineMoney(paid, cur)}
+                        </span>
+                      )}
+                      {d.reason && <span className="text-neutral-500 ml-2">— {d.reason}</span>}
+                      {d.payment_note && (
+                        <p className="text-xs text-emerald-700 mt-0.5">Update: {d.payment_note}</p>
+                      )}
+                      <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1">
+                        <UserCircle2 className="h-3 w-3 shrink-0" />
+                        Recorded by {recorderName(d)}
+                      </p>
+                    </div>
+                    <RelativeTime
+                      iso={d.last_payment_at ?? d.created_at}
+                      className="text-xs text-neutral-400 shrink-0 ml-3"
+                    />
+                  </li>
+                );
+              })}
             </ul>
             {unpaid.length > 3 && (
               <Link href="/my-debts" className="text-xs text-sky-600 hover:underline">
@@ -166,41 +189,73 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
         <>
           <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <p className="text-sm text-sky-800 font-medium">Total you owe</p>
+              <p className="text-sm text-sky-800 font-medium">Still owed</p>
               <p className="text-3xl font-bold text-sky-900 tabular-nums">
                 {formatFineMoney(totalOwed, currency)}
               </p>
             </div>
             <p className="text-sm text-sky-700">
-              {unpaid.length} active debt{unpaid.length === 1 ? "" : "s"} — please settle when you can.
+              {unpaid.length} active debt{unpaid.length === 1 ? "" : "s"} — partial payments show here when recorded.
             </p>
           </div>
 
           <ul className="space-y-3">
-            {unpaid.map((d) => (
-              <li
-                key={d.id}
-                className="rounded-xl border border-sky-100 bg-white px-5 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-neutral-900 text-lg">
-                    {formatFineMoney(Number(d.amount), d.currency ?? "NGN")}
-                  </p>
-                  {d.reason && <p className="text-sm text-neutral-600 mt-0.5">{d.reason}</p>}
-                  <p className="text-xs text-neutral-400 mt-2 flex items-center gap-1.5">
-                    <UserCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    Recorded by <span className="font-medium text-neutral-600">{recorderName(d)}</span>
-                    {" · "}
-                    <RelativeTime iso={d.created_at} />
-                    {" · "}
-                    {formatDateTime(d.created_at)}
-                  </p>
-                </div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-sky-700 bg-sky-100 px-3 py-1 rounded-full shrink-0 self-start mt-1">
-                  Owed
-                </span>
-              </li>
-            ))}
+            {unpaid.map((d) => {
+              const paid = fineAmountPaid(d);
+              const remaining = fineRemaining(d);
+              const total = fineTotalAmount(d);
+              const cur = d.currency ?? "NGN";
+              return (
+                <li
+                  key={d.id}
+                  className="rounded-xl border border-sky-100 bg-white px-5 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-neutral-900 text-lg">
+                      {formatFineMoney(remaining, cur)} remaining
+                    </p>
+                    <p className="text-sm text-neutral-600 mt-0.5">
+                      Total {formatFineMoney(total, cur)}
+                      {paid > 0 && (
+                        <>
+                          {" "}
+                          · Paid so far{" "}
+                          <span className="font-semibold text-emerald-700">
+                            {formatFineMoney(paid, cur)}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                    {d.reason && <p className="text-sm text-neutral-600 mt-1">{d.reason}</p>}
+                    {d.payment_note && (
+                      <p className="text-sm text-emerald-700 mt-1 rounded-lg bg-emerald-50 px-3 py-2 border border-emerald-100">
+                        Payment update: {d.payment_note}
+                        {d.last_payment_at && (
+                          <span className="block text-xs text-emerald-600 mt-0.5">
+                            Last recorded {formatDateTime(d.last_payment_at)}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    <p className="text-xs text-neutral-400 mt-2 flex items-center gap-1.5">
+                      <UserCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      Recorded by <span className="font-medium text-neutral-600">{recorderName(d)}</span>
+                      {" · "}
+                      <RelativeTime iso={d.created_at} />
+                      {" · "}
+                      {formatDateTime(d.created_at)}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs font-semibold uppercase tracking-wide px-3 py-1 rounded-full shrink-0 self-start mt-1 ${
+                      paid > 0 ? "text-emerald-800 bg-emerald-100" : "text-sky-700 bg-sky-100"
+                    }`}
+                  >
+                    {paid > 0 ? "Partially paid" : "Owed"}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}
@@ -216,13 +271,18 @@ export function MemberMyDebtPanel({ teamMemberId, variant = "dashboard" }: Membe
               >
                 <div className="flex justify-between items-start gap-2">
                   <span className="text-neutral-500 line-through decoration-neutral-400 text-sm">
-                    {formatFineMoney(Number(d.amount), d.currency ?? "NGN")}
+                    {formatFineMoney(fineTotalAmount(d), d.currency ?? "NGN")}
                     {d.reason ? ` — ${d.reason}` : ""}
                   </span>
                   <span className="text-emerald-700 text-xs font-medium shrink-0">
                     {d.paid_at ? `Paid ${formatDateTime(d.paid_at)}` : "Closed"}
                   </span>
                 </div>
+                {fineAmountPaid(d) > 0 && (
+                  <p className="text-xs text-emerald-700 mt-1">
+                    Total paid: {formatFineMoney(fineAmountPaid(d), d.currency ?? "NGN")}
+                  </p>
+                )}
                 <p className="text-xs text-neutral-400 mt-1 flex items-center gap-1">
                   <UserCircle2 className="h-3 w-3 shrink-0" />
                   Recorded by {recorderName(d)}

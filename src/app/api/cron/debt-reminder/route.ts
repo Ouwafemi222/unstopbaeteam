@@ -44,7 +44,7 @@ export async function GET(request: Request) {
 
   const { data: unpaid, error } = await admin
     .from("fine_on_ground_entries")
-    .select("id, team_member_id, amount, currency, obligation_type, reason")
+    .select("id, team_member_id, amount, amount_paid, currency, obligation_type, reason")
     .eq("is_active", true)
     .is("paid_at", null);
 
@@ -62,13 +62,17 @@ export async function GET(request: Request) {
   >();
 
   for (const row of unpaid) {
+    if (!row.team_member_id) continue;
     const cur = byMember.get(row.team_member_id) ?? {
       debt: 0,
       fine: 0,
       currency: row.currency || "NGN",
       reasons: [] as string[],
     };
-    const amt = Number(row.amount ?? 0);
+    const total = Math.max(0, Number(row.amount ?? 0));
+    const paid = Math.min(total, Math.max(0, Number(row.amount_paid ?? 0)));
+    const amt = Math.max(0, total - paid);
+    if (amt <= 0) continue;
     if (row.obligation_type === "debt") cur.debt += amt;
     else cur.fine += amt;
     if (row.reason) cur.reasons.push(String(row.reason));
@@ -76,7 +80,14 @@ export async function GET(request: Request) {
     byMember.set(row.team_member_id, cur);
   }
 
-  const memberIds = [...byMember.keys()];
+  const memberIds = [...byMember.keys()].filter((id) => {
+    const row = byMember.get(id)!;
+    return row.debt + row.fine > 0;
+  });
+
+  if (memberIds.length === 0) {
+    return NextResponse.json({ ok: true, notified: 0, emailed: 0, reason: "no_remaining_balance" });
+  }
   const { data: members } = await admin
     .from("team_members")
     .select("id, full_name, preferred_name, user_id, email, status")

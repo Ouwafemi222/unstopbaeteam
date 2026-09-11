@@ -256,6 +256,10 @@ export interface FineOnGroundEntry {
   reason: string | null;
   /** fine = discipline; debt = money borrowed / owed (not a fine) */
   obligation_type: "fine" | "debt";
+  /** Total paid so far (supports partial payments) */
+  amount_paid: number;
+  last_payment_at: string | null;
+  payment_note: string | null;
   paid_at: string | null;
   is_active: boolean;
   seen_at: string | null;

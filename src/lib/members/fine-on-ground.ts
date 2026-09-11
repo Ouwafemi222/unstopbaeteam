@@ -181,3 +181,38 @@ export function obligationLabel(type: ObligationType | string | null | undefined
 export function obligationPhrase(type: ObligationType | string | null | undefined): string {
   return type === "debt" ? "debt (money borrowed)" : "disciplinary fine";
 }
+
+/** Total charged on an entry. */
+export function fineTotalAmount(entry: { amount?: number | null }): number {
+  return Math.max(0, Number(entry.amount ?? 0));
+}
+
+/** How much has been paid so far (never exceeds total). */
+export function fineAmountPaid(entry: {
+  amount?: number | null;
+  amount_paid?: number | null;
+}): number {
+  const total = fineTotalAmount(entry);
+  const paid = Math.max(0, Number(entry.amount_paid ?? 0));
+  return Math.min(paid, total);
+}
+
+/** Remaining balance after partial payments. */
+export function fineRemaining(entry: {
+  amount?: number | null;
+  amount_paid?: number | null;
+  paid_at?: string | null;
+  is_active?: boolean | null;
+}): number {
+  if (entry.paid_at || entry.is_active === false) return 0;
+  return Math.max(0, fineTotalAmount(entry) - fineAmountPaid(entry));
+}
+
+export function isFineFullySettled(entry: {
+  amount?: number | null;
+  amount_paid?: number | null;
+  paid_at?: string | null;
+  is_active?: boolean | null;
+}): boolean {
+  return Boolean(entry.paid_at) || entry.is_active === false || fineRemaining(entry) <= 0;
+}

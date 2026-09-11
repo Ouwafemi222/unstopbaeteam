@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Loader2, BellRing, X, Pencil } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, BellRing, X, Pencil, Banknote } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { toast } from "sonner";
-import { formatFineMoney, obligationLabel } from "@/lib/members/fine-on-ground";
+import {
+  formatFineMoney,
+  fineAmountPaid,
+  fineRemaining,
+  fineTotalAmount,
+  obligationLabel,
+} from "@/lib/members/fine-on-ground";
 import { formatDateTime } from "@/lib/utils";
 import type { FineOnGroundEntry } from "@/types/database";
 
@@ -41,13 +47,16 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
   const [unpaid, setUnpaid] = useState<FineOnGroundEntry[]>([]);
   const [alerts, setAlerts] = useState<FineEarningAlert[]>([]);
   const [popupAlert, setPopupAlert] = useState<FineEarningAlert | null>(null);
-  const [markingId, setMarkingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<FineOnGroundEntry | null>(null);
   const [editAmount, setEditAmount] = useState("");
   const [editCurrency, setEditCurrency] = useState("NGN");
   const [editReason, setEditReason] = useState("");
   const [editType, setEditType] = useState<"fine" | "debt">("fine");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [paying, setPaying] = useState<FineOnGroundEntry | null>(null);
+  const [paymentNow, setPaymentNow] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +95,12 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
     setEditType((f.obligation_type as "fine" | "debt") ?? "fine");
   }
 
+  function openPayment(f: FineOnGroundEntry) {
+    setPaying(f);
+    setPaymentNow("");
+    setPaymentNote(f.payment_note ?? "");
+  }
+
   async function saveEdit() {
     if (!editing) return;
     const amount = parseFloat(editAmount);
@@ -94,7 +109,16 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
       return;
     }
 
+    const alreadyPaid = fineAmountPaid(editing);
+    if (amount < alreadyPaid) {
+      toast.error(
+        `Total cannot be less than already paid (${formatFineMoney(alreadyPaid, editing.currency ?? "NGN")})`
+      );
+      return;
+    }
+
     setSavingEdit(true);
+    const fullyPaid = amount <= alreadyPaid + 0.0001;
     const { error } = await supabase
       .from("fine_on_ground_entries")
       .update({
@@ -103,6 +127,14 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
         reason: editReason.trim() || null,
         obligation_type: editType,
         seen_at: null,
+        ...(fullyPaid
+          ? {
+              amount_paid: amount,
+              paid_at: new Date().toISOString(),
+              is_active: false,
+              last_payment_at: new Date().toISOString(),
+            }
+          : {}),
       })
       .eq("id", editing.id);
 
@@ -114,7 +146,9 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
       );
     } else {
       toast.success(
-        `${obligationLabel(editType)} updated${amount > Number(editing.amount) ? " (increased)" : ""}`
+        fullyPaid
+          ? `${obligationLabel(editType)} settled (paid in full)`
+          : `${obligationLabel(editType)} updated${amount > Number(editing.amount) ? " (increased)" : ""}`
       );
       setEditing(null);
       await load();
@@ -122,19 +156,59 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
     setSavingEdit(false);
   }
 
-  async function markPaid(id: string) {
-    setMarkingId(id);
+  async function savePayment(options?: { settleFully?: boolean }) {
+    if (!paying) return;
+    const currency = paying.currency ?? "NGN";
+    const total = fineTotalAmount(paying);
+    const alreadyPaid = fineAmountPaid(paying);
+    const remaining = fineRemaining(paying);
+
+    let nextPaid = alreadyPaid;
+    if (options?.settleFully) {
+      nextPaid = total;
+    } else {
+      const received = parseFloat(paymentNow);
+      if (!Number.isFinite(received) || received <= 0) {
+        toast.error("Enter how much they paid now");
+        return;
+      }
+      nextPaid = Math.min(total, alreadyPaid + received);
+    }
+
+    const settled = nextPaid >= total - 0.0001;
+    const nowIso = new Date().toISOString();
+
+    setSavingPayment(true);
     const { error } = await supabase
       .from("fine_on_ground_entries")
-      .update({ paid_at: new Date().toISOString(), is_active: false })
-      .eq("id", id);
+      .update({
+        amount_paid: settled ? total : nextPaid,
+        last_payment_at: nowIso,
+        payment_note: paymentNote.trim() || null,
+        seen_at: null,
+        ...(settled
+          ? { paid_at: nowIso, is_active: false }
+          : { paid_at: null, is_active: true }),
+      })
+      .eq("id", paying.id);
 
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Marked as paid");
+    if (error) {
+      toast.error(
+        error.message.includes("row-level security")
+          ? "Only a super admin can record payments"
+          : error.message
+      );
+    } else {
+      const paidThisTime = nextPaid - alreadyPaid;
+      toast.success(
+        settled
+          ? `Fully settled — ${formatFineMoney(total, currency)}`
+          : `Recorded ${formatFineMoney(paidThisTime, currency)}. Remaining ${formatFineMoney(remaining - paidThisTime, currency)}`
+      );
+      setPaying(null);
       await load();
     }
-    setMarkingId(null);
+    setSavingPayment(false);
   }
 
   async function dismissAlert(id: string) {
@@ -157,7 +231,7 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
     setPopupAlert(null);
   }
 
-  const totalOwed = unpaid.reduce((sum, f) => sum + Number(f.amount ?? 0), 0);
+  const totalOwed = unpaid.reduce((sum, f) => sum + fineRemaining(f), 0);
   const currency = unpaid[0]?.currency ?? "NGN";
   const limit = variant === "dashboard" ? 8 : 50;
   const shown = unpaid.slice(0, limit);
@@ -194,7 +268,7 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                 )}
               </p>
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                They still owe a fine of{" "}
+                They still owe{" "}
                 <strong>
                   {formatFineMoney(Number(popupAlert.fine_amount), popupAlert.fine_currency)}
                 </strong>
@@ -244,7 +318,7 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-amount">Amount</Label>
+                  <Label htmlFor="edit-amount">Total amount</Label>
                   <Input
                     id="edit-amount"
                     type="number"
@@ -267,6 +341,12 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                   </Select>
                 </div>
               </div>
+              {fineAmountPaid(editing) > 0 && (
+                <p className="text-xs text-neutral-500">
+                  Already paid: {formatFineMoney(fineAmountPaid(editing), editing.currency ?? "NGN")} ·
+                  Remaining: {formatFineMoney(fineRemaining(editing), editing.currency ?? "NGN")}
+                </p>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="edit-reason">Reason / note</Label>
                 <Textarea
@@ -299,6 +379,107 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
         </div>
       )}
 
+      {paying && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-neutral-200 overflow-hidden">
+            <div className="px-5 py-4 border-b flex items-center justify-between bg-emerald-50">
+              <div>
+                <p className="font-semibold text-neutral-900">Record payment</p>
+                <p className="text-sm text-neutral-500">
+                  {(paying.team_member as { full_name?: string } | null)?.full_name ?? paying.input_name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaying(null)}
+                aria-label="Close"
+                disabled={savingPayment}
+              >
+                <X className="h-5 w-5 text-neutral-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl border bg-neutral-50 px-2 py-3">
+                  <p className="text-[10px] uppercase tracking-wide text-neutral-500">Total</p>
+                  <p className="text-sm font-bold text-neutral-900 mt-1">
+                    {formatFineMoney(fineTotalAmount(paying), paying.currency ?? "NGN")}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-emerald-50 px-2 py-3">
+                  <p className="text-[10px] uppercase tracking-wide text-emerald-700">Paid</p>
+                  <p className="text-sm font-bold text-emerald-800 mt-1">
+                    {formatFineMoney(fineAmountPaid(paying), paying.currency ?? "NGN")}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-amber-50 px-2 py-3">
+                  <p className="text-[10px] uppercase tracking-wide text-amber-700">Left</p>
+                  <p className="text-sm font-bold text-amber-900 mt-1">
+                    {formatFineMoney(fineRemaining(paying), paying.currency ?? "NGN")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment-now">Amount paid now</Label>
+                <Input
+                  id="payment-now"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={paymentNow}
+                  onChange={(e) => setPaymentNow(e.target.value)}
+                  placeholder={`Up to ${formatFineMoney(fineRemaining(paying), paying.currency ?? "NGN")}`}
+                />
+                <p className="text-xs text-neutral-500">
+                  Enter what they paid today, even if it is less than the full balance.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment-note">Note (optional)</Label>
+                <Textarea
+                  id="payment-note"
+                  rows={2}
+                  value={paymentNote}
+                  onChange={(e) => setPaymentNote(e.target.value)}
+                  placeholder="e.g. Paid via transfer — will finish next week"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
+                <Button onClick={() => savePayment()} disabled={savingPayment}>
+                  {savingPayment ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Banknote className="h-4 w-4" />
+                      Save payment
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => savePayment({ settleFully: true })}
+                  disabled={savingPayment}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Mark fully paid
+                </Button>
+                <Button variant="ghost" onClick={() => setPaying(null)} disabled={savingPayment}>
+                  Cancel
+                </Button>
+              </div>
+              <p className="text-xs text-neutral-500 text-center">
+                The member will see the updated paid / remaining amounts right away.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card className="border-amber-200/80 bg-gradient-to-r from-white to-amber-50/40">
         <CardContent className="p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -309,7 +490,7 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
               <div>
                 <h2 className="font-semibold text-neutral-900">Unpaid fines &amp; debts</h2>
                 <p className="text-sm text-neutral-500 mt-0.5">
-                  Edit mistakes or increase amounts, mark paid, and get alerts when they record earnings.
+                  Record partial payments, edit amounts, and get alerts when they record earnings.
                 </p>
               </div>
             </div>
@@ -336,7 +517,7 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                   </p>
                 </div>
                 <div className="rounded-xl border bg-white p-3">
-                  <p className="text-xs text-neutral-500 uppercase tracking-wide">Total owed</p>
+                  <p className="text-xs text-neutral-500 uppercase tracking-wide">Still owed</p>
                   <p className="text-2xl font-bold text-amber-800 mt-1">
                     {formatFineMoney(totalOwed, currency)}
                   </p>
@@ -387,57 +568,66 @@ export function AdminUnpaidFinesPanel({ variant = "dashboard" }: AdminUnpaidFine
                       <tr className="border-b text-left text-neutral-500 bg-neutral-50">
                         <th className="p-3 font-medium">Member</th>
                         <th className="p-3 font-medium">Type</th>
-                        <th className="p-3 font-medium">Amount</th>
+                        <th className="p-3 font-medium">Balance</th>
                         <th className="p-3 font-medium">Reason</th>
                         <th className="p-3 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {shown.map((f) => (
-                        <tr key={f.id} className="border-b hover:bg-neutral-50">
-                          <td className="p-3 font-medium text-neutral-900">
-                            {(f.team_member as { full_name?: string } | null)?.full_name ?? f.input_name}
-                          </td>
-                          <td className="p-3">
-                            <span
-                              className={
-                                f.obligation_type === "debt"
-                                  ? "text-sky-700 font-medium"
-                                  : "text-amber-700 font-medium"
-                              }
-                            >
-                              {obligationLabel(f.obligation_type ?? "fine")}
-                            </span>
-                          </td>
-                          <td className="p-3 font-semibold text-amber-800">
-                            {formatFineMoney(Number(f.amount), f.currency ?? "NGN")}
-                          </td>
-                          <td className="p-3 text-neutral-600">{f.reason ?? "—"}</td>
-                          <td className="p-3">
-                            <div className="flex flex-wrap gap-2">
-                              <Button size="sm" variant="outline" onClick={() => openEdit(f)}>
-                                <Pencil className="h-3.5 w-3.5" />
-                                Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={markingId === f.id}
-                                onClick={() => markPaid(f.id)}
+                      {shown.map((f) => {
+                        const paid = fineAmountPaid(f);
+                        const remaining = fineRemaining(f);
+                        const total = fineTotalAmount(f);
+                        return (
+                          <tr key={f.id} className="border-b hover:bg-neutral-50">
+                            <td className="p-3 font-medium text-neutral-900">
+                              {(f.team_member as { full_name?: string } | null)?.full_name ?? f.input_name}
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={
+                                  f.obligation_type === "debt"
+                                    ? "text-sky-700 font-medium"
+                                    : "text-amber-700 font-medium"
+                                }
                               >
-                                {markingId === f.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Mark paid
-                                  </>
+                                {obligationLabel(f.obligation_type ?? "fine")}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-semibold text-amber-800">
+                                {formatFineMoney(remaining, f.currency ?? "NGN")} left
+                              </p>
+                              <p className="text-xs text-neutral-500 mt-0.5">
+                                of {formatFineMoney(total, f.currency ?? "NGN")}
+                                {paid > 0 && (
+                                  <> · paid {formatFineMoney(paid, f.currency ?? "NGN")}</>
                                 )}
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                              </p>
+                            </td>
+                            <td className="p-3 text-neutral-600">
+                              {f.reason ?? "—"}
+                              {f.payment_note && (
+                                <span className="block text-xs text-emerald-700 mt-0.5">
+                                  Payment note: {f.payment_note}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-2">
+                                <Button size="sm" variant="outline" onClick={() => openEdit(f)}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit
+                                </Button>
+                                <Button size="sm" onClick={() => openPayment(f)}>
+                                  <Banknote className="h-3.5 w-3.5" />
+                                  Record payment
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
