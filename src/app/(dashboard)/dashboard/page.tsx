@@ -17,7 +17,6 @@ import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-a
 import { AdminWelcomeHero } from "@/components/dashboard/admin-welcome-hero";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 import { LocationCard } from "@/components/shared/location-card";
-import { LiveTeamPulse } from "@/components/dashboard/live-team-pulse";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
 import type { MemberWeeklyEarning } from "@/types/database";
 
@@ -162,13 +161,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           weeklyMissing,
         }}
         filterSlot={
-          <Suspense fallback={<div className="h-9 w-72 animate-pulse rounded-lg bg-neutral-100" />}>
+          <Suspense fallback={<div className="h-9 w-72 animate-pulse rounded-lg bg-white/20" />}>
             <DateFilterBar current={filter} />
           </Suspense>
         }
       />
-
-      <LiveTeamPulse />
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
@@ -186,19 +183,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <div>
         <div className="flex items-end justify-between gap-3 mb-3 px-0.5">
           <div>
-            <h2 className="text-base font-semibold text-neutral-900">Team snapshot</h2>
-            <p className="text-sm text-neutral-500">Numbers for the selected period</p>
+            <h2 className="text-base font-semibold text-neutral-900">Period deep dive</h2>
+            <p className="text-sm text-neutral-500">Extra counts for the selected filter</p>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           {stats.map((stat) => (
-            <Card key={stat.label} className="border-neutral-100 shadow-sm hover:shadow-md transition-shadow">
+            <Card
+              key={stat.label}
+              className="border-neutral-100/80 bg-gradient-to-b from-white to-neutral-50/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-100">
+                    <stat.icon className={`h-4.5 w-4.5 ${stat.color}`} />
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-neutral-900">{stat.value}</p>
-                <p className="text-xs text-neutral-500 mt-1">{stat.label}</p>
+                <p className="text-2xl font-extrabold text-neutral-900 tabular-nums">{stat.value}</p>
+                <p className="text-xs text-neutral-500 mt-1 leading-snug">{stat.label}</p>
               </CardContent>
             </Card>
           ))}
@@ -208,25 +210,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       {(topMemberName || zeroMessageMembers.length > 0) && (
         <div className="grid md:grid-cols-2 gap-4">
           {topMemberName && (
-            <Card className="border-brand-green/20 bg-brand-green/5">
-              <CardContent className="p-4 flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-brand-green" />
+            <Card className="overflow-hidden border-brand-green/25 bg-gradient-to-br from-brand-green-light/40 via-white to-white shadow-sm">
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green text-white shadow-md shadow-brand-green/30">
+                  <TrendingUp className="h-7 w-7" />
+                </div>
                 <div>
-                  <p className="text-sm text-neutral-500">Top Performing Member</p>
-                  <p className="text-lg font-bold text-neutral-900">{topMemberName}</p>
-                  <p className="text-sm text-brand-green">{topMember?.[1]} messages</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-brand-green-dark">
+                    Top performer
+                  </p>
+                  <p className="text-xl font-extrabold text-neutral-900 mt-0.5">{topMemberName}</p>
+                  <p className="text-sm text-brand-green font-medium">{topMember?.[1]} messages this period</p>
                 </div>
               </CardContent>
             </Card>
           )}
           {zeroMessageMembers.length > 0 && (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  <p className="font-semibold text-red-700">
-                    No Messages This Period — {zeroMessageMembers.length} Members
-                  </p>
+            <Card className="overflow-hidden border-red-200 bg-gradient-to-br from-red-50 via-white to-white shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-red-700">Needs a nudge</p>
+                    <p className="text-xs text-red-600/80">
+                      {zeroMessageMembers.length} members with zero messages
+                    </p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {zeroMessageMembers.map((m) => (
@@ -253,34 +264,35 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         recentAccounts={(recentAccounts as never) ?? []}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent Messages</CardTitle>
+      <Card className="overflow-hidden border-brand-orange/20 shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-brand-orange-light/50 to-white border-b border-brand-orange/10">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-brand-orange-dark" />
+            Recent messages
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {recentMessages?.length === 0 ? (
-            <p className="text-sm text-neutral-500">No messages recorded yet.</p>
+            <p className="text-sm text-neutral-500 p-5">No messages recorded yet.</p>
           ) : (
-            <div className="responsive-table">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-neutral-500">
-                    <th className="pb-2 font-medium">Member</th>
-                    <th className="pb-2 font-medium">Service</th>
-                    <th className="pb-2 font-medium">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentMessages?.map((msg) => (
-                    <tr key={msg.id} className="border-b border-neutral-100 hover:bg-neutral-50">
-                      <td className="py-2.5">{(msg.team_member as { full_name: string })?.full_name}</td>
-                      <td className="py-2.5">{getMessageServiceLabel(msg)}</td>
-                      <td className="py-2.5">{formatDate(msg.received_date)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul className="divide-y divide-neutral-100">
+              {recentMessages?.map((msg) => (
+                <li
+                  key={msg.id}
+                  className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 hover:bg-brand-orange-light/20 transition-colors"
+                >
+                  <div>
+                    <p className="font-semibold text-neutral-900">
+                      {(msg.team_member as { full_name: string })?.full_name}
+                    </p>
+                    <p className="text-sm text-neutral-500">{getMessageServiceLabel(msg)}</p>
+                  </div>
+                  <p className="text-xs font-medium text-neutral-400 tabular-nums">
+                    {formatDate(msg.received_date)}
+                  </p>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

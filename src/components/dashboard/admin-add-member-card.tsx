@@ -56,17 +56,21 @@ export function AdminAddMemberCard() {
   }
 
   return (
-    <Card className="border-brand-green/20 bg-gradient-to-r from-white to-brand-green-light/20">
-      <CardContent className="p-5">
+    <Card className="overflow-hidden border-brand-green/25 bg-gradient-to-br from-white via-white to-brand-green-light/30 shadow-sm">
+      <CardContent className="p-5 sm:p-6">
         <div className="flex flex-col lg:flex-row lg:items-start gap-6">
           <div className="flex items-start gap-3 shrink-0">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-green/10 text-brand-green">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-green text-white shadow-md shadow-brand-green/25">
               <UserPlus className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-semibold text-neutral-900">Add Team Member</h2>
+              <h2 className="font-bold text-neutral-900 text-lg">Add Team Member</h2>
               <p className="text-sm text-neutral-500 mt-0.5 max-w-sm">
-                Add a name to the team list so they can register at /join.
+                Drop a name onto the roster so they can register at{" "}
+                <Link href="/join" className="text-brand-green font-medium hover:underline">
+                  /join
+                </Link>
+                .
               </p>
             </div>
           </div>

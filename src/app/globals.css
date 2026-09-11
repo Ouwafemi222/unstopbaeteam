@@ -179,6 +179,25 @@ body {
   display: none;
 }
 
+@keyframes admin-hero-stat-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-hero-stat {
+  animation: admin-hero-stat-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.admin-hero-live-enter {
+  animation: admin-hero-stat-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Form page atmosphere + section motion */
 @keyframes form-section-in {
   0% {
