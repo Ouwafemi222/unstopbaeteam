@@ -17,6 +17,7 @@ import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-a
 import { AdminWelcomeHero } from "@/components/dashboard/admin-welcome-hero";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 import { LocationCard } from "@/components/shared/location-card";
+import { LiveTeamPulse } from "@/components/dashboard/live-team-pulse";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
 import type { MemberWeeklyEarning } from "@/types/database";
 
@@ -166,6 +167,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Suspense>
         }
       />
+
+      <LiveTeamPulse />
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">

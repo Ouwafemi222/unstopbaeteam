@@ -284,6 +284,19 @@ export interface FineEarningAlert {
   team_member?: { id: string; full_name: string } | null;
 }
 
+/** Slim public-safe activity row for the dashboard live pulse */
+export type TeamLiveEventKind = "message" | "account";
+
+export interface TeamLiveEvent {
+  id: string;
+  kind: TeamLiveEventKind;
+  actor_name: string;
+  summary: string;
+  href: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface SearchResult {
   result_type: string;
   result_id: string;

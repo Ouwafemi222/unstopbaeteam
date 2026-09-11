@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { AccountForm } from "@/components/accounts/account-form";
+import { RecordPageShell } from "@/components/shared/record-page-shell";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -28,26 +28,21 @@ export default async function MemberNewAccountPage({ params }: Props) {
   if (!member) notFound();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <Link
-        href={`/team-members/${id}?tab=accounts`}
-        className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-brand-green"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to your accounts
-      </Link>
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Add Fiverr Account</h1>
-        <p className="text-neutral-500 mt-1">
-          Register a new Fiverr account under your profile — fill in all details below.
-        </p>
-      </div>
+    <RecordPageShell
+      backHref={`/team-members/${id}?tab=accounts`}
+      backLabel="Back to accounts"
+      title="Add Fiverr Account"
+      subtitle={`Register a new Fiverr account for ${member.full_name} — clear sections, faster entry.`}
+      icon={Briefcase}
+      tone="account"
+      maxWidthClass="max-w-3xl"
+    >
       <AccountForm
         mode="create"
         lockedTeamMemberId={member.id}
         lockedTeamMemberName={member.full_name}
         returnTo={`/team-members/${id}?tab=accounts`}
       />
-    </div>
+    </RecordPageShell>
   );
 }

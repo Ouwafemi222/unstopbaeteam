@@ -140,6 +140,71 @@ body {
   transform: translateX(0);
 }
 
+/* Live team pulse chips */
+@keyframes live-pulse-in {
+  0% {
+    opacity: 0;
+    transform: translateX(48px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes live-pulse-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-56px) scale(0.9);
+  }
+}
+
+.live-pulse-enter {
+  animation: live-pulse-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.live-pulse-exit {
+  animation: live-pulse-out 0.45s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+.live-pulse-track {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.live-pulse-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Form page atmosphere + section motion */
+@keyframes form-section-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-section-enter {
+  animation: form-section-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.form-section-enter-delay-1 {
+  animation-delay: 0.06s;
+}
+.form-section-enter-delay-2 {
+  animation-delay: 0.12s;
+}
+.form-section-enter-delay-3 {
+  animation-delay: 0.18s;
+}
+
 /* Table responsive */
 @media (max-width: 768px) {
   .responsive-table { display: block; overflow-x: auto; }

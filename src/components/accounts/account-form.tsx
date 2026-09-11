@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Briefcase, KeyRound, Loader2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CountrySelect } from "@/components/shared/country-select";
 import { DateInput } from "@/components/shared/date-input";
 import {
@@ -21,6 +20,7 @@ import {
   type AccountFillMode,
 } from "@/components/accounts/account-ocr-entry";
 import { toast } from "sonner";
+import { publishLiveEvent } from "@/lib/live/publish-live-event";
 import type { ParsedAccountFromOcr } from "@/lib/forecast/account-ocr-parse";
 import type { TeamMember, Country, FiverrAccount } from "@/types/database";
 
@@ -250,6 +250,16 @@ export function AccountForm({
       } catch {
         // ignore
       }
+      const actor =
+        lockedTeamMemberName ??
+        members.find((m) => m.id === teamMemberId)?.full_name ??
+        "A member";
+      publishLiveEvent({
+        kind: "account",
+        actorName: actor,
+        summary: `added @${row.username}`,
+        href: isSelfService ? "/my-accounts" : `/accounts/${row.id}`,
+      });
     }
 
     toast.success(`Saved ${data?.length ?? payloads.length} new accounts from OCR`);
@@ -356,7 +366,18 @@ export function AccountForm({
         // Non-blocking — account already saved
       }
 
-      toast.success("Account created");
+      const actor =
+        lockedTeamMemberName ??
+        members.find((m) => m.id === teamMemberId)?.full_name ??
+        "A member";
+      publishLiveEvent({
+        kind: "account",
+        actorName: actor,
+        summary: `added @${data.username}`,
+        href: isSelfService ? "/my-accounts" : `/accounts/${data.id}`,
+      });
+
+      toast.success("Account created — team stream updated");
       router.push(returnTo ?? `/accounts/${data.id}`);
     } else if (account) {
       let screenshotPaths = account.verification_screenshot_paths ?? [];
@@ -396,18 +417,23 @@ export function AccountForm({
       />
 
       {showForm && (
-        <form key={formKey} onSubmit={handleSubmit} className="space-y-6">
+        <form key={formKey} onSubmit={handleSubmit} className="space-y-4">
           {duplicateWarning && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">{duplicateWarning}</div>
+            <div className="form-section-enter rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              {duplicateWarning}
+            </div>
           )}
 
-          <Card>
-            <CardHeader><CardTitle>Account Owner</CardTitle></CardHeader>
-            <CardContent>
+          <section className="form-section-enter form-section-enter-delay-1 rounded-2xl border border-neutral-200/80 bg-white/95 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b bg-gradient-to-r from-brand-green-light/40 to-transparent flex items-center gap-2">
+              <UserRound className="h-4 w-4 text-brand-green" />
+              <h2 className="text-sm font-semibold text-neutral-900">Account owner</h2>
+            </div>
+            <div className="p-5">
               {isSelfService ? (
                 <div className="space-y-2">
                   <Label>Team Member</Label>
-                  <p className="text-sm font-medium text-neutral-900 rounded-lg border bg-neutral-50 px-3 py-2.5">
+                  <p className="text-sm font-medium text-neutral-900 rounded-xl border border-brand-green/20 bg-brand-green-light/30 px-3.5 py-2.5">
                     {lockedTeamMemberName ?? "Your profile"}
                   </p>
                   <input type="hidden" name="team_member_id" value={lockedTeamMemberId} />
@@ -417,16 +443,23 @@ export function AccountForm({
                   <Label htmlFor="team_member_id">Team Member *</Label>
                   <Select id="team_member_id" name="team_member_id" required defaultValue={v.team_member_id}>
                     <option value="">Select team member...</option>
-                    {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.full_name}
+                      </option>
+                    ))}
                   </Select>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader><CardTitle>Account Information</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <section className="form-section-enter form-section-enter-delay-2 rounded-2xl border border-neutral-200/80 bg-white/95 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b bg-gradient-to-r from-brand-orange-light/50 to-transparent flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-brand-orange-dark" />
+              <h2 className="text-sm font-semibold text-neutral-900">Login &amp; opening details</h2>
+            </div>
+            <div className="p-5 space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="display_name">Fiverr Display Name</Label>
@@ -434,17 +467,34 @@ export function AccountForm({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="username">Fiverr Username *</Label>
-                  <Input id="username" name="username" required defaultValue={v.username} onBlur={(e) => checkDuplicate("username", e.target.value)} />
+                  <Input
+                    id="username"
+                    name="username"
+                    required
+                    defaultValue={v.username}
+                    onBlur={(e) => checkDuplicate("username", e.target.value)}
+                  />
                 </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Account Email / Gmail</Label>
-                  <Input id="email" name="email" type="email" defaultValue={v.email} onBlur={(e) => checkDuplicate("email", e.target.value)} />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    defaultValue={v.email}
+                    onBlur={(e) => checkDuplicate("email", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" name="phone" defaultValue={v.phone} onBlur={(e) => checkDuplicate("phone", e.target.value)} />
+                  <Input
+                    id="phone"
+                    name="phone"
+                    defaultValue={v.phone}
+                    onBlur={(e) => checkDuplicate("phone", e.target.value)}
+                  />
                 </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
@@ -479,7 +529,13 @@ export function AccountForm({
               <div className="grid sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="rate_amount">Rate Amount</Label>
-                  <Input id="rate_amount" name="rate_amount" type="number" step="0.01" defaultValue={v.rate_amount} />
+                  <Input
+                    id="rate_amount"
+                    name="rate_amount"
+                    type="number"
+                    step="0.01"
+                    defaultValue={v.rate_amount}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="rate_currency">Currency</Label>
@@ -499,14 +555,15 @@ export function AccountForm({
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea id="notes" name="notes" rows={2} defaultValue={v.notes} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Secret Question &amp; Answer</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <section className="form-section-enter form-section-enter-delay-3 rounded-2xl border border-neutral-200/80 bg-white/95 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b bg-gradient-to-r from-emerald-50 to-transparent flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-emerald-700" />
+              <h2 className="text-sm font-semibold text-neutral-900">Secret question &amp; answer</h2>
+            </div>
+            <div className="p-5 space-y-4">
               <p className="text-sm text-neutral-500">
                 Save the security question and answer used for this Fiverr account so you can recover it later.
               </p>
@@ -529,12 +586,15 @@ export function AccountForm({
                   autoComplete="off"
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader><CardTitle>Verification Status</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <section className="form-section-enter form-section-enter-delay-3 rounded-2xl border border-neutral-200/80 bg-white/95 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b bg-gradient-to-r from-sky-50 to-transparent flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-sky-700" />
+              <h2 className="text-sm font-semibold text-neutral-900">Verification</h2>
+            </div>
+            <div className="p-5 space-y-4">
               <AccountVerificationCapture
                 teamMemberId={
                   isSelfService
@@ -567,16 +627,35 @@ export function AccountForm({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="verification_notes">Verification Notes</Label>
-                <Textarea id="verification_notes" name="verification_notes" rows={2} defaultValue={v.verification_notes} />
+                <Textarea
+                  id="verification_notes"
+                  name="verification_notes"
+                  rows={2}
+                  defaultValue={v.verification_notes}
+                />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <div className="flex gap-3">
-            <Button type="submit" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "create" ? "Save Account" : "Update Account"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+          <div className="sticky bottom-3 z-10 rounded-2xl border border-neutral-200 bg-white/95 backdrop-blur px-4 py-3 shadow-lg flex flex-wrap gap-3 items-center justify-between">
+            <p className="text-xs text-neutral-500 flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-brand-green" />
+              New accounts appear on the live team stream for everyone.
+            </p>
+            <div className="flex gap-2 ml-auto">
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading} className="min-w-[140px]">
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : mode === "create" ? (
+                  "Save Account"
+                ) : (
+                  "Update Account"
+                )}
+              </Button>
+            </div>
           </div>
         </form>
       )}

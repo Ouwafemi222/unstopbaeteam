@@ -15,6 +15,7 @@ import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { MemberProgressActivityBars } from "@/components/members/member-progress-activity-bars";
 import { MemberWeeklyActivitySection } from "@/components/members/member-weekly-activity-section";
 import { MemberStandingCard } from "@/components/members/member-standing-card";
+import { LiveTeamPulse } from "@/components/dashboard/live-team-pulse";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import {
   buildMemberProgressMetrics,
@@ -121,6 +122,8 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
     <div className="space-y-8">
       {/* Alerts */}
       <MemberFineOnGroundBanner teamMemberId={profile.id} />
+
+      <LiveTeamPulse />
 
       {/* Hero header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-green via-brand-green-dark to-emerald-900 text-white px-6 py-8 md:px-10 md:py-10 shadow-lg">

@@ -1,10 +1,18 @@
+import { MessageSquare } from "lucide-react";
 import { MessageForm } from "@/components/messages/message-form";
+import { RecordPageShell } from "@/components/shared/record-page-shell";
 
 export default function NewMessagePage() {
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-neutral-900">Record Message</h1>
+    <RecordPageShell
+      backHref="/messages"
+      backLabel="Back to Messages"
+      title="Record Message"
+      subtitle="Capture who got the message and when — it will stream live on every dashboard."
+      icon={MessageSquare}
+      tone="message"
+    >
       <MessageForm mode="create" />
-    </div>
+    </RecordPageShell>
   );
 }
