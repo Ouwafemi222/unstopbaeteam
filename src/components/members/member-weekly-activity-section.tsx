@@ -47,7 +47,11 @@ export function MemberWeeklyActivitySection({
         </div>
         <Link href={href}>
           <Button size="sm" className="shrink-0">
-            {logged === 0 ? "Start this week" : "Update weekly log"}
+            {logged === 0
+              ? "Start this week"
+              : logged < total
+                ? "Continue weekly log"
+                : "View weekly log"}
             <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </Link>

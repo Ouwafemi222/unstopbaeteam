@@ -221,6 +221,9 @@ export interface MemberWeeklyEarning {
   skills_progress: string | null;
   personal_pv: number;
   group_pv: number;
+  /** Once true, member can view but not edit this week */
+  is_locked: boolean;
+  locked_at: string | null;
   created_at: string;
   updated_at: string;
 }

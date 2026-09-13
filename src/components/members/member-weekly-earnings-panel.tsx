@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, DollarSign, GraduationCap, Leaf, Loader2, Phone, Target, Users } from "lucide-react";
+import { Building2, DollarSign, GraduationCap, Leaf, Loader2, Lock, Phone, Target, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getWeeksInMonth } from "@/lib/members/week-utils";
 import { formatYearMonthLabel } from "@/lib/utils/dates";
+import { formatDateTime } from "@/lib/utils";
 import type { MemberWeeklyEarning } from "@/types/database";
 
 function formatMoney(amount: number, currency = "USD") {
@@ -151,6 +153,12 @@ export function MemberWeeklyEarningsPanel({
 
   async function saveWeek(weekNumber: number) {
     if (readOnly) return;
+    const existing = entries.find((e) => e.week_number === weekNumber);
+    if (existing?.is_locked) {
+      toast.error("This week is locked and cannot be edited");
+      return;
+    }
+
     const d = draft[weekNumber] ?? emptyDraft();
 
     const amount = parseOptionalNonNegativeMoney(d.amount);
@@ -173,6 +181,7 @@ export function MemberWeeklyEarningsPanel({
     }
 
     setSavingWeek(weekNumber);
+    const nowIso = new Date().toISOString();
     const payload = {
       team_member_id: teamMemberId,
       year_month: yearMonth,
@@ -187,16 +196,23 @@ export function MemberWeeklyEarningsPanel({
       activities_done: d.activitiesDone.trim() || null,
       skills_progress: d.skillsProgress.trim() || null,
       notes: null,
-      updated_at: new Date().toISOString(),
+      is_locked: true,
+      locked_at: nowIso,
+      updated_at: nowIso,
     };
 
     const { error } = await supabase.from("member_weekly_earnings").upsert(payload, {
       onConflict: "team_member_id,year_month,week_number",
     });
 
-    if (error) toast.error(error.message);
-    else {
-      toast.success(`Week ${weekNumber} saved`);
+    if (error) {
+      toast.error(
+        error.message.includes("locked")
+          ? "This week is locked and cannot be edited"
+          : error.message
+      );
+    } else {
+      toast.success(`Week ${weekNumber} saved and locked`);
       if (amount > 0) {
         try {
           const res = await fetch("/api/fines/earning-alert", {
@@ -235,9 +251,9 @@ export function MemberWeeklyEarningsPanel({
     <div className="space-y-6">
       <p className="text-sm text-neutral-500 leading-relaxed">
         Each week, log what you <strong>actually did and earned</strong> toward your locked monthly
-        goals for {formatYearMonthLabel(yearMonth)}. This is your weekly breakdown — numbers and
-        notes add up across the month. Click <strong>Save week</strong> on each row; only saved
-        weeks count toward your progress.
+        goals for {formatYearMonthLabel(yearMonth)}. Fill in the week, then click{" "}
+        <strong>Save &amp; lock week</strong>. After you save, that week stays visible but{" "}
+        <strong>cannot be edited</strong>.
       </p>
 
       {(goals.writtenGoals?.trim() || goals.skillsToLearn?.trim()) && (
@@ -333,195 +349,229 @@ export function MemberWeeklyEarningsPanel({
         </div>
       ) : (
         <div className="space-y-4">
-          {weeks.map((w) => (
-            <div
-              key={w.week}
-              className="rounded-xl border border-neutral-200 bg-white overflow-hidden"
-            >
-              <div className="bg-neutral-50 px-4 py-3 border-b border-neutral-200 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-neutral-900">{w.label}</p>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => saveWeek(w.week)}
-                    disabled={savingWeek === w.week}
-                    className="shrink-0 h-9 px-4 rounded-lg bg-brand-green text-white text-sm font-medium hover:bg-brand-green-dark disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {savingWeek === w.week ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Save week"
-                    )}
-                  </button>
-                )}
-              </div>
+          {weeks.map((w) => {
+            const row = entries.find((e) => e.week_number === w.week);
+            const weekLocked = Boolean(row?.is_locked) || Boolean(readOnly);
+            const canEdit = !readOnly && !row?.is_locked;
 
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {(goals.incomeGoal == null || goals.incomeGoal > 0) && (
-                    <Field
-                      label="Earned this week (USD)"
-                      hint={goals.incomeGoal ? `Goal: ${formatMoney(goals.incomeGoal)} / month` : undefined}
-                    >
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={draft[w.week]?.amount ?? ""}
-                        onChange={(e) => updateDraft(w.week, { amount: e.target.value })}
-                        disabled={readOnly}
-                        className="h-10"
-                      />
-                    </Field>
+            return (
+              <div
+                key={w.week}
+                className={cn(
+                  "rounded-xl border bg-white overflow-hidden",
+                  row?.is_locked ? "border-brand-green/30" : "border-neutral-200"
+                )}
+              >
+                <div
+                  className={cn(
+                    "px-4 py-3 border-b flex items-center justify-between gap-3",
+                    row?.is_locked
+                      ? "bg-brand-green-light/40 border-brand-green/20"
+                      : "bg-neutral-50 border-neutral-200"
                   )}
-                  {(goals.prospectsTarget == null || goals.prospectsTarget > 0) && (
-                    <Field
-                      label="Prospects this week"
-                      hint={
-                        goals.prospectsTarget
-                          ? `Goal: ${goals.prospectsTarget} / month`
-                          : undefined
-                      }
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-neutral-900">{w.label}</p>
+                    {row?.is_locked && (
+                      <p className="text-xs text-brand-green-dark mt-0.5 flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        Locked
+                        {row.locked_at ? ` · ${formatDateTime(row.locked_at)}` : ""} — view only
+                      </p>
+                    )}
+                  </div>
+                  {canEdit ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => saveWeek(w.week)}
+                      disabled={savingWeek === w.week}
+                      className="shrink-0"
                     >
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={draft[w.week]?.prospects ?? ""}
-                        onChange={(e) => updateDraft(w.week, { prospects: e.target.value })}
-                        disabled={readOnly}
-                        className="h-10"
-                      />
-                    </Field>
-                  )}
-                  {(goals.officeProspectsExpected == null ||
-                    goals.officeProspectsExpected > 0) && (
-                    <Field
-                      label="Office prospects"
-                      hint={
-                        goals.officeProspectsExpected
-                          ? `Goal: ${goals.officeProspectsExpected} / month`
-                          : undefined
-                      }
-                    >
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={draft[w.week]?.officeProspects ?? ""}
-                        onChange={(e) => updateDraft(w.week, { officeProspects: e.target.value })}
-                        disabled={readOnly}
-                        className="h-10"
-                      />
-                    </Field>
-                  )}
-                  {(goals.contactsExpected == null || goals.contactsExpected > 0) && (
-                    <Field
-                      label="Contacts this week"
-                      hint={
-                        goals.contactsExpected
-                          ? `Goal: ${goals.contactsExpected} / month`
-                          : undefined
-                      }
-                    >
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={draft[w.week]?.contacts ?? ""}
-                        onChange={(e) => updateDraft(w.week, { contacts: e.target.value })}
-                        disabled={readOnly}
-                        className="h-10"
-                      />
-                    </Field>
-                  )}
-                  {(goals.personalPvTarget == null || goals.personalPvTarget > 0) && (
-                    <Field
-                      label="Personal PV this week"
-                      hint={
-                        goals.personalPvTarget
-                          ? `Goal: ${goals.personalPvTarget} PV / month`
-                          : undefined
-                      }
-                    >
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={draft[w.week]?.personalPv ?? ""}
-                        onChange={(e) => updateDraft(w.week, { personalPv: e.target.value })}
-                        disabled={readOnly}
-                        className="h-10"
-                      />
-                    </Field>
-                  )}
-                  {(goals.groupPvTarget == null || goals.groupPvTarget > 0) && (
-                    <Field
-                      label="Group PV (GPV) this week"
-                      hint={
-                        goals.groupPvTarget
-                          ? `Goal: ${goals.groupPvTarget} GPV / month`
-                          : undefined
-                      }
-                    >
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={draft[w.week]?.groupPv ?? ""}
-                        onChange={(e) => updateDraft(w.week, { groupPv: e.target.value })}
-                        disabled={readOnly}
-                        className="h-10"
-                      />
-                    </Field>
-                  )}
+                      {savingWeek === w.week ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Lock className="h-3.5 w-3.5" />
+                          Save &amp; lock week
+                        </>
+                      )}
+                    </Button>
+                  ) : row?.is_locked ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-green text-white text-xs font-semibold px-3 py-1.5">
+                      <Lock className="h-3 w-3" />
+                      Locked
+                    </span>
+                  ) : null}
                 </div>
 
-                {(hasWrittenGoals || hasSkillsGoal) && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {hasWrittenGoals && (
-                      <Field label="Activities done toward your goals">
-                        <Textarea
-                          placeholder="What did you do this week? (accounts opened, gigs applied, outreach, meetings…)"
-                          value={draft[w.week]?.activitiesDone ?? ""}
-                          onChange={(e) => updateDraft(w.week, { activitiesDone: e.target.value })}
-                          disabled={readOnly}
-                          rows={3}
-                          className="resize-none text-sm"
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {(goals.incomeGoal == null || goals.incomeGoal > 0) && (
+                      <Field
+                        label="Earned this week (USD)"
+                        hint={goals.incomeGoal ? `Goal: ${formatMoney(goals.incomeGoal)} / month` : undefined}
+                      >
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={draft[w.week]?.amount ?? ""}
+                          onChange={(e) => updateDraft(w.week, { amount: e.target.value })}
+                          disabled={weekLocked}
+                          className="h-10"
                         />
                       </Field>
                     )}
-                    {hasSkillsGoal && (
-                      <Field label="Skills practiced this week">
-                        <Textarea
-                          placeholder="What skills did you work on or learn this week?"
-                          value={draft[w.week]?.skillsProgress ?? ""}
-                          onChange={(e) => updateDraft(w.week, { skillsProgress: e.target.value })}
-                          disabled={readOnly}
-                          rows={3}
-                          className="resize-none text-sm"
+                    {(goals.prospectsTarget == null || goals.prospectsTarget > 0) && (
+                      <Field
+                        label="Prospects this week"
+                        hint={
+                          goals.prospectsTarget
+                            ? `Goal: ${goals.prospectsTarget} / month`
+                            : undefined
+                        }
+                      >
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={draft[w.week]?.prospects ?? ""}
+                          onChange={(e) => updateDraft(w.week, { prospects: e.target.value })}
+                          disabled={weekLocked}
+                          className="h-10"
+                        />
+                      </Field>
+                    )}
+                    {(goals.officeProspectsExpected == null ||
+                      goals.officeProspectsExpected > 0) && (
+                      <Field
+                        label="Office prospects"
+                        hint={
+                          goals.officeProspectsExpected
+                            ? `Goal: ${goals.officeProspectsExpected} / month`
+                            : undefined
+                        }
+                      >
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={draft[w.week]?.officeProspects ?? ""}
+                          onChange={(e) => updateDraft(w.week, { officeProspects: e.target.value })}
+                          disabled={weekLocked}
+                          className="h-10"
+                        />
+                      </Field>
+                    )}
+                    {(goals.contactsExpected == null || goals.contactsExpected > 0) && (
+                      <Field
+                        label="Contacts this week"
+                        hint={
+                          goals.contactsExpected
+                            ? `Goal: ${goals.contactsExpected} / month`
+                            : undefined
+                        }
+                      >
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={draft[w.week]?.contacts ?? ""}
+                          onChange={(e) => updateDraft(w.week, { contacts: e.target.value })}
+                          disabled={weekLocked}
+                          className="h-10"
+                        />
+                      </Field>
+                    )}
+                    {(goals.personalPvTarget == null || goals.personalPvTarget > 0) && (
+                      <Field
+                        label="Personal PV this week"
+                        hint={
+                          goals.personalPvTarget
+                            ? `Goal: ${goals.personalPvTarget} PV / month`
+                            : undefined
+                        }
+                      >
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={draft[w.week]?.personalPv ?? ""}
+                          onChange={(e) => updateDraft(w.week, { personalPv: e.target.value })}
+                          disabled={weekLocked}
+                          className="h-10"
+                        />
+                      </Field>
+                    )}
+                    {(goals.groupPvTarget == null || goals.groupPvTarget > 0) && (
+                      <Field
+                        label="Group PV (GPV) this week"
+                        hint={
+                          goals.groupPvTarget
+                            ? `Goal: ${goals.groupPvTarget} GPV / month`
+                            : undefined
+                        }
+                      >
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={draft[w.week]?.groupPv ?? ""}
+                          onChange={(e) => updateDraft(w.week, { groupPv: e.target.value })}
+                          disabled={weekLocked}
+                          className="h-10"
                         />
                       </Field>
                     )}
                   </div>
-                )}
 
-                {!hasWrittenGoals && !hasSkillsGoal && (
-                  <Field label="Weekly activities & notes">
-                    <Textarea
-                      placeholder="What did you accomplish this week toward your monthly goals?"
-                      value={draft[w.week]?.activitiesDone ?? ""}
-                      onChange={(e) => updateDraft(w.week, { activitiesDone: e.target.value })}
-                      disabled={readOnly}
-                      rows={2}
-                      className="resize-none text-sm"
-                    />
-                  </Field>
-                )}
+                  {(hasWrittenGoals || hasSkillsGoal) && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {hasWrittenGoals && (
+                        <Field label="Activities done toward your goals">
+                          <Textarea
+                            placeholder="What did you do this week? (accounts opened, gigs applied, outreach, meetings…)"
+                            value={draft[w.week]?.activitiesDone ?? ""}
+                            onChange={(e) => updateDraft(w.week, { activitiesDone: e.target.value })}
+                            disabled={weekLocked}
+                            rows={3}
+                            className="resize-none text-sm"
+                          />
+                        </Field>
+                      )}
+                      {hasSkillsGoal && (
+                        <Field label="Skills practiced this week">
+                          <Textarea
+                            placeholder="What skills did you work on or learn this week?"
+                            value={draft[w.week]?.skillsProgress ?? ""}
+                            onChange={(e) => updateDraft(w.week, { skillsProgress: e.target.value })}
+                            disabled={weekLocked}
+                            rows={3}
+                            className="resize-none text-sm"
+                          />
+                        </Field>
+                      )}
+                    </div>
+                  )}
+
+                  {!hasWrittenGoals && !hasSkillsGoal && (
+                    <Field label="Weekly activities & notes">
+                      <Textarea
+                        placeholder="What did you accomplish this week toward your monthly goals?"
+                        value={draft[w.week]?.activitiesDone ?? ""}
+                        onChange={(e) => updateDraft(w.week, { activitiesDone: e.target.value })}
+                        disabled={weekLocked}
+                        rows={2}
+                        className="resize-none text-sm"
+                      />
+                    </Field>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
