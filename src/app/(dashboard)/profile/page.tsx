@@ -1,33 +1,47 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Camera, Loader2, User2 } from "lucide-react";
+import { Camera, KeyRound, Loader2, Mail, ShieldCheck, User2 } from "lucide-react";
 import Image from "next/image";
 import { SuperAdminStar } from "@/components/shared/super-admin-star";
 import type { Profile } from "@/types/database";
 
 const BUCKET = "attachments";
 
+function passwordResetRedirectUrl() {
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  return `${appUrl}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
+        setEmail(user.email ?? null);
         const [{ data }, { data: roles }] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", user.id).single(),
           supabase.from("user_roles").select("role:roles(slug)").eq("user_id", user.id),
@@ -105,6 +119,26 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
+  async function handleSendPasswordEmail() {
+    if (!email) {
+      toast.error("No email on this account");
+      return;
+    }
+
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: passwordResetRedirectUrl(),
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setResetSent(true);
+      toast.success("Password change email sent — check your inbox");
+    }
+    setSendingReset(false);
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -125,7 +159,7 @@ export default function ProfilePage() {
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">My Profile</h1>
-        <p className="text-neutral-500 mt-1">Update your personal info and profile picture.</p>
+        <p className="text-neutral-500 mt-1">Update your personal info, picture, and password.</p>
       </div>
 
       <Card>
@@ -242,6 +276,84 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       </form>
+
+      <Card className="border-brand-orange/25 bg-gradient-to-br from-white to-brand-orange-light/30">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-brand-orange-dark" />
+            Password &amp; security
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            We email a secure link to your account address. Open it, choose a new password, and
+            you&apos;ll be sent back into the website automatically.
+          </p>
+
+          <div className="space-y-2">
+            <Label htmlFor="account_email">Account email</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <Input
+                id="account_email"
+                value={email ?? ""}
+                readOnly
+                className="pl-9 bg-neutral-50"
+              />
+            </div>
+            <p className="text-xs text-neutral-400">
+              The password change link is sent only to this email.
+            </p>
+          </div>
+
+          {resetSent ? (
+            <div className="rounded-xl border border-brand-green/25 bg-brand-green-light/40 px-4 py-3 space-y-2">
+              <p className="text-sm font-semibold text-brand-green-dark flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Check your inbox
+              </p>
+              <p className="text-sm text-neutral-700">
+                We sent a password change link to <strong>{email}</strong>. Click it, set your new
+                password, then you&apos;ll return to the dashboard.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={sendingReset}
+                onClick={handleSendPasswordEmail}
+              >
+                {sendingReset ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Resend email"
+                )}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleSendPasswordEmail}
+              disabled={sendingReset || !email}
+              className="gap-2"
+            >
+              {sendingReset ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="h-4 w-4" />
+              )}
+              {sendingReset ? "Sending…" : "Email me a password change link"}
+            </Button>
+          )}
+
+          <p className="text-xs text-neutral-500">
+            Already have a reset link?{" "}
+            <Link href="/reset-password" className="text-brand-green font-medium hover:underline">
+              Open set new password
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
