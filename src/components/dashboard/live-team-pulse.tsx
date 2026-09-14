@@ -6,13 +6,12 @@ import { Briefcase, MessageSquare, Radio, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { RelativeTime } from "@/components/shared/relative-time";
-import { OrderTeamCheer } from "@/components/orders/order-celebration";
+import { OrderGiftBroadcast } from "@/components/orders/order-celebration";
 import type { TeamLiveEvent } from "@/types/database";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE = 10;
 const DEFAULT_HOLD_MS = 14_000;
-const ORDER_HOLD_MS = 30 * 60 * 1000; // 30 minutes
 
 type PulseItem = TeamLiveEvent & { exiting?: boolean };
 
@@ -25,7 +24,6 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
   const supabase = createClient();
   const [items, setItems] = useState<PulseItem[]>([]);
   const [ready, setReady] = useState(false);
-  const [cheerName, setCheerName] = useState<string | null>(null);
   const seenIds = useRef(new Set<string>());
   const exitTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const embedded = variant === "embedded";
@@ -45,10 +43,7 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
   }, []);
 
   const pushEvent = useCallback(
-    (
-      event: TeamLiveEvent,
-      options?: { toast?: boolean; autoExit?: boolean; cheer?: boolean }
-    ) => {
+    (event: TeamLiveEvent, options?: { toast?: boolean; autoExit?: boolean }) => {
       if (seenIds.current.has(event.id)) return;
       seenIds.current.add(event.id);
 
@@ -59,18 +54,13 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
 
       if (options?.toast) {
         toast.message(`${event.actor_name} ${event.summary}`, {
-          description: event.kind === "order" ? "Team order win 🏆" : "Live team activity",
-          duration: event.kind === "order" ? 6000 : 4000,
+          description: event.kind === "order" ? "Team order win" : "Live team activity",
+          duration: 4000,
         });
       }
 
-      if (options?.cheer && event.kind === "order") {
-        setCheerName(event.actor_name);
-      }
-
       if (options?.autoExit !== false) {
-        const hold = event.kind === "order" ? ORDER_HOLD_MS : DEFAULT_HOLD_MS;
-        scheduleExit(event.id, hold);
+        scheduleExit(event.id, DEFAULT_HOLD_MS);
       }
     },
     [scheduleExit]
@@ -95,26 +85,14 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
       for (const row of rows) {
         seenIds.current.add(row.id);
         const age = now - new Date(row.created_at).getTime();
-        const maxAge = row.kind === "order" ? ORDER_HOLD_MS : DEFAULT_HOLD_MS * 3;
-        if (age <= maxAge) visible.push(row);
+        if (age <= DEFAULT_HOLD_MS * 4) visible.push(row);
       }
 
       setItems(visible.slice(0, MAX_VISIBLE));
 
-      // Re-surface order wins still inside the 30-minute window
-      const recentOrder = visible.find((r) => r.kind === "order");
-      if (recentOrder) {
-        const age = now - new Date(recentOrder.created_at).getTime();
-        if (age < ORDER_HOLD_MS) {
-          setCheerName(recentOrder.actor_name);
-        }
-      }
-
-      // Schedule exits based on remaining time
       for (const row of visible) {
         const age = now - new Date(row.created_at).getTime();
-        const hold = row.kind === "order" ? ORDER_HOLD_MS : DEFAULT_HOLD_MS;
-        const remaining = Math.max(2_000, hold - age);
+        const remaining = Math.max(2_000, DEFAULT_HOLD_MS - age);
         scheduleExit(row.id, remaining);
       }
 
@@ -131,7 +109,7 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
         (payload) => {
           const row = payload.new as TeamLiveEvent;
           if (!row?.id) return;
-          pushEvent(row, { toast: true, autoExit: true, cheer: row.kind === "order" });
+          pushEvent(row, { toast: true, autoExit: true });
         }
       )
       .subscribe();
@@ -150,31 +128,24 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
     return MessageSquare;
   }
 
-  if (!ready && items.length === 0) {
-    return (
-      <div
-        className={cn(
-          "rounded-xl px-4 py-3 flex items-center gap-2 text-sm",
-          embedded
-            ? "border border-white/15 bg-white/5 text-emerald-100/80"
-            : "border border-neutral-200/80 bg-white/80 text-neutral-400"
-        )}
-      >
-        <Radio className="h-4 w-4 animate-pulse" />
-        Connecting to live team activity…
-      </div>
-    );
-  }
-
   return (
     <>
-      <OrderTeamCheer
-        open={!!cheerName}
-        actorName={cheerName ?? ""}
-        onClose={() => setCheerName(null)}
-      />
+      {/* Gift box celebration — twice per order (now + again after 30 min), even if they left */}
+      <OrderGiftBroadcast />
 
-      {items.length === 0 ? (
+      {!ready && items.length === 0 ? (
+        <div
+          className={cn(
+            "rounded-xl px-4 py-3 flex items-center gap-2 text-sm",
+            embedded
+              ? "border border-white/15 bg-white/5 text-emerald-100/80"
+              : "border border-neutral-200/80 bg-white/80 text-neutral-400"
+          )}
+        >
+          <Radio className="h-4 w-4 animate-pulse" />
+          Connecting to live team activity…
+        </div>
+      ) : items.length === 0 ? (
         <div
           className={cn(
             "live-pulse-empty rounded-xl border border-dashed px-4 py-3.5 flex items-center gap-3",
@@ -196,7 +167,7 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
               Waiting for the first ping…
             </p>
             <p className={cn("text-xs mt-0.5", embedded ? "text-emerald-100/70" : "text-neutral-500")}>
-              Messages, accounts, and order wins slide through here. Orders stay for 30 minutes.
+              Messages, accounts, and order wins slide through here. Order gifts pop for the team.
             </p>
           </div>
         </div>

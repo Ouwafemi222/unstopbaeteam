@@ -240,6 +240,37 @@ body {
   animation: order-win-bounce 1.2s ease-in-out infinite;
 }
 
+@keyframes order-gift-shake {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  20% { transform: translateY(-4px) rotate(-4deg) scale(1.02); }
+  40% { transform: translateY(2px) rotate(4deg) scale(1.04); }
+  60% { transform: translateY(-3px) rotate(-3deg) scale(1.02); }
+  80% { transform: translateY(1px) rotate(2deg) scale(1.01); }
+}
+
+.order-gift-shake {
+  animation: order-gift-shake 0.55s ease-in-out infinite;
+}
+
+@keyframes order-gift-explode {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.25) rotate(8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8) rotate(-12deg);
+  }
+}
+
+.order-gift-explode {
+  animation: order-gift-explode 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 /* Form page atmosphere + section motion */
 @keyframes form-section-in {
   0% {

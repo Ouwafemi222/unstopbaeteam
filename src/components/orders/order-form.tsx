@@ -261,8 +261,8 @@ export function OrderForm({
 
         <div className="sticky bottom-3 z-10 rounded-2xl border border-brand-orange/30 bg-white/95 backdrop-blur px-4 py-3 shadow-lg flex flex-wrap gap-3 items-center justify-between">
           <p className="text-xs text-neutral-500">
-            Saving triggers a win celebration and lights up every teammate&apos;s live stream for 30
-            minutes.
+            Saving triggers a win celebration for you, and a gift-box surprise on every teammate
+            dashboard — it opens automatically, then shows again after 30 minutes.
           </p>
           <div className="flex gap-2 ml-auto">
             <Button type="button" variant="outline" onClick={() => router.back()}>
