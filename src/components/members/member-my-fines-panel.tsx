@@ -33,7 +33,8 @@ export function MemberMyFinesPanel({ teamMemberId, variant = "dashboard" }: Memb
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    const withJoin = await supabase
       .from("fine_on_ground_entries")
       .select(`
         *,
@@ -46,11 +47,56 @@ export function MemberMyFinesPanel({ teamMemberId, variant = "dashboard" }: Memb
       .eq("obligation_type", "fine")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("MemberMyFinesPanel load error:", error.message);
+    let all: EntryWithRecorder[] = [];
+
+    if (!withJoin.error) {
+      all = (withJoin.data as EntryWithRecorder[]) ?? [];
+    } else {
+      // Fallback if schema cache hasn't picked up the FK yet
+      const { data, error } = await supabase
+        .from("fine_on_ground_entries")
+        .select("*, batch:fine_on_ground_batches(created_by)")
+        .eq("team_member_id", teamMemberId)
+        .eq("obligation_type", "fine")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("MemberMyFinesPanel load error:", error.message);
+        setUnpaid([]);
+        setSettled([]);
+        setLoading(false);
+        return;
+      }
+
+      all = (data as EntryWithRecorder[]) ?? [];
+      const recorderIds = [
+        ...new Set(
+          all
+            .map((e) => e.batch?.created_by)
+            .filter((id): id is string => Boolean(id))
+        ),
+      ];
+
+      if (recorderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", recorderIds);
+        const byId = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+        all = all.map((e) => {
+          const createdBy = e.batch?.created_by;
+          if (!createdBy || !e.batch) return e;
+          return {
+            ...e,
+            batch: {
+              ...e.batch,
+              profile: { full_name: byId.get(createdBy) ?? "Admin" },
+            },
+          };
+        });
+      }
     }
 
-    const all = (data as EntryWithRecorder[]) ?? [];
     setUnpaid(all.filter((d) => d.is_active && !d.paid_at && fineRemaining(d) > 0));
     setSettled(all.filter((d) => isFineFullySettled(d)));
     setLoading(false);
