@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Briefcase, MessageSquare, Radio } from "lucide-react";
+import { Briefcase, MessageSquare, Radio, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { RelativeTime } from "@/components/shared/relative-time";
+import { OrderTeamCheer } from "@/components/orders/order-celebration";
 import type { TeamLiveEvent } from "@/types/database";
 import { cn } from "@/lib/utils";
 
-const MAX_VISIBLE = 8;
-const CHIP_HOLD_MS = 14_000;
+const MAX_VISIBLE = 10;
+const DEFAULT_HOLD_MS = 14_000;
+const ORDER_HOLD_MS = 30 * 60 * 1000; // 30 minutes
 
 type PulseItem = TeamLiveEvent & { exiting?: boolean };
 
@@ -23,11 +25,12 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
   const supabase = createClient();
   const [items, setItems] = useState<PulseItem[]>([]);
   const [ready, setReady] = useState(false);
+  const [cheerName, setCheerName] = useState<string | null>(null);
   const seenIds = useRef(new Set<string>());
   const exitTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const embedded = variant === "embedded";
 
-  const scheduleExit = useCallback((id: string) => {
+  const scheduleExit = useCallback((id: string, holdMs: number) => {
     if (exitTimers.current.has(id)) return;
     const timer = setTimeout(() => {
       setItems((prev) =>
@@ -37,12 +40,15 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
         setItems((prev) => prev.filter((e) => e.id !== id));
         exitTimers.current.delete(id);
       }, 450);
-    }, CHIP_HOLD_MS);
+    }, holdMs);
     exitTimers.current.set(id, timer);
   }, []);
 
   const pushEvent = useCallback(
-    (event: TeamLiveEvent, options?: { toast?: boolean; autoExit?: boolean }) => {
+    (
+      event: TeamLiveEvent,
+      options?: { toast?: boolean; autoExit?: boolean; cheer?: boolean }
+    ) => {
       if (seenIds.current.has(event.id)) return;
       seenIds.current.add(event.id);
 
@@ -53,13 +59,18 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
 
       if (options?.toast) {
         toast.message(`${event.actor_name} ${event.summary}`, {
-          description: "Live team activity",
-          duration: 4000,
+          description: event.kind === "order" ? "Team order win 🏆" : "Live team activity",
+          duration: event.kind === "order" ? 6000 : 4000,
         });
       }
 
+      if (options?.cheer && event.kind === "order") {
+        setCheerName(event.actor_name);
+      }
+
       if (options?.autoExit !== false) {
-        scheduleExit(event.id);
+        const hold = event.kind === "order" ? ORDER_HOLD_MS : DEFAULT_HOLD_MS;
+        scheduleExit(event.id, hold);
       }
     },
     [scheduleExit]
@@ -73,13 +84,40 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
         .from("team_live_events")
         .select("id, kind, actor_name, summary, href, created_by, created_at")
         .order("created_at", { ascending: false })
-        .limit(15);
+        .limit(20);
 
       if (cancelled) return;
 
       const rows = (data as TeamLiveEvent[]) ?? [];
-      rows.forEach((row) => seenIds.current.add(row.id));
-      setItems(rows.slice(0, MAX_VISIBLE));
+      const now = Date.now();
+      const visible: TeamLiveEvent[] = [];
+
+      for (const row of rows) {
+        seenIds.current.add(row.id);
+        const age = now - new Date(row.created_at).getTime();
+        const maxAge = row.kind === "order" ? ORDER_HOLD_MS : DEFAULT_HOLD_MS * 3;
+        if (age <= maxAge) visible.push(row);
+      }
+
+      setItems(visible.slice(0, MAX_VISIBLE));
+
+      // Re-surface order wins still inside the 30-minute window
+      const recentOrder = visible.find((r) => r.kind === "order");
+      if (recentOrder) {
+        const age = now - new Date(recentOrder.created_at).getTime();
+        if (age < ORDER_HOLD_MS) {
+          setCheerName(recentOrder.actor_name);
+        }
+      }
+
+      // Schedule exits based on remaining time
+      for (const row of visible) {
+        const age = now - new Date(row.created_at).getTime();
+        const hold = row.kind === "order" ? ORDER_HOLD_MS : DEFAULT_HOLD_MS;
+        const remaining = Math.max(2_000, hold - age);
+        scheduleExit(row.id, remaining);
+      }
+
       setReady(true);
     }
 
@@ -93,7 +131,7 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
         (payload) => {
           const row = payload.new as TeamLiveEvent;
           if (!row?.id) return;
-          pushEvent(row, { toast: true, autoExit: true });
+          pushEvent(row, { toast: true, autoExit: true, cheer: row.kind === "order" });
         }
       )
       .subscribe();
@@ -104,7 +142,13 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
       exitTimers.current.clear();
       void supabase.removeChannel(channel);
     };
-  }, [supabase, pushEvent, variant]);
+  }, [supabase, pushEvent, scheduleExit, variant]);
+
+  function eventIcon(kind: string) {
+    if (kind === "account") return Briefcase;
+    if (kind === "order") return Trophy;
+    return MessageSquare;
+  }
 
   if (!ready && items.length === 0) {
     return (
@@ -122,109 +166,122 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
     );
   }
 
-  if (items.length === 0) {
-    return (
-      <div
-        className={cn(
-          "live-pulse-empty rounded-xl border border-dashed px-4 py-3.5 flex items-center gap-3",
-          embedded
-            ? "border-white/25 bg-white/5"
-            : "border-neutral-200 bg-gradient-to-r from-white via-brand-green-light/10 to-brand-orange-light/20"
-        )}
-      >
+  return (
+    <>
+      <OrderTeamCheer
+        open={!!cheerName}
+        actorName={cheerName ?? ""}
+        onClose={() => setCheerName(null)}
+      />
+
+      {items.length === 0 ? (
         <div
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl",
-            embedded ? "bg-white/10 text-brand-orange" : "bg-brand-green/10 text-brand-green"
+            "live-pulse-empty rounded-xl border border-dashed px-4 py-3.5 flex items-center gap-3",
+            embedded
+              ? "border-white/25 bg-white/5"
+              : "border-neutral-200 bg-gradient-to-r from-white via-brand-green-light/10 to-brand-orange-light/20"
           )}
         >
-          <Radio className="h-4 w-4" />
-        </div>
-        <div>
-          <p className={cn("text-sm font-semibold", embedded ? "text-white" : "text-neutral-800")}>
-            Waiting for the first ping…
-          </p>
-          <p className={cn("text-xs mt-0.5", embedded ? "text-emerald-100/70" : "text-neutral-500")}>
-            When someone records a message or account, it slides through here.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        "relative overflow-hidden",
-        embedded
-          ? "rounded-xl"
-          : "rounded-2xl border border-brand-green/20 bg-gradient-to-r from-white via-brand-green-light/15 to-brand-orange-light/25 shadow-sm"
-      )}
-    >
-      {!embedded && (
-        <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-brand-green to-brand-orange" />
-      )}
-      <div className={cn("flex items-center gap-3", embedded ? "px-0 py-0" : "pl-4 pr-3 py-3")}>
-        {!embedded && (
-          <div className="hidden sm:flex items-center gap-2 shrink-0">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-green opacity-60" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-green" />
-            </span>
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-green-dark">Live</p>
+          <div
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl",
+              embedded ? "bg-white/10 text-brand-orange" : "bg-brand-green/10 text-brand-green"
+            )}
+          >
+            <Radio className="h-4 w-4" />
           </div>
-        )}
-
-        <div className="live-pulse-track flex gap-3 overflow-x-auto pb-0.5 min-w-0 flex-1">
-          {items.map((event) => {
-            const Icon = event.kind === "account" ? Briefcase : MessageSquare;
-            const chip = (
-              <div
-                className={cn(
-                  "live-pulse-chip inline-flex items-center gap-2 rounded-full border px-3.5 py-2 whitespace-nowrap shadow-sm",
-                  event.exiting ? "live-pulse-exit" : "live-pulse-enter",
-                  embedded
-                    ? event.kind === "account"
-                      ? "border-emerald-300/30 bg-white text-neutral-900"
-                      : "border-amber-300/40 bg-white text-neutral-900"
-                    : event.kind === "account"
-                      ? "border-brand-green/25 bg-white text-neutral-800"
-                      : "border-brand-orange/30 bg-white text-neutral-800"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full",
-                    event.kind === "account"
-                      ? "bg-brand-green-light text-brand-green-dark"
-                      : "bg-brand-orange-light text-brand-orange-dark"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-sm">
-                  <strong className="font-semibold">{event.actor_name}</strong>{" "}
-                  <span className="text-neutral-600">{event.summary}</span>
-                </span>
-                <RelativeTime
-                  iso={event.created_at}
-                  className="text-xs text-neutral-400 font-medium"
-                />
-              </div>
-            );
-
-            return event.href ? (
-              <Link key={event.id} href={event.href} className="shrink-0 hover:opacity-90 transition-opacity">
-                {chip}
-              </Link>
-            ) : (
-              <div key={event.id} className="shrink-0">
-                {chip}
-              </div>
-            );
-          })}
+          <div>
+            <p className={cn("text-sm font-semibold", embedded ? "text-white" : "text-neutral-800")}>
+              Waiting for the first ping…
+            </p>
+            <p className={cn("text-xs mt-0.5", embedded ? "text-emerald-100/70" : "text-neutral-500")}>
+              Messages, accounts, and order wins slide through here. Orders stay for 30 minutes.
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
+      ) : (
+        <div
+          className={cn(
+            "relative overflow-hidden",
+            embedded
+              ? "rounded-xl"
+              : "rounded-2xl border border-brand-green/20 bg-gradient-to-r from-white via-brand-green-light/15 to-brand-orange-light/25 shadow-sm"
+          )}
+        >
+          {!embedded && (
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-brand-green to-brand-orange" />
+          )}
+          <div className={cn("flex items-center gap-3", embedded ? "px-0 py-0" : "pl-4 pr-3 py-3")}>
+            {!embedded && (
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-green opacity-60" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-green" />
+                </span>
+                <p className="text-xs font-bold uppercase tracking-wider text-brand-green-dark">Live</p>
+              </div>
+            )}
+
+            <div className="live-pulse-track flex gap-3 overflow-x-auto pb-0.5 min-w-0 flex-1">
+              {items.map((event) => {
+                const Icon = eventIcon(event.kind);
+                const isOrder = event.kind === "order";
+                const chip = (
+                  <div
+                    className={cn(
+                      "live-pulse-chip inline-flex items-center gap-2 rounded-full border px-3.5 py-2 whitespace-nowrap shadow-sm",
+                      event.exiting ? "live-pulse-exit" : "live-pulse-enter",
+                      isOrder
+                        ? "border-brand-orange/40 bg-gradient-to-r from-brand-orange-light to-white text-neutral-900 ring-1 ring-brand-orange/20"
+                        : embedded
+                          ? "border-emerald-300/30 bg-white text-neutral-900"
+                          : event.kind === "account"
+                            ? "border-brand-green/25 bg-white text-neutral-800"
+                            : "border-brand-orange/30 bg-white text-neutral-800"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-full",
+                        isOrder
+                          ? "bg-brand-orange text-white"
+                          : event.kind === "account"
+                            ? "bg-brand-green-light text-brand-green-dark"
+                            : "bg-brand-orange-light text-brand-orange-dark"
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="text-sm">
+                      <strong className="font-semibold">{event.actor_name}</strong>{" "}
+                      <span className="text-neutral-600">{event.summary}</span>
+                    </span>
+                    <RelativeTime
+                      iso={event.created_at}
+                      className="text-xs text-neutral-400 font-medium"
+                    />
+                  </div>
+                );
+
+                return event.href ? (
+                  <Link
+                    key={event.id}
+                    href={event.href}
+                    className="shrink-0 hover:opacity-90 transition-opacity"
+                  >
+                    {chip}
+                  </Link>
+                ) : (
+                  <div key={event.id} className="shrink-0">
+                    {chip}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type LiveKind = "message" | "account";
+type LiveKind = "message" | "account" | "order";
 
 /**
  * Publish a slim, public-safe team activity event for the dashboard live pulse.
@@ -18,7 +18,9 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const kind: LiveKind | null =
-    body.kind === "message" || body.kind === "account" ? body.kind : null;
+    body.kind === "message" || body.kind === "account" || body.kind === "order"
+      ? body.kind
+      : null;
   const actorName =
     typeof body.actorName === "string" && body.actorName.trim()
       ? body.actorName.trim().slice(0, 120)

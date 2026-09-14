@@ -3,7 +3,7 @@ import { ClipboardList, CheckCircle2, AlertCircle, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { currentYearMonth, formatYearMonthLabel } from "@/lib/utils/dates";
-import { getWeeksInMonth } from "@/lib/members/week-utils";
+import { getWeeksInMonth, weekForCalendarDate } from "@/lib/members/week-utils";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
 import { WeeklyActivityMonthPicker } from "@/components/admin/weekly-activity-month-picker";
 import {
@@ -35,8 +35,12 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
   const supabase = await createClient();
   const weeks = getWeeksInMonth(yearMonth);
   const weekNumbers = weeks.map((w) => w.week);
+  const monthStart = `${yearMonth}-01`;
+  const [y, m] = yearMonth.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const monthEnd = `${yearMonth}-${String(lastDay).padStart(2, "0")}`;
 
-  const [{ data: members }, { data: earnings }] = await Promise.all([
+  const [{ data: members }, { data: earnings }, { data: orders }] = await Promise.all([
     supabase
       .from("team_members")
       .select("id, full_name, preferred_name, status")
@@ -47,6 +51,11 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
       .select("*")
       .eq("year_month", yearMonth)
       .order("week_number", { ascending: true }),
+    supabase
+      .from("orders_received")
+      .select("id, team_member_id, received_date")
+      .gte("received_date", monthStart)
+      .lte("received_date", monthEnd),
   ]);
 
   const earningsList = (earnings ?? []) as MemberWeeklyEarning[];
@@ -58,8 +67,19 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
     byMember.set(e.team_member_id, list);
   }
 
+  const ordersByMemberWeek = new Map<string, Record<number, number>>();
+  for (const o of orders ?? []) {
+    const mapped = weekForCalendarDate(o.received_date);
+    if (!mapped || mapped.yearMonth !== yearMonth) continue;
+    const bucket = ordersByMemberWeek.get(o.team_member_id) ?? {};
+    bucket[mapped.week] = (bucket[mapped.week] ?? 0) + 1;
+    ordersByMemberWeek.set(o.team_member_id, bucket);
+  }
+
   const rows: WeeklyActivityMemberRow[] = (members ?? []).map((m) => {
     const entries = byMember.get(m.id) ?? [];
+    const ordersByWeek = ordersByMemberWeek.get(m.id) ?? {};
+    const orderTotal = Object.values(ordersByWeek).reduce((s, n) => s + n, 0);
     return {
       memberId: m.id,
       fullName: m.full_name,
@@ -75,6 +95,8 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
       contacts: entries.reduce((s, e) => s + Number(e.contacts_count ?? 0), 0),
       personalPv: entries.reduce((s, e) => s + Number(e.personal_pv ?? 0), 0),
       groupPv: entries.reduce((s, e) => s + Number(e.group_pv ?? 0), 0),
+      orders: orderTotal,
+      ordersByWeek,
       entries,
     };
   });
@@ -89,6 +111,7 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
   const submittedCount = rows.filter((r) => r.weeksLogged > 0).length;
   const missingCount = rows.length - submittedCount;
   const totalWeekSubs = rows.reduce((s, r) => s + r.weeksLogged, 0);
+  const totalOrders = rows.reduce((s, r) => s + r.orders, 0);
 
   return (
     <div className="space-y-6">
@@ -103,13 +126,13 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
             <span className="font-medium text-neutral-700">
               {formatYearMonthLabel(yearMonth)}
             </span>
-            . Click a row to see activities and notes.
+            , including orders received. Click a row to see activities and notes.
           </p>
         </div>
         <WeeklyActivityMonthPicker value={yearMonth} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <SummaryCard
           icon={<Users className="h-4 w-4 text-sky-600" />}
           iconBg="bg-sky-100"
@@ -133,6 +156,12 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
           iconBg="bg-violet-100"
           label="Week entries logged"
           value={String(totalWeekSubs)}
+        />
+        <SummaryCard
+          icon={<span className="text-brand-orange font-bold text-sm">🏆</span>}
+          iconBg="bg-brand-orange-light"
+          label="Orders received"
+          value={String(totalOrders)}
         />
       </div>
 

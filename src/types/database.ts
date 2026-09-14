@@ -288,7 +288,7 @@ export interface FineEarningAlert {
 }
 
 /** Slim public-safe activity row for the dashboard live pulse */
-export type TeamLiveEventKind = "message" | "account";
+export type TeamLiveEventKind = "message" | "account" | "order";
 
 export interface TeamLiveEvent {
   id: string;
@@ -298,6 +298,24 @@ export interface TeamLiveEvent {
   href: string | null;
   created_by: string | null;
   created_at: string;
+}
+
+export interface OrderReceived {
+  id: string;
+  team_member_id: string;
+  fiverr_account_id: string | null;
+  received_date: string;
+  received_time: string | null;
+  gig_name: string | null;
+  buyer_name: string | null;
+  order_amount: number | null;
+  currency: string;
+  notes: string | null;
+  recorded_by: string | null;
+  created_at: string;
+  updated_at: string;
+  team_member?: { id: string; full_name: string } | null;
+  fiverr_account?: { id: string; username: string } | null;
 }
 
 export interface SearchResult {

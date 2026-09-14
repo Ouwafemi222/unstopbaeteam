@@ -35,6 +35,7 @@ import {
   TrendingUp,
   Star,
   Target,
+  Trophy,
 } from "lucide-react";
 import { getGreeting } from "@/lib/utils";
 import type { MemberWeeklyEarning, MemberMonthlyPlan, TeamMember } from "@/types/database";
@@ -161,6 +162,12 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
               <Button size="sm" variant="outline" className="border-white/40 text-white hover:bg-white/10">
                 <MessageSquare className="h-4 w-4 mr-1" />
                 Record Message
+              </Button>
+            </Link>
+            <Link href="/my-orders/new">
+              <Button size="sm" variant="outline" className="border-brand-orange/50 bg-brand-orange/20 text-white hover:bg-brand-orange/30">
+                <Trophy className="h-4 w-4 mr-1" />
+                Record Order
               </Button>
             </Link>
           </div>

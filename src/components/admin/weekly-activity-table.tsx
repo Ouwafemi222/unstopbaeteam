@@ -27,6 +27,8 @@ export interface WeeklyActivityMemberRow {
   contacts: number;
   personalPv: number;
   groupPv: number;
+  orders: number;
+  ordersByWeek: Record<number, number>;
   entries: MemberWeeklyEarning[];
 }
 
@@ -60,6 +62,7 @@ export function WeeklyActivityTable({ rows, weekNumbers }: Props) {
               </th>
             ))}
             <th className="p-3 font-medium text-right">Income</th>
+            <th className="p-3 font-medium text-right">Orders</th>
             <th className="p-3 font-medium text-right">Prospects</th>
             <th className="p-3 font-medium text-right">Contacts</th>
             <th className="p-3 font-medium text-right">PV</th>
@@ -135,6 +138,9 @@ export function WeeklyActivityTable({ rows, weekNumbers }: Props) {
                   <td className="p-3 text-right tabular-nums font-medium">
                     {row.income > 0 ? formatMoney(row.income) : "—"}
                   </td>
+                  <td className="p-3 text-right tabular-nums font-semibold text-brand-orange">
+                    {row.orders > 0 ? row.orders : "—"}
+                  </td>
                   <td className="p-3 text-right tabular-nums">{row.prospects || "—"}</td>
                   <td className="p-3 text-right tabular-nums">{row.contacts || "—"}</td>
                   <td className="p-3 text-right tabular-nums">
@@ -145,14 +151,15 @@ export function WeeklyActivityTable({ rows, weekNumbers }: Props) {
                 </tr>
                 {open && (
                   <tr className="border-b bg-neutral-50/80">
-                    <td colSpan={7 + weekNumbers.length} className="p-0">
+                    <td colSpan={8 + weekNumbers.length} className="p-0">
                       <div className="px-5 py-4 space-y-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                           Week-by-week submission detail
                         </p>
                         {weekNumbers.map((w) => {
                           const e = byWeek.get(w);
-                          if (!e) {
+                          const weekOrders = row.ordersByWeek[w] ?? 0;
+                          if (!e && weekOrders === 0) {
                             return (
                               <div
                                 key={w}
@@ -169,23 +176,29 @@ export function WeeklyActivityTable({ rows, weekNumbers }: Props) {
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <p className="font-semibold text-neutral-900">Week {w}</p>
-                                <p className="text-xs text-neutral-400">
-                                  Updated{" "}
-                                  {new Date(e.updated_at ?? e.created_at).toLocaleString()}
-                                </p>
+                                {e && (
+                                  <p className="text-xs text-neutral-400">
+                                    Updated{" "}
+                                    {new Date(e.updated_at ?? e.created_at).toLocaleString()}
+                                  </p>
+                                )}
                               </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
-                                <Stat label="Income" value={formatMoney(Number(e.amount), e.currency)} />
-                                <Stat label="Prospects" value={String(e.prospects_count ?? 0)} />
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 text-xs">
+                                <Stat
+                                  label="Income"
+                                  value={e ? formatMoney(Number(e.amount), e.currency) : "—"}
+                                />
+                                <Stat label="Orders" value={String(weekOrders)} />
+                                <Stat label="Prospects" value={String(e?.prospects_count ?? 0)} />
                                 <Stat
                                   label="Office"
-                                  value={String(e.office_prospects_count ?? 0)}
+                                  value={String(e?.office_prospects_count ?? 0)}
                                 />
-                                <Stat label="Contacts" value={String(e.contacts_count ?? 0)} />
-                                <Stat label="Personal PV" value={String(e.personal_pv ?? 0)} />
-                                <Stat label="Group PV" value={String(e.group_pv ?? 0)} />
+                                <Stat label="Contacts" value={String(e?.contacts_count ?? 0)} />
+                                <Stat label="Personal PV" value={String(e?.personal_pv ?? 0)} />
+                                <Stat label="Group PV" value={String(e?.group_pv ?? 0)} />
                               </div>
-                              {(e.activities_done || e.skills_progress || e.notes) && (
+                              {e && (e.activities_done || e.skills_progress || e.notes) && (
                                 <div className="grid sm:grid-cols-2 gap-3 pt-1">
                                   {e.activities_done && (
                                     <NoteBlock title="Activities done" text={e.activities_done} />

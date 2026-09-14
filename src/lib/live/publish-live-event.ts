@@ -1,4 +1,4 @@
-export type LiveEventKind = "message" | "account";
+export type LiveEventKind = "message" | "account" | "order";
 
 /**
  * Fire-and-forget publish for the dashboard live pulse.

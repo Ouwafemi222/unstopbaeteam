@@ -198,6 +198,48 @@ body {
   animation: admin-hero-stat-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes order-confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(-10vh) rotate(0deg);
+  }
+  100% {
+    opacity: 0.15;
+    transform: translateY(110vh) rotate(720deg);
+  }
+}
+
+.order-confetti {
+  animation-name: order-confetti-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes order-win-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.86) translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.order-win-pop {
+  animation: order-win-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes order-win-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-6px) scale(1.06); }
+  70% { transform: translateY(2px) scale(0.98); }
+}
+
+.order-win-bounce {
+  animation: order-win-bounce 1.2s ease-in-out infinite;
+}
+
 /* Form page atmosphere + section motion */
 @keyframes form-section-in {
   0% {

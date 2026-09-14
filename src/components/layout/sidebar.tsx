@@ -28,6 +28,7 @@ import {
   Target,
   HandCoins,
   ClipboardList,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { href: "/team-members", label: "Team Members", icon: Users, permission: "team_members.view" },
   { href: "/accounts", label: "Fiverr Accounts", icon: Briefcase, permission: "accounts.view" },
   { href: "/messages", label: "Messages", icon: MessageSquare, permission: "messages.view" },
+  { href: "/orders", label: "Orders Received", icon: Trophy, permission: "messages.view" },
   { href: "/services", label: "Services", icon: Wrench },
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
   { href: "/weekly-activity", label: "Weekly Activity", icon: ClipboardList, permission: "reports.view" },
@@ -64,6 +66,7 @@ const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
   { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
   { href: "/my-messages", label: "My Messages", icon: MessageSquare },
+  { href: "/my-orders", label: "Orders Received", icon: Trophy },
   { href: "/my-fines", label: "My Fines", icon: AlertTriangle },
   { href: "/my-debts", label: "My Debt", icon: HandCoins },
   { href: "/my-monthly-plan", label: "Monthly Goals", icon: Target },
@@ -90,16 +93,21 @@ function buildNavItems(teamMemberId?: string | null, isScopedMember?: boolean): 
       icon: MessageSquare,
     });
     items.splice(3, 0, {
+      href: "/my-orders",
+      label: "Orders Received",
+      icon: Trophy,
+    });
+    items.splice(4, 0, {
       href: "/my-monthly-plan",
       label: "Monthly Goals",
       icon: Target,
     });
-    items.splice(4, 0, {
+    items.splice(5, 0, {
       href: "/my-team",
       label: "My Team",
       icon: Users,
     });
-    items.splice(5, 0, {
+    items.splice(6, 0, {
       href: `/team-members/${teamMemberId}`,
       label: "My Team Profile",
       icon: UserCircle,

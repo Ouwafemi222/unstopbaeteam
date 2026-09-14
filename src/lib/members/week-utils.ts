@@ -26,3 +26,16 @@ export function getWeeksInMonth(yearMonth: string): MonthWeek[] {
 
   return weeks;
 }
+
+/** Map YYYY-MM-DD to year_month + week number used by weekly reports. */
+export function weekForCalendarDate(isoDate: string): { yearMonth: string; week: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate.trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (!year || !month || !day || day < 1 || day > 31) return null;
+  const yearMonth = `${m[1]}-${m[2]}`;
+  const week = Math.floor((day - 1) / 7) + 1;
+  return { yearMonth, week };
+}
