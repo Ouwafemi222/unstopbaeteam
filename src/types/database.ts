@@ -1,6 +1,6 @@
 export type AccountStatus =
   | "active" | "new" | "pending_setup" | "verification_pending"
-  | "verified" | "restricted" | "disabled" | "suspended" | "closed" | "archived";
+  | "verified" | "restricted" | "disabled" | "suspended" | "closed" | "blocked" | "archived";
 
 export type MessageStatus =
   | "new" | "replied" | "qualified" | "not_qualified"
@@ -206,11 +206,14 @@ export interface MemberMonthlyPlan {
   updated_at: string;
 }
 
+export type WeeklyPaymentSource = "fiverr" | "outside";
+
 export interface MemberWeeklyEarning {
   id: string;
   team_member_id: string;
   year_month: string;
   week_number: number;
+  /** Net take-home in `currency` (after Fiverr fee when source is fiverr). */
   amount: number;
   currency: string;
   notes: string | null;
@@ -221,6 +224,17 @@ export interface MemberWeeklyEarning {
   skills_progress: string | null;
   personal_pv: number;
   group_pv: number;
+  /** fiverr = auto fee deduct; outside = pick currency → NGN */
+  payment_source: WeeklyPaymentSource;
+  /** Gross before Fiverr fee (fiverr source). */
+  gross_amount: number | null;
+  fee_amount: number;
+  fee_percent: number;
+  /** Net converted to NGN at save time. */
+  amount_ngn: number | null;
+  /** Units of NGN per 1 unit of `currency` at save time. */
+  fx_rate: number | null;
+  fx_fetched_at: string | null;
   /** Once true, member can view but not edit this week */
   is_locked: boolean;
   locked_at: string | null;

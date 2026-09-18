@@ -29,6 +29,7 @@ import {
   HandCoins,
   ClipboardList,
   Trophy,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,8 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   permission?: string;
+  /** Only visible to super admins */
+  superOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -52,6 +55,7 @@ const navItems: NavItem[] = [
   { href: "/services", label: "Services", icon: Wrench },
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
   { href: "/weekly-activity", label: "Weekly Activity", icon: ClipboardList, permission: "reports.view" },
+  { href: "/money", label: "Money Made", icon: Banknote, superOnly: true },
   { href: "/reports", label: "Reports", icon: FileText, permission: "reports.view" },
   { href: "/fines", label: "Fines & Debts", icon: AlertTriangle, permission: "team_members.view" },
   { href: "/search", label: "Search", icon: Search },
@@ -124,15 +128,26 @@ interface SidebarProps {
   onClose?: () => void;
   teamMemberId?: string | null;
   isScopedMember?: boolean;
+  isSuperAdmin?: boolean;
 }
 
-export function Sidebar({ permissions, collapsed, onToggle, mobile, onClose, teamMemberId, isScopedMember }: SidebarProps) {
+export function Sidebar({
+  permissions,
+  collapsed,
+  onToggle,
+  mobile,
+  onClose,
+  teamMemberId,
+  isScopedMember,
+  isSuperAdmin,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
   const filteredNav = buildNavItems(teamMemberId, isScopedMember).filter((item) => {
     if (isScopedMember) return true;
+    if (item.superOnly) return Boolean(isSuperAdmin);
     const permission = item.permission;
     if (!permission) return true;
     return permissions.includes(permission) || permissions.some((p) => p.includes("super"));

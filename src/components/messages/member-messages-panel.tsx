@@ -13,6 +13,8 @@ interface MemberMessagesPanelProps {
   memberName: string;
   basePath: string;
   showTitle?: boolean;
+  /** Skip a second DB round-trip when the parent already loaded messages. */
+  initialMessages?: Message[];
 }
 
 export async function MemberMessagesPanel({
@@ -20,15 +22,19 @@ export async function MemberMessagesPanel({
   memberName,
   basePath,
   showTitle = true,
+  initialMessages,
 }: MemberMessagesPanelProps) {
-  const supabase = await createClient();
-  const { data: messages } = await supabase
-    .from("messages")
-    .select("*, service:services(name), fiverr_account:fiverr_accounts(username)")
-    .eq("team_member_id", memberId)
-    .order("received_date", { ascending: false });
+  let list = initialMessages ?? [];
 
-  const list = (messages ?? []) as Message[];
+  if (!initialMessages) {
+    const supabase = await createClient();
+    const { data: messages } = await supabase
+      .from("messages")
+      .select("*, service:services(name), fiverr_account:fiverr_accounts(username)")
+      .eq("team_member_id", memberId)
+      .order("received_date", { ascending: false });
+    list = (messages ?? []) as Message[];
+  }
 
   return (
     <div className="space-y-4">

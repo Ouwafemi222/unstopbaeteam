@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, DollarSign, GraduationCap, Leaf, Loader2, Lock, Phone, Target, Users } from "lucide-react";
+import {
+  Building2,
+  DollarSign,
+  GraduationCap,
+  Leaf,
+  Loader2,
+  Lock,
+  Phone,
+  Target,
+  Users,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +22,18 @@ import { cn } from "@/lib/utils";
 import { getWeeksInMonth } from "@/lib/members/week-utils";
 import { formatYearMonthLabel } from "@/lib/utils/dates";
 import { formatDateTime } from "@/lib/utils";
+import {
+  applyFiverrFee,
+  convertWithGbpBaseRates,
+  EARNING_CURRENCIES,
+  FIVERR_SERVICE_FEE_PERCENT,
+  formatMoney,
+  formatNgn,
+  type EarningCurrency,
+  type PaymentSource,
+} from "@/lib/money/earnings";
+import type { ExchangeRates } from "@/app/api/currency/rates/route";
 import type { MemberWeeklyEarning } from "@/types/database";
-
-function formatMoney(amount: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
-}
 
 function parseOptionalNonNegativeInt(value: string): number {
   if (value.trim() === "") return 0;
@@ -48,6 +65,8 @@ export interface MonthlyGoalsSnapshot {
 }
 
 interface WeekDraft {
+  paymentSource: PaymentSource;
+  currency: EarningCurrency;
   amount: string;
   prospects: string;
   officeProspects: string;
@@ -59,6 +78,8 @@ interface WeekDraft {
 }
 
 const emptyDraft = (): WeekDraft => ({
+  paymentSource: "fiverr",
+  currency: "USD",
   amount: "",
   prospects: "",
   officeProspects: "",
@@ -91,8 +112,18 @@ export function MemberWeeklyEarningsPanel({
   const [savingWeek, setSavingWeek] = useState<number | null>(null);
   const [entries, setEntries] = useState<MemberWeeklyEarning[]>([]);
   const [draft, setDraft] = useState<Record<number, WeekDraft>>({});
+  const [rates, setRates] = useState<ExchangeRates | null>(null);
 
   const weeks = useMemo(() => getWeeksInMonth(yearMonth), [yearMonth]);
+
+  useEffect(() => {
+    fetch("/api/currency/rates")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.rates) setRates(data);
+      })
+      .catch(() => {});
+  }, []);
 
   const loadEntries = useCallback(async () => {
     setLoading(true);
@@ -110,9 +141,17 @@ export function MemberWeeklyEarningsPanel({
     const nextDraft: Record<number, WeekDraft> = {};
     weeks.forEach((w) => {
       const row = list.find((e) => e.week_number === w.week);
+      const source = (row?.payment_source as PaymentSource) || "fiverr";
+      const currency = (row?.currency as EarningCurrency) || "USD";
+      const displayAmount =
+        source === "fiverr" && row?.gross_amount != null
+          ? row.gross_amount
+          : row?.amount;
       nextDraft[w.week] = row
         ? {
-            amount: row.amount != null ? String(row.amount) : "",
+            paymentSource: source,
+            currency: EARNING_CURRENCIES.includes(currency) ? currency : "USD",
+            amount: displayAmount != null ? String(displayAmount) : "",
             prospects: row.prospects_count != null ? String(row.prospects_count) : "",
             officeProspects:
               row.office_prospects_count != null ? String(row.office_prospects_count) : "",
@@ -135,6 +174,8 @@ export function MemberWeeklyEarningsPanel({
   const totals = useMemo(
     () => ({
       income: entries.reduce((sum, e) => sum + Number(e.amount), 0),
+      incomeNgn: entries.reduce((sum, e) => sum + Number(e.amount_ngn ?? 0), 0),
+      fees: entries.reduce((sum, e) => sum + Number(e.fee_amount ?? 0), 0),
       prospects: entries.reduce((sum, e) => sum + Number(e.prospects_count ?? 0), 0),
       officeProspects: entries.reduce((sum, e) => sum + Number(e.office_prospects_count ?? 0), 0),
       contacts: entries.reduce((sum, e) => sum + Number(e.contacts_count ?? 0), 0),
@@ -151,6 +192,44 @@ export function MemberWeeklyEarningsPanel({
     }));
   }
 
+  function previewForWeek(week: number) {
+    const d = draft[week] ?? emptyDraft();
+    const entered = parseOptionalNonNegativeMoney(d.amount);
+    if (Number.isNaN(entered) || entered <= 0) return null;
+
+    if (d.paymentSource === "fiverr") {
+      const fee = applyFiverrFee(entered);
+      const ngn =
+        rates?.rates
+          ? convertWithGbpBaseRates(fee.net, "USD", "NGN", rates.rates)
+          : NaN;
+      return {
+        source: "fiverr" as const,
+        currency: "USD" as const,
+        gross: fee.gross,
+        feeAmount: fee.feeAmount,
+        feePercent: fee.feePercent,
+        net: fee.net,
+        ngn: Number.isFinite(ngn) ? ngn : null,
+      };
+    }
+
+    const currency = d.currency;
+    const ngn =
+      rates?.rates
+        ? convertWithGbpBaseRates(entered, currency, "NGN", rates.rates)
+        : NaN;
+    return {
+      source: "outside" as const,
+      currency,
+      gross: entered,
+      feeAmount: 0,
+      feePercent: 0,
+      net: entered,
+      ngn: Number.isFinite(ngn) ? ngn : null,
+    };
+  }
+
   async function saveWeek(weekNumber: number) {
     if (readOnly) return;
     const existing = entries.find((e) => e.week_number === weekNumber);
@@ -161,7 +240,7 @@ export function MemberWeeklyEarningsPanel({
 
     const d = draft[weekNumber] ?? emptyDraft();
 
-    const amount = parseOptionalNonNegativeMoney(d.amount);
+    const entered = parseOptionalNonNegativeMoney(d.amount);
     const prospects = parseOptionalNonNegativeInt(d.prospects);
     const officeProspects = parseOptionalNonNegativeInt(d.officeProspects);
     const contacts = parseOptionalNonNegativeInt(d.contacts);
@@ -169,7 +248,7 @@ export function MemberWeeklyEarningsPanel({
     const groupPv = parseOptionalNonNegativeInt(d.groupPv);
 
     if (
-      Number.isNaN(amount) ||
+      Number.isNaN(entered) ||
       Number.isNaN(prospects) ||
       Number.isNaN(officeProspects) ||
       Number.isNaN(contacts) ||
@@ -180,14 +259,72 @@ export function MemberWeeklyEarningsPanel({
       return;
     }
 
+    if (d.paymentSource === "outside" && entered > 0 && !d.currency) {
+      toast.error("Select the currency for this outside payment");
+      return;
+    }
+
+    let currency: EarningCurrency = d.paymentSource === "fiverr" ? "USD" : d.currency;
+    let grossAmount = entered;
+    let feePercent = 0;
+    let feeAmount = 0;
+    let netAmount = entered;
+
+    if (d.paymentSource === "fiverr" && entered > 0) {
+      const fee = applyFiverrFee(entered);
+      grossAmount = fee.gross;
+      feePercent = fee.feePercent;
+      feeAmount = fee.feeAmount;
+      netAmount = fee.net;
+      currency = "USD";
+    }
+
+    let amountNgn: number | null = null;
+    let fxRate: number | null = null;
+    let fxFetchedAt: string | null = null;
+
+    if (netAmount > 0) {
+      let ratesPayload = rates;
+      if (!ratesPayload?.rates) {
+        try {
+          const res = await fetch("/api/currency/rates");
+          const data = await res.json();
+          if (data?.rates) {
+            ratesPayload = data;
+            setRates(data);
+          }
+        } catch {
+          // continue without NGN
+        }
+      }
+      if (ratesPayload?.rates) {
+        const ngn = convertWithGbpBaseRates(netAmount, currency, "NGN", ratesPayload.rates);
+        if (Number.isFinite(ngn)) {
+          amountNgn = ngn;
+          fxRate =
+            currency === "NGN"
+              ? 1
+              : convertWithGbpBaseRates(1, currency, "NGN", ratesPayload.rates);
+          fxFetchedAt = ratesPayload.fetched_at ?? new Date().toISOString();
+        }
+      }
+    }
+
     setSavingWeek(weekNumber);
     const nowIso = new Date().toISOString();
     const payload = {
       team_member_id: teamMemberId,
       year_month: yearMonth,
       week_number: weekNumber,
-      amount,
-      currency: "USD",
+      amount: netAmount,
+      currency,
+      payment_source: d.paymentSource,
+      gross_amount: d.paymentSource === "fiverr" ? grossAmount : netAmount,
+      fee_amount: feeAmount,
+      fee_percent: feePercent,
+      amount_ngn: amountNgn,
+      fx_rate: fxRate,
+      fx_fetched_at: fxFetchedAt,
       prospects_count: prospects,
       office_prospects_count: officeProspects,
       contacts_count: contacts,
@@ -212,15 +349,19 @@ export function MemberWeeklyEarningsPanel({
           : error.message
       );
     } else {
-      toast.success(`Week ${weekNumber} saved and locked`);
-      if (amount > 0) {
+      const feeNote =
+        feeAmount > 0
+          ? ` (Fiverr fee ${formatMoney(feeAmount)} deducted — net ${formatMoney(netAmount)})`
+          : "";
+      toast.success(`Week ${weekNumber} saved and locked${feeNote}`);
+      if (netAmount > 0) {
         try {
           const res = await fetch("/api/fines/earning-alert", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              earnedAmount: amount,
-              earnedCurrency: "USD",
+              earnedAmount: netAmount,
+              earnedCurrency: currency,
               yearMonth,
               weekNumber,
             }),
@@ -236,7 +377,7 @@ export function MemberWeeklyEarningsPanel({
             );
           }
         } catch {
-          // Non-blocking — earnings already saved
+          // Non-blocking
         }
       }
       await loadEntries();
@@ -251,9 +392,10 @@ export function MemberWeeklyEarningsPanel({
     <div className="space-y-6">
       <p className="text-sm text-neutral-500 leading-relaxed">
         Each week, log what you <strong>actually did and earned</strong> toward your locked monthly
-        goals for {formatYearMonthLabel(yearMonth)}. Fill in the week, then click{" "}
-        <strong>Save &amp; lock week</strong>. After you save, that week stays visible but{" "}
-        <strong>cannot be edited</strong>.
+        goals for {formatYearMonthLabel(yearMonth)}. Choose{" "}
+        <strong>Fiverr</strong> (we auto-remove the {FIVERR_SERVICE_FEE_PERCENT}% service fee) or{" "}
+        <strong>Outside payment</strong> (pick currency — we convert to Naira). Then click{" "}
+        <strong>Save &amp; lock week</strong>.
       </p>
 
       {(goals.writtenGoals?.trim() || goals.skillsToLearn?.trim()) && (
@@ -284,11 +426,20 @@ export function MemberWeeklyEarningsPanel({
           <GoalProgressCard
             icon={<DollarSign className="h-4 w-4" />}
             iconBg="bg-emerald-100 text-emerald-700"
-            label="Income earned"
+            label="Income earned (net)"
             actual={formatMoney(totals.income)}
             target={formatMoney(goals.incomeGoal)}
             pct={progressPct(totals.income, goals.incomeGoal)}
             highlight
+            sub={
+              totals.incomeNgn > 0
+                ? `≈ ${formatNgn(totals.incomeNgn)}${
+                    totals.fees > 0 ? ` · fees ${formatMoney(totals.fees)}` : ""
+                  }`
+                : totals.fees > 0
+                  ? `Fiverr fees deducted: ${formatMoney(totals.fees)}`
+                  : undefined
+            }
           />
         )}
         {goals.prospectsTarget != null && goals.prospectsTarget > 0 && (
@@ -353,6 +504,8 @@ export function MemberWeeklyEarningsPanel({
             const row = entries.find((e) => e.week_number === w.week);
             const weekLocked = Boolean(row?.is_locked) || Boolean(readOnly);
             const canEdit = !readOnly && !row?.is_locked;
+            const d = draft[w.week] ?? emptyDraft();
+            const preview = previewForWeek(w.week);
 
             return (
               <div
@@ -406,24 +559,142 @@ export function MemberWeeklyEarningsPanel({
                 </div>
 
                 <div className="p-4 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {(goals.incomeGoal == null || goals.incomeGoal > 0) && (
-                      <Field
-                        label="Earned this week (USD)"
-                        hint={goals.incomeGoal ? `Goal: ${formatMoney(goals.incomeGoal)} / month` : undefined}
-                      >
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={draft[w.week]?.amount ?? ""}
-                          onChange={(e) => updateDraft(w.week, { amount: e.target.value })}
+                  {(goals.incomeGoal == null || goals.incomeGoal > 0) && (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
                           disabled={weekLocked}
-                          className="h-10"
-                        />
-                      </Field>
-                    )}
+                          onClick={() =>
+                            updateDraft(w.week, { paymentSource: "fiverr", currency: "USD" })
+                          }
+                          className={cn(
+                            "rounded-lg px-3 py-1.5 text-xs font-semibold border transition-colors",
+                            d.paymentSource === "fiverr"
+                              ? "bg-brand-green text-white border-brand-green"
+                              : "bg-white text-neutral-600 border-neutral-200 hover:border-brand-green/40"
+                          )}
+                        >
+                          From Fiverr
+                        </button>
+                        <button
+                          type="button"
+                          disabled={weekLocked}
+                          onClick={() => updateDraft(w.week, { paymentSource: "outside" })}
+                          className={cn(
+                            "rounded-lg px-3 py-1.5 text-xs font-semibold border transition-colors",
+                            d.paymentSource === "outside"
+                              ? "bg-brand-orange text-white border-brand-orange"
+                              : "bg-white text-neutral-600 border-neutral-200 hover:border-brand-orange/40"
+                          )}
+                        >
+                          Outside payment
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {d.paymentSource === "outside" && (
+                          <Field label="Currency">
+                            <select
+                              disabled={weekLocked}
+                              value={d.currency}
+                              onChange={(e) =>
+                                updateDraft(w.week, {
+                                  currency: e.target.value as EarningCurrency,
+                                })
+                              }
+                              className="h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm"
+                            >
+                              {EARNING_CURRENCIES.map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                        )}
+                        <Field
+                          label={
+                            d.paymentSource === "fiverr"
+                              ? "Gross from Fiverr (USD)"
+                              : `Amount received (${d.currency})`
+                          }
+                          hint={
+                            d.paymentSource === "fiverr"
+                              ? `${FIVERR_SERVICE_FEE_PERCENT}% service fee removed automatically`
+                              : "We'll convert this to Naira using live rates"
+                          }
+                        >
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={d.amount}
+                            onChange={(e) => updateDraft(w.week, { amount: e.target.value })}
+                            disabled={weekLocked}
+                            className="h-10"
+                          />
+                        </Field>
+                      </div>
+
+                      {preview && preview.net > 0 && (
+                        <div className="text-sm space-y-1 rounded-lg bg-white border border-emerald-100 px-3 py-2.5">
+                          {preview.source === "fiverr" && (
+                            <>
+                              <p className="text-neutral-600">
+                                Gross{" "}
+                                <span className="font-semibold text-neutral-900">
+                                  {formatMoney(preview.gross)}
+                                </span>
+                                {" · "}
+                                Fee (−{preview.feePercent}%){" "}
+                                <span className="font-semibold text-red-600">
+                                  −{formatMoney(preview.feeAmount)}
+                                </span>
+                              </p>
+                              <p className="text-neutral-900 font-semibold">
+                                You keep {formatMoney(preview.net)}
+                                {preview.ngn != null ? (
+                                  <span className="text-neutral-500 font-normal">
+                                    {" "}
+                                    ≈ {formatNgn(preview.ngn)}
+                                  </span>
+                                ) : null}
+                              </p>
+                            </>
+                          )}
+                          {preview.source === "outside" && (
+                            <p className="text-neutral-900 font-semibold">
+                              {formatMoney(preview.net, preview.currency)}
+                              {preview.ngn != null ? (
+                                <span className="text-neutral-500 font-normal">
+                                  {" "}
+                                  ≈ {formatNgn(preview.ngn)}
+                                </span>
+                              ) : (
+                                <span className="text-amber-600 font-normal text-xs ml-2">
+                                  (Naira rate loading…)
+                                </span>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {row?.is_locked && Number(row.amount) > 0 && (
+                        <div className="text-xs text-neutral-500">
+                          Saved net: {formatMoney(Number(row.amount), row.currency)}
+                          {row.fee_amount > 0 &&
+                            ` · fee ${formatMoney(Number(row.fee_amount), row.currency)}`}
+                          {row.amount_ngn != null && ` · ${formatNgn(Number(row.amount_ngn))}`}
+                          {row.payment_source === "outside" ? " · outside" : " · Fiverr"}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {(goals.prospectsTarget == null || goals.prospectsTarget > 0) && (
                       <Field
                         label="Prospects this week"
@@ -459,7 +730,9 @@ export function MemberWeeklyEarningsPanel({
                           min="0"
                           placeholder="0"
                           value={draft[w.week]?.officeProspects ?? ""}
-                          onChange={(e) => updateDraft(w.week, { officeProspects: e.target.value })}
+                          onChange={(e) =>
+                            updateDraft(w.week, { officeProspects: e.target.value })
+                          }
                           disabled={weekLocked}
                           className="h-10"
                         />
@@ -534,7 +807,9 @@ export function MemberWeeklyEarningsPanel({
                           <Textarea
                             placeholder="What did you do this week? (accounts opened, gigs applied, outreach, meetings…)"
                             value={draft[w.week]?.activitiesDone ?? ""}
-                            onChange={(e) => updateDraft(w.week, { activitiesDone: e.target.value })}
+                            onChange={(e) =>
+                              updateDraft(w.week, { activitiesDone: e.target.value })
+                            }
                             disabled={weekLocked}
                             rows={3}
                             className="resize-none text-sm"
@@ -546,7 +821,9 @@ export function MemberWeeklyEarningsPanel({
                           <Textarea
                             placeholder="What skills did you work on or learn this week?"
                             value={draft[w.week]?.skillsProgress ?? ""}
-                            onChange={(e) => updateDraft(w.week, { skillsProgress: e.target.value })}
+                            onChange={(e) =>
+                              updateDraft(w.week, { skillsProgress: e.target.value })
+                            }
                             disabled={weekLocked}
                             rows={3}
                             className="resize-none text-sm"
@@ -604,6 +881,7 @@ function GoalProgressCard({
   target,
   pct,
   highlight,
+  sub,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -612,6 +890,7 @@ function GoalProgressCard({
   target: string;
   pct: number | null;
   highlight?: boolean;
+  sub?: string;
 }) {
   return (
     <div
@@ -632,6 +911,7 @@ function GoalProgressCard({
         {actual}
         <span className="text-sm font-normal text-neutral-400"> / {target}</span>
       </p>
+      {sub && <p className="text-[11px] text-neutral-500">{sub}</p>}
       {pct != null && (
         <div>
           <p className="text-xs text-neutral-500 mb-1">{pct}% of monthly goal</p>

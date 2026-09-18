@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Briefcase, MessageSquare, AlertTriangle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { formatDate, getMessageServiceLabel } from "@/lib/utils";
-import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
+import { DashboardChartsLazy } from "@/components/dashboard/charts-lazy";
 import { DateFilterBar } from "@/components/dashboard/date-filter-bar";
 import { MemberDashboard } from "@/components/dashboard/member-dashboard";
 import { AdminAddMemberCard } from "@/components/dashboard/admin-add-member-card";
@@ -252,7 +252,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
       )}
 
-      <DashboardCharts
+      <DashboardChartsLazy
         messages={messages ?? []}
         members={members ?? []}
         countries={countries ?? []}

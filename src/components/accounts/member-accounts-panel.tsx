@@ -1,9 +1,13 @@
 import Link from "next/link";
-import { Plus, Pencil, Briefcase } from "lucide-react";
+import { Plus, Pencil, Briefcase, Ban } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AccountStatusBadge } from "@/components/shared/status-badges";
+import {
+  BlockAccountButton,
+  RestoreAccountButton,
+} from "@/components/accounts/block-account-button";
 import { formatDate } from "@/lib/utils";
 import type { FiverrAccount } from "@/types/database";
 
@@ -13,6 +17,10 @@ interface MemberAccountsPanelProps {
   /** Base path for add/edit routes, e.g. /my-accounts or /team-members/[id]/accounts */
   basePath: string;
   showTitle?: boolean;
+  /** Skip a second DB round-trip when the parent already loaded accounts. */
+  initialAccounts?: FiverrAccount[];
+  /** When true, member can block/restore their own accounts. */
+  allowBlock?: boolean;
 }
 
 export async function MemberAccountsPanel({
@@ -20,16 +28,34 @@ export async function MemberAccountsPanel({
   memberName,
   basePath,
   showTitle = true,
+  initialAccounts,
+  allowBlock = true,
 }: MemberAccountsPanelProps) {
   const supabase = await createClient();
-  const { data: accounts } = await supabase
-    .from("fiverr_accounts")
-    .select("*, country:countries(name, flag_emoji)")
-    .eq("team_member_id", memberId)
-    .is("archived_at", null)
-    .order("created_at", { ascending: false });
 
-  const list = (accounts ?? []) as FiverrAccount[];
+  let list = initialAccounts ?? [];
+  let blocked: FiverrAccount[] = [];
+
+  if (!initialAccounts) {
+    const { data: accounts } = await supabase
+      .from("fiverr_accounts")
+      .select("*, country:countries(name, flag_emoji)")
+      .eq("team_member_id", memberId)
+      .is("archived_at", null)
+      .order("created_at", { ascending: false });
+    list = (accounts ?? []) as FiverrAccount[];
+  }
+
+  if (allowBlock) {
+    const { data: blockedRows } = await supabase
+      .from("fiverr_accounts")
+      .select("*, country:countries(name, flag_emoji)")
+      .eq("team_member_id", memberId)
+      .eq("status", "blocked")
+      .not("archived_at", "is", null)
+      .order("archived_at", { ascending: false });
+    blocked = (blockedRows ?? []) as FiverrAccount[];
+  }
 
   return (
     <div className="space-y-4">
@@ -115,16 +141,61 @@ export async function MemberAccountsPanel({
                   </td>
                   <td className="p-3">{formatDate(acc.opening_date)}</td>
                   <td className="p-3">
-                    <Link href={`${basePath}/${acc.id}/edit`}>
-                      <Button variant="ghost" size="sm">
-                        <Pencil className="h-4 w-4" /> Edit
-                      </Button>
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Link href={`${basePath}/${acc.id}/edit`}>
+                        <Button variant="ghost" size="sm">
+                          <Pencil className="h-4 w-4" /> Edit
+                        </Button>
+                      </Link>
+                      {allowBlock && (
+                        <BlockAccountButton accountId={acc.id} username={acc.username} />
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {allowBlock && blocked.length > 0 && (
+        <div className="space-y-2 pt-2">
+          <h3 className="text-sm font-semibold text-neutral-700 flex items-center gap-2 px-1">
+            <Ban className="h-4 w-4 text-red-500" />
+            Blocked accounts ({blocked.length})
+          </h3>
+          <p className="text-xs text-neutral-500 px-1">
+            These stay off your active list. Restore one if Fiverr unblocks it.
+          </p>
+          <div className="responsive-table bg-neutral-50 rounded-xl border border-neutral-200">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-neutral-500">
+                  <th className="p-3 font-medium">Username</th>
+                  <th className="p-3 font-medium">Email</th>
+                  <th className="p-3 font-medium">Status</th>
+                  <th className="p-3 font-medium">Blocked</th>
+                  <th className="p-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blocked.map((acc) => (
+                  <tr key={acc.id} className="border-b border-neutral-200">
+                    <td className="p-3 font-medium text-neutral-700">{acc.username}</td>
+                    <td className="p-3 text-neutral-500">{acc.email ?? "—"}</td>
+                    <td className="p-3">
+                      <AccountStatusBadge status={acc.status} />
+                    </td>
+                    <td className="p-3 text-neutral-500">{formatDate(acc.archived_at)}</td>
+                    <td className="p-3">
+                      <RestoreAccountButton accountId={acc.id} username={acc.username} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

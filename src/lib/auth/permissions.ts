@@ -1,6 +1,7 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
-export async function getUserPermissions(): Promise<string[]> {
+export const getUserPermissions = cache(async (): Promise<string[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_user_permissions");
   if (error) {
@@ -8,22 +9,25 @@ export async function getUserPermissions(): Promise<string[]> {
     return [];
   }
   return data ?? [];
-}
+});
 
 export async function hasPermission(permission: string): Promise<boolean> {
   const permissions = await getUserPermissions();
   return permissions.includes(permission);
 }
 
-export async function isSuperAdmin(): Promise<boolean> {
+export const isSuperAdmin = cache(async (): Promise<boolean> => {
   const supabase = await createClient();
   const { data } = await supabase.rpc("is_super_admin");
   return data ?? false;
-}
+});
 
-export async function getCurrentUser() {
+/** Deduped per React request — layout + page share one result. */
+export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
 
   const [{ data: profile }, { data: roles }, permissions] = await Promise.all([
@@ -35,10 +39,13 @@ export async function getCurrentUser() {
   return {
     ...user,
     profile: profile ?? null,
-    roles: (roles as { role: { name: string; slug: string } | null }[] | null)?.map((r) => r.role).filter(Boolean) ?? [],
+    roles:
+      (roles as { role: { name: string; slug: string } | null }[] | null)
+        ?.map((r) => r.role)
+        .filter(Boolean) ?? [],
     permissions,
   };
-}
+});
 
 export function can(permissions: string[], required: string): boolean {
   return permissions.includes(required) || permissions.some((p) => p.startsWith("super"));

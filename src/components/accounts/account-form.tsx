@@ -308,6 +308,7 @@ export function AccountForm({
       return;
     }
 
+    const status = (form.get("status") as string) || "new";
     const payload = {
       team_member_id: teamMemberId,
       display_name: (form.get("display_name") as string) || null,
@@ -317,7 +318,11 @@ export function AccountForm({
       country_id: (form.get("country_id") as string) || null,
       opening_date: (form.get("opening_date") as string) || null,
       opening_time: (form.get("opening_time") as string) || null,
-      status: (form.get("status") as string) || "new",
+      status,
+      archived_at:
+        status === "blocked" || status === "archived"
+          ? account?.archived_at ?? new Date().toISOString()
+          : null,
       rate_amount: form.get("rate_amount") ? parseFloat(form.get("rate_amount") as string) : null,
       rate_currency: (form.get("rate_currency") as string) || "USD",
       rate_notes: (form.get("rate_notes") as string) || null,
@@ -509,6 +514,9 @@ export function AccountForm({
                     <option value="verified">Verified</option>
                     <option value="restricted">Restricted</option>
                     <option value="suspended">Suspended</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="disabled">Disabled</option>
+                    <option value="closed">Closed</option>
                   </Select>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, isSuperAdmin } from "@/lib/auth/permissions";
 
@@ -21,7 +22,8 @@ export function hasAdminDashboardAccess(permissions: string[], roleSlugs: string
   );
 }
 
-export async function getUserScope() {
+/** Deduped per React request — layout + page share one result. */
+export const getUserScope = cache(async () => {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -52,4 +54,4 @@ export async function getUserScope() {
     isAdmin,
     isScopedMember,
   };
-}
+});

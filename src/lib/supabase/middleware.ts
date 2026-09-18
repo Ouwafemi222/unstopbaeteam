@@ -12,8 +12,10 @@ const ADMIN_ONLY_PREFIXES = [
   "/reports",
   "/performance",
   "/weekly-activity",
+  "/money",
   "/services",
   "/search",
+  "/orders",
 ];
 
 const ADMIN_ROLE_SLUGS = new Set([
@@ -24,6 +26,15 @@ const ADMIN_ROLE_SLUGS = new Set([
   "finance_manager",
   "message_tracker",
 ]);
+
+function needsMemberGate(pathname: string): boolean {
+  if (pathname === "/" || pathname.startsWith("/login") || pathname.startsWith("/join")) {
+    return false;
+  }
+  if (ADMIN_ONLY_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
+  if (pathname.startsWith("/team-members")) return true;
+  return false;
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -37,9 +48,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -74,6 +83,17 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
+    if (isAuthPage || pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+
+    // Fast path: member dashboards / my-* / profile don't need role DB hits here
+    if (!needsMemberGate(pathname)) {
+      return supabaseResponse;
+    }
+
     const [{ data: teamMember }, { data: userRoles }] = await Promise.all([
       supabase.from("team_members").select("id").eq("user_id", user.id).maybeSingle(),
       supabase.from("user_roles").select("role:roles(slug)").eq("user_id", user.id),
@@ -96,7 +116,7 @@ export async function updateSession(request: NextRequest) {
         const subPath = teamMemberMatch[2] ?? "";
 
         if (pathname.startsWith(ownProfilePrefix)) {
-          // Own profile — allow (sub-routes like /accounts/new handled on page)
+          // Own profile — allow
         } else if (!subPath || subPath === "/") {
           const { data: target } = await supabase
             .from("team_members")
@@ -104,9 +124,7 @@ export async function updateSession(request: NextRequest) {
             .eq("id", targetId)
             .maybeSingle();
 
-          if (target?.sponsor_id === teamMember.id) {
-            // Sponsor read-only profile view
-          } else {
+          if (target?.sponsor_id !== teamMember.id) {
             const url = request.nextUrl.clone();
             url.pathname = "/dashboard";
             return NextResponse.redirect(url);
@@ -129,18 +147,6 @@ export async function updateSession(request: NextRequest) {
           return NextResponse.redirect(url);
         }
       }
-    }
-
-    if (isAuthPage) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
-
-    if (pathname === "/") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
     }
   }
 

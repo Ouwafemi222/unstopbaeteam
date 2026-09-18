@@ -69,6 +69,7 @@ export function AppShell({
         onToggle={() => setCollapsed(!collapsed)}
         teamMemberId={teamMemberId}
         isScopedMember={isScopedMember}
+        isSuperAdmin={isSuperAdmin}
       />
       {mobileOpen && (
         <Sidebar
@@ -77,6 +78,7 @@ export function AppShell({
           onClose={() => setMobileOpen(false)}
           teamMemberId={teamMemberId}
           isScopedMember={isScopedMember}
+          isSuperAdmin={isSuperAdmin}
         />
       )}
 

@@ -12,6 +12,7 @@ const statusVariant: Record<AccountStatus, "success" | "warning" | "danger" | "i
   disabled: "danger",
   suspended: "danger",
   closed: "neutral",
+  blocked: "danger",
   archived: "neutral",
 };
 

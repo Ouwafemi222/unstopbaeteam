@@ -78,6 +78,7 @@ export function AccountsTable({ accounts, members, countries }: AccountsTablePro
           <option value="verified">Verified</option>
           <option value="pending_setup">Pending Setup</option>
           <option value="suspended">Suspended</option>
+          <option value="blocked">Blocked</option>
         </Select>
         <Button variant="outline" onClick={exportCSV}><Download className="h-4 w-4" /> Export</Button>
       </div>

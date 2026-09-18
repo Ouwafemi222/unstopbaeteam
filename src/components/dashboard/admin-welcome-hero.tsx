@@ -16,7 +16,7 @@ import { getGreeting } from "@/lib/utils";
 import { formatYearMonthLabel } from "@/lib/utils/dates";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LiveTeamPulse } from "@/components/dashboard/live-team-pulse";
+import { LiveTeamPulseLazy } from "@/components/dashboard/live-team-pulse-lazy";
 
 interface AdminWelcomeHeroProps {
   displayName: string;
@@ -144,7 +144,7 @@ export function AdminWelcomeHero({
             </p>
           </div>
           <div className="[&_.live-pulse-empty]:border-white/20 [&_.live-pulse-empty]:bg-white/5 [&_.live-pulse-empty]:text-emerald-50/80">
-            <LiveTeamPulse variant="embedded" />
+            <LiveTeamPulseLazy variant="embedded" />
           </div>
         </div>
 

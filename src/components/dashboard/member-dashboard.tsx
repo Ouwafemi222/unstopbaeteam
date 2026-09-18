@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PersonalDashboard } from "@/components/dashboard/personal-dashboard";
@@ -15,7 +16,7 @@ import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { MemberProgressActivityBars } from "@/components/members/member-progress-activity-bars";
 import { MemberWeeklyActivitySection } from "@/components/members/member-weekly-activity-section";
 import { MemberStandingCard } from "@/components/members/member-standing-card";
-import { LiveTeamPulse } from "@/components/dashboard/live-team-pulse";
+import { LiveTeamPulseLazy } from "@/components/dashboard/live-team-pulse-lazy";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import {
   buildMemberProgressMetrics,
@@ -38,7 +39,13 @@ import {
   Trophy,
 } from "lucide-react";
 import { getGreeting } from "@/lib/utils";
-import type { MemberWeeklyEarning, MemberMonthlyPlan, TeamMember } from "@/types/database";
+import type {
+  FiverrAccount,
+  Message,
+  MemberWeeklyEarning,
+  MemberMonthlyPlan,
+  TeamMember,
+} from "@/types/database";
 
 interface MemberDashboardProps {
   member: Pick<TeamMember, "id" | "full_name" | "preferred_name" | "status"> & Partial<TeamMember>;
@@ -46,89 +53,114 @@ interface MemberDashboardProps {
   isSuperAdmin?: boolean;
 }
 
+function SectionSkeleton({ className = "h-40" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-xl bg-neutral-100 border border-neutral-100 ${className}`} />;
+}
+
 export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: MemberDashboardProps) {
   const supabase = await createClient();
-  const { data: fullMember } = await supabase
-    .from("team_members")
-    .select("*")
-    .eq("id", member.id)
-    .single();
-
-  const profile = fullMember ?? (member as TeamMember);
-  const { members: team } = await getSponsoredMembers(supabase, profile.id);
   const thisMonth = getDateRange("this_month");
   const lastMonth = getDateRange("last_month");
   const yearMonth = currentYearMonthLagos();
 
   const [
+    { data: fullMember },
+    teamResult,
     { data: accounts },
     { data: messages },
     { data: earnings },
     { data: monthlyPlans },
-    { count: totalAccounts },
-    { count: totalMessages },
     { count: messagesThisMonth },
     { count: messagesLastMonth },
     { data: standingRaw },
   ] = await Promise.all([
-    supabase.from("fiverr_accounts").select("*").eq("team_member_id", profile.id).is("archived_at", null),
-    supabase.from("messages").select("*").eq("team_member_id", profile.id),
-    supabase.from("member_weekly_earnings").select("*").eq("team_member_id", profile.id).order("updated_at", { ascending: false }).limit(50),
-    supabase.from("member_monthly_plans").select("*").eq("team_member_id", profile.id),
-    supabase.from("fiverr_accounts").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).is("archived_at", null),
-    supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id),
-    supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).gte("received_date", thisMonth.from).lte("received_date", thisMonth.to),
-    supabase.from("messages").select("id", { count: "exact", head: true }).eq("team_member_id", profile.id).gte("received_date", lastMonth.from).lte("received_date", lastMonth.to),
+    supabase.from("team_members").select("*").eq("id", member.id).single(),
+    getSponsoredMembers(supabase, member.id),
+    supabase
+      .from("fiverr_accounts")
+      .select("*, country:countries(name, flag_emoji)")
+      .eq("team_member_id", member.id)
+      .is("archived_at", null)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("messages")
+      .select("*, service:services(name), fiverr_account:fiverr_accounts(username)")
+      .eq("team_member_id", member.id)
+      .order("received_date", { ascending: false }),
+    supabase
+      .from("member_weekly_earnings")
+      .select("*")
+      .eq("team_member_id", member.id)
+      .order("updated_at", { ascending: false })
+      .limit(50),
+    supabase.from("member_monthly_plans").select("*").eq("team_member_id", member.id),
+    supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("team_member_id", member.id)
+      .gte("received_date", thisMonth.from)
+      .lte("received_date", thisMonth.to),
+    supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("team_member_id", member.id)
+      .gte("received_date", lastMonth.from)
+      .lte("received_date", lastMonth.to),
     supabase.rpc("get_my_team_standing", {
       p_from: thisMonth.from,
       p_to: thisMonth.to,
     }),
   ]);
 
+  const profile = fullMember ?? (member as TeamMember);
+  const team = teamResult.members;
+  const accountList = (accounts ?? []) as FiverrAccount[];
+  const messageList = (messages ?? []) as Message[];
+  const earningsList = (earnings ?? []) as MemberWeeklyEarning[];
+  const plansList = (monthlyPlans ?? []) as MemberMonthlyPlan[];
+  const totalMessages = messageList.length;
+
   const standing = parseStanding(standingRaw);
   const memberActivity = buildMemberActivityFeed({
-    accounts: accounts ?? [],
-    messages: messages ?? [],
-    earnings: (earnings ?? []) as MemberWeeklyEarning[],
-    monthlyPlans: (monthlyPlans ?? []) as MemberMonthlyPlan[],
+    accounts: accountList,
+    messages: messageList,
+    earnings: earningsList,
+    monthlyPlans: plansList,
     limit: 12,
   });
 
   const displayName = profile.preferred_name ?? profile.full_name?.split(" ")[0] ?? "there";
   const greeting = getGreeting();
 
-  // Latest monthly plan for earning overview
-  const latestPlan = (monthlyPlans ?? []).sort(
-    (a, b) => new Date((b as MemberMonthlyPlan).year_month + "-01").getTime() - new Date((a as MemberMonthlyPlan).year_month + "-01").getTime()
-  )[0] as MemberMonthlyPlan | undefined;
+  const latestPlan = [...plansList].sort(
+    (a, b) =>
+      new Date(b.year_month + "-01").getTime() - new Date(a.year_month + "-01").getTime()
+  )[0];
 
-  const currentPlan =
-    ((monthlyPlans ?? []) as MemberMonthlyPlan[]).find((p) => p.year_month === yearMonth) ??
-    latestPlan ??
-    null;
+  const currentPlan = plansList.find((p) => p.year_month === yearMonth) ?? latestPlan ?? null;
 
   const progressMetrics = buildMemberProgressMetrics({
     yearMonth,
     plan: currentPlan,
-    earnings: (earnings ?? []) as MemberWeeklyEarning[],
+    earnings: earningsList,
     messagesThisMonth: messagesThisMonth ?? 0,
     messagesLastMonth: messagesLastMonth ?? 0,
   });
 
-  const activeAccounts = (accounts ?? []).filter(
+  const activeAccounts = accountList.filter(
     (a) => a.status === "active" || a.status === "verified"
   ).length;
+  const totalAccounts = accountList.length;
 
   return (
     <div className="space-y-8">
-      {/* Alerts */}
-      <MemberFineOnGroundBanner teamMemberId={profile.id} />
+      <Suspense fallback={null}>
+        <MemberFineOnGroundBanner teamMemberId={profile.id} />
+      </Suspense>
 
-      <LiveTeamPulse />
+      <LiveTeamPulseLazy />
 
-      {/* Hero header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-green via-brand-green-dark to-emerald-900 text-white px-6 py-8 md:px-10 md:py-10 shadow-lg">
-        {/* Decorative circles */}
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-white/5 translate-y-1/2 -translate-x-1/4" />
 
@@ -137,9 +169,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
             <p className="text-emerald-200 text-sm font-medium uppercase tracking-widest">
               {greeting}
             </p>
-            <h1 className="text-3xl md:text-4xl font-extrabold mt-1">
-              {displayName} 👋
-            </h1>
+            <h1 className="text-3xl md:text-4xl font-extrabold mt-1">{displayName} 👋</h1>
             <p className="text-emerald-100/80 mt-2 text-sm md:text-base max-w-lg">
               Welcome to your dashboard — track your accounts, earnings, and goals all in one place.
             </p>
@@ -153,19 +183,30 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
 
           <div className="flex gap-3 flex-wrap sm:flex-nowrap">
             <Link href="/my-accounts/new">
-              <Button size="sm" className="bg-white text-brand-green hover:bg-emerald-50 font-semibold shadow">
+              <Button
+                size="sm"
+                className="bg-white text-brand-green hover:bg-emerald-50 font-semibold shadow"
+              >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Account
               </Button>
             </Link>
             <Link href="/my-messages/new">
-              <Button size="sm" variant="outline" className="border-white/40 text-white hover:bg-white/10">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-white/40 text-white hover:bg-white/10"
+              >
                 <MessageSquare className="h-4 w-4 mr-1" />
                 Record Message
               </Button>
             </Link>
             <Link href="/my-orders/new">
-              <Button size="sm" variant="outline" className="border-brand-orange/50 bg-brand-orange/20 text-white hover:bg-brand-orange/30">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-brand-orange/50 bg-brand-orange/20 text-white hover:bg-brand-orange/30"
+              >
                 <Trophy className="h-4 w-4 mr-1" />
                 Record Order
               </Button>
@@ -178,19 +219,17 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
 
       <MemberStandingCard standing={standing} />
 
-      <MemberWeeklyActivitySection
-        yearMonth={yearMonth}
-        earnings={(earnings ?? []) as MemberWeeklyEarning[]}
-      />
+      <MemberWeeklyActivitySection yearMonth={yearMonth} earnings={earningsList} />
 
-      {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Link href="/my-accounts" className="block group">
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-brand-green/30 transition-all">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Accounts</p>
-                <p className="text-3xl font-extrabold text-neutral-900 mt-1">{totalAccounts ?? 0}</p>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                  Accounts
+                </p>
+                <p className="text-3xl font-extrabold text-neutral-900 mt-1">{totalAccounts}</p>
                 <p className="text-xs text-neutral-400 mt-0.5">{activeAccounts} active</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-brand-green/10 flex items-center justify-center group-hover:bg-brand-green/20 transition-colors">
@@ -204,8 +243,10 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-brand-orange/30 transition-all">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Messages</p>
-                <p className="text-3xl font-extrabold text-neutral-900 mt-1">{totalMessages ?? 0}</p>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                  Messages
+                </p>
+                <p className="text-3xl font-extrabold text-neutral-900 mt-1">{totalMessages}</p>
                 <p className="text-xs text-neutral-400 mt-0.5">all time</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-brand-orange/10 flex items-center justify-center group-hover:bg-brand-orange/20 transition-colors">
@@ -219,7 +260,9 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-violet-200 transition-all">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Monthly Goal</p>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                  Monthly Goal
+                </p>
                 <p className="text-3xl font-extrabold text-neutral-900 mt-1">
                   {latestPlan ? `₦${Number(latestPlan.income_goal ?? 0).toLocaleString()}` : "—"}
                 </p>
@@ -236,10 +279,16 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-sky-200 transition-all">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">My Team</p>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                  My Team
+                </p>
                 <p className="text-3xl font-extrabold text-neutral-900 mt-1">{team.length}</p>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  {team.length === 0 ? "no members yet" : team.length === 1 ? "member" : "members"}
+                  {team.length === 0
+                    ? "no members yet"
+                    : team.length === 1
+                      ? "member"
+                      : "members"}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-sky-100 flex items-center justify-center group-hover:bg-sky-200 transition-colors">
@@ -250,7 +299,6 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
         </Link>
       </div>
 
-      {/* Live exchange rates + detected location */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <CurrencyRatesWidget variant="banner" />
@@ -258,13 +306,14 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
         <LocationCard />
       </div>
 
-      {/* Fines panel */}
-      <MemberMyFinesPanel teamMemberId={profile.id} variant="dashboard" />
+      <Suspense fallback={<SectionSkeleton className="h-28" />}>
+        <MemberMyFinesPanel teamMemberId={profile.id} variant="dashboard" />
+      </Suspense>
 
-      {/* Debt panel */}
-      <MemberMyDebtPanel teamMemberId={profile.id} variant="dashboard" />
+      <Suspense fallback={<SectionSkeleton className="h-28" />}>
+        <MemberMyDebtPanel teamMemberId={profile.id} variant="dashboard" />
+      </Suspense>
 
-      {/* Team card (if has team) */}
       {team.length > 0 && (
         <Card className="border-sky-100 bg-gradient-to-r from-sky-50/60 to-white">
           <CardContent className="p-5">
@@ -291,14 +340,12 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
         </Card>
       )}
 
-      {/* Sponsor info */}
       {sponsorName && (
         <div className="text-sm text-neutral-500 px-1">
           Sponsored by <span className="font-semibold text-neutral-700">{sponsorName}</span>
         </div>
       )}
 
-      {/* Personal stats + charts */}
       <PersonalDashboard
         member={profile}
         sponsorName={sponsorName}
@@ -310,16 +357,16 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
         isSuperAdmin={isSuperAdmin}
         showProgressBars={false}
         preloaded={{
-          accounts: accounts ?? [],
-          messages: messages ?? [],
+          accounts: accountList,
+          messages: messageList,
           messagesThisMonth: messagesThisMonth ?? 0,
           messagesLastMonth: messagesLastMonth ?? 0,
+          totalMessages,
           monthlyPlan: currentPlan,
-          earnings: (earnings ?? []) as MemberWeeklyEarning[],
+          earnings: earningsList,
         }}
       />
 
-      {/* Accounts */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
@@ -336,13 +383,15 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
           memberId={profile.id}
           memberName={profile.full_name}
           basePath="/my-accounts"
+          showTitle={false}
+          initialAccounts={accountList}
         />
       </div>
 
-      {/* Verification */}
-      <MemberVerificationPanel teamMemberId={profile.id} />
+      <Suspense fallback={<SectionSkeleton />}>
+        <MemberVerificationPanel teamMemberId={profile.id} />
+      </Suspense>
 
-      {/* Messages */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
@@ -359,28 +408,26 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
           memberId={profile.id}
           memberName={profile.full_name}
           basePath="/my-messages"
+          showTitle={false}
+          initialMessages={messageList}
         />
       </div>
 
-      {/* Monthly Plan */}
       <div className="space-y-2">
         <div className="flex items-center px-1 gap-2">
           <TrendingUp className="h-4 w-4 text-violet-600" />
           <h2 className="font-semibold text-neutral-900">Monthly Goals & Earnings</h2>
         </div>
-        <MemberMonthlyPlanPanel
-          teamMemberId={profile.id}
-          memberName={profile.full_name}
-        />
+        <Suspense fallback={<SectionSkeleton className="h-48" />}>
+          <MemberMonthlyPlanPanel
+            teamMemberId={profile.id}
+            memberName={profile.full_name}
+          />
+        </Suspense>
       </div>
 
-      {/* Currency tools */}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <CurrencyRatesWidget variant="card" />
-        <CurrencyConverter />
-      </div>
+      <CurrencyConverter />
 
-      {/* Activity */}
       {memberActivity.length > 0 && (
         <Card className="border-neutral-100">
           <CardHeader className="pb-3">

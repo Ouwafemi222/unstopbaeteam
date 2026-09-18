@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { formatDate, getMessageServiceLabel, getGreeting } from "@/lib/utils";
 import { getDateRange, MEMBER_STATUS_LABELS } from "@/lib/utils/dates";
-import { MemberCharts } from "@/components/dashboard/member-charts";
+import { MemberChartsLazy } from "@/components/dashboard/charts-lazy";
 import {
   buildMemberProgressMetrics,
   currentYearMonthLagos,
@@ -37,6 +37,8 @@ interface PreloadedData {
   messages: Message[];
   messagesThisMonth: number;
   messagesLastMonth: number;
+  /** When messages are date-limited for charts, pass the true all-time count. */
+  totalMessages?: number;
   monthlyPlan?: MemberMonthlyPlan | null;
   earnings?: MemberWeeklyEarning[];
 }
@@ -213,10 +215,12 @@ export async function PersonalDashboard({
   const recentMessages = messageList.slice(0, 6);
   const bestService = chartData.topServices[0]?.name;
 
+  const allMessagesCount = preloaded?.totalMessages ?? messageList.length;
+
   const heroStats = [
     { label: "Fiverr Accounts", value: accountList.length, icon: Briefcase },
     { label: "This Month", value: messagesThisMonth ?? 0, icon: MessageSquare },
-    { label: "All Messages", value: messageList.length, icon: Sparkles },
+    { label: "All Messages", value: allMessagesCount, icon: Sparkles },
     {
       label: "Growth",
       value: `${growth > 0 ? "+" : ""}${growth}%`,
@@ -347,7 +351,7 @@ export async function PersonalDashboard({
         ))}
       </div>
 
-      <MemberCharts {...chartData} />
+      <MemberChartsLazy {...chartData} />
 
       {/* Accounts + Messages */}
       <div className="grid lg:grid-cols-2 gap-6">

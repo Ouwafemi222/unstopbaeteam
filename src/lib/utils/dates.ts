@@ -130,6 +130,7 @@ export const ACCOUNT_STATUS_LABELS: Record<string, string> = {
   disabled: "Disabled",
   suspended: "Suspended",
   closed: "Closed",
+  blocked: "Blocked",
   archived: "Archived",
 };
 
