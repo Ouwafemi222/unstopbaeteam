@@ -103,6 +103,7 @@ async function createAuthUserAndMaybeConfirmEmail(opts: {
   const { data: linkData, error: linkError } = await opts.admin.auth.admin.generateLink({
     type: "signup",
     email: opts.email,
+    password: opts.password,
     options: { redirectTo: opts.redirectTo },
   });
 
