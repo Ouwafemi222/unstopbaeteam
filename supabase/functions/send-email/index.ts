@@ -345,7 +345,10 @@ Deno.serve(async (req: Request) => {
 
     if (error) {
       console.error("Resend error", error);
-      return jsonError(500, error.message ?? "Failed to send email");
+      const msg = error.message ?? "Failed to send email";
+      // Keep returning 500 so Auth surfaces failure for recovery/magiclink.
+      // Join/register no longer uses /auth/v1/signup, so this only affects hook-driven emails.
+      return jsonError(500, msg);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Webhook verification failed";

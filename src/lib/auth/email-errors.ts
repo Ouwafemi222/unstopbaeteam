@@ -21,5 +21,24 @@ export function emailRateLimitMessage(): string {
 
 export function formatAuthError(message: string, code?: unknown): string {
   if (isEmailRateLimitError(message, code)) return emailRateLimitMessage();
-  return message;
+  const msg = String(message ?? "");
+  const lower = msg.toLowerCase();
+  if (
+    lower.includes("unexpected status code") ||
+    lower.includes("returned from hook") ||
+    (lower.includes("hook") && lower.includes("500"))
+  ) {
+    return (
+      "Email delivery failed while creating your account (Resend is limited to the owner email until a domain is verified). " +
+      "Please try again — registration has been updated to work without that hook. " +
+      "If it still fails, ask Mr Femi to verify a domain at resend.com/domains."
+    );
+  }
+  if (lower.includes("only send testing emails") || lower.includes("verify a domain")) {
+    return (
+      "Confirmation emails can only be sent after verifying a domain on Resend. " +
+      "Ask Mr Femi to verify a domain at resend.com/domains and set EMAIL_FROM to an address on that domain."
+    );
+  }
+  return msg;
 }

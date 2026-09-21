@@ -35,6 +35,8 @@ export default function JoinPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [canLoginImmediately, setCanLoginImmediately] = useState(false);
+  const [doneMessage, setDoneMessage] = useState("");
 
   useEffect(() => {
     fetch("/api/join/register")
@@ -87,7 +89,12 @@ export default function JoinPage() {
         }),
       });
 
-      let data: { error?: string; message?: string } = {};
+      let data: {
+        error?: string;
+        message?: string;
+        canLoginImmediately?: boolean;
+        requiresEmailConfirmation?: boolean;
+      } = {};
       try {
         data = await res.json();
       } catch {
@@ -101,8 +108,10 @@ export default function JoinPage() {
       }
 
       setConfirmationEmail(email);
+      setCanLoginImmediately(Boolean(data.canLoginImmediately));
+      setDoneMessage(data.message ?? "");
       setDone(true);
-      toast.success(data.message ?? "Check your email to confirm your account");
+      toast.success(data.message ?? "Account created");
     } catch {
       toast.error("Network error. Check your connection and try again.");
     } finally {
@@ -115,21 +124,30 @@ export default function JoinPage() {
       <div className="flex min-h-screen items-center justify-center p-8 bg-neutral-50">
         <Card className="max-w-md w-full text-center">
           <CardContent className="p-8">
-            <Mail className="h-16 w-16 text-brand-green mx-auto mb-4" />
-            <h2 className="text-xl font-bold">Confirm your email to finish</h2>
+            {canLoginImmediately ? (
+              <CheckCircle2 className="h-16 w-16 text-brand-green mx-auto mb-4" />
+            ) : (
+              <Mail className="h-16 w-16 text-brand-green mx-auto mb-4" />
+            )}
+            <h2 className="text-xl font-bold">
+              {canLoginImmediately ? "You're ready to sign in" : "Confirm your email to finish"}
+            </h2>
             <p className="text-neutral-500 mt-2">
-              We sent a confirmation link to <strong>{confirmationEmail}</strong>.
-              You must click that link before you can sign in.
+              {doneMessage ||
+                (canLoginImmediately
+                  ? `Your account for ${confirmationEmail} is active. Sign in with your password.`
+                  : `We sent a confirmation link to ${confirmationEmail}. You must click that link before you can sign in.`)}
             </p>
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
-              Only click register once. Re-registering sends more emails and can hit the send limit.
-            </p>
-            <p className="text-sm text-neutral-400 mt-4">
-              After you confirm, you&apos;ll be able to sign in and open your dashboard.
-            </p>
+            {!canLoginImmediately && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
+                Only click register once. Re-registering sends more emails and can hit the send limit.
+              </p>
+            )}
             <Button asChild className="mt-6 w-full">
               <Link
-                href={`/login?check_email=1&email=${encodeURIComponent(confirmationEmail)}`}
+                href={`/login?email=${encodeURIComponent(confirmationEmail)}${
+                  canLoginImmediately ? "" : "&check_email=1"
+                }`}
               >
                 Go to Sign In
               </Link>
