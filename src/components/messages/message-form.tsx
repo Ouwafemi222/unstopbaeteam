@@ -118,10 +118,13 @@ export function MessageForm({
         return;
       }
 
+      const gigName = ((form.get("gig_name") as string) || "").trim();
       publishLiveEvent({
         kind: "message",
         actorName: resolveActorName(teamMemberId),
-        summary: "got a message",
+        summary: gigName
+          ? `got a message — check it out · ${gigName.slice(0, 80)}`
+          : "got a message — check it out",
         href: isSelfService ? "/my-messages" : "/messages",
       });
 

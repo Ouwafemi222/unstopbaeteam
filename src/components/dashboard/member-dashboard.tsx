@@ -17,6 +17,7 @@ import { MemberProgressActivityBars } from "@/components/members/member-progress
 import { MemberWeeklyActivitySection } from "@/components/members/member-weekly-activity-section";
 import { MemberStandingCard } from "@/components/members/member-standing-card";
 import { LiveTeamPulseLazy } from "@/components/dashboard/live-team-pulse-lazy";
+import { MessageWinToasts } from "@/components/dashboard/message-win-toasts";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import {
   buildMemberProgressMetrics,
@@ -158,6 +159,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
         <MemberFineOnGroundBanner teamMemberId={profile.id} />
       </Suspense>
 
+      <MessageWinToasts />
       <LiveTeamPulseLazy />
 
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-green via-brand-green-dark to-emerald-900 text-white px-6 py-8 md:px-10 md:py-10 shadow-lg">

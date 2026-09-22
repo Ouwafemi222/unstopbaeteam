@@ -52,7 +52,8 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
         return next.slice(0, MAX_VISIBLE);
       });
 
-      if (options?.toast) {
+      if (options?.toast && event.kind !== "message") {
+        // Message toasts + sound are handled by MessageWinToasts on member dashboards
         toast.message(`${event.actor_name} ${event.summary}`, {
           description: event.kind === "order" ? "Team order win" : "Live team activity",
           duration: 4000,
