@@ -41,7 +41,7 @@ export function OrderCelebration({
         left: `${(i * 17) % 100}%`,
         delay: `${(i % 12) * 0.08}s`,
         duration: `${2.4 + (i % 5) * 0.35}s`,
-        color: ["#16a34a", "#f59e0b", "#22c55e", "#ea580c", "#fbbf24", "#ffffff"][i % 6],
+        color: ["#7b1e3a", "#a33b5c", "#5c1228", "#c4a484", "#f6e8ec", "#ffffff"][i % 6],
         rotate: `${(i * 47) % 360}deg`,
         size: 6 + (i % 5) * 2,
       })),
@@ -82,7 +82,7 @@ export function OrderCelebration({
         ))}
       </div>
 
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-br from-emerald-900 via-brand-green-dark to-emerald-800 p-8 text-center text-white shadow-2xl order-win-pop">
+      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-br from-[#5c1228] via-[#7b1e3a] to-[#3d0c1c] p-8 text-center text-white shadow-2xl order-win-pop">
         <button
           type="button"
           onClick={onClose}
@@ -92,17 +92,17 @@ export function OrderCelebration({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-orange text-white shadow-lg shadow-brand-orange/40 order-win-bounce">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#7b1e3a] shadow-lg order-win-bounce">
           <Gift className="h-8 w-8" />
         </div>
-        <p className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100">
-          <Sparkles className="h-3.5 w-3.5 text-brand-orange" />
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-rose-100">
+          <Sparkles className="h-3.5 w-3.5 text-rose-200" />
           Order win
         </p>
         <h2 className="mt-4 text-3xl font-extrabold tracking-tight">
           {selfWin ? "You got an order!" : `${memberName} got an order!`}
         </h2>
-        <p className="mt-2 text-emerald-50/90 text-base">
+        <p className="mt-2 text-rose-50/90 text-base">
           {selfWin ? (
             <>
               <strong className="text-white">{memberName}</strong> just locked in a win for the team.
@@ -114,13 +114,13 @@ export function OrderCelebration({
         {(gigName || amountLabel) && (
           <div className="mt-4 rounded-2xl border border-white/15 bg-black/20 px-4 py-3 text-sm">
             {gigName && <p className="font-semibold text-white">{gigName}</p>}
-            {amountLabel && <p className="text-brand-orange font-bold mt-1">{amountLabel}</p>}
+            {amountLabel && <p className="text-rose-200 font-bold mt-1">{amountLabel}</p>}
           </div>
         )}
         <div className="mt-6 flex justify-center">
           <Button
             onClick={onClose}
-            className="bg-white text-brand-green-dark hover:bg-emerald-50 font-semibold gap-2"
+            className="bg-white text-[#5c1228] hover:bg-rose-50 font-semibold gap-2"
           >
             <PartyPopper className="h-4 w-4" />
             Keep the momentum
@@ -156,7 +156,7 @@ export function OrderGiftBroadcast() {
         left: `${(i * 19) % 100}%`,
         delay: `${(i % 10) * 0.07}s`,
         duration: `${2.1 + (i % 4) * 0.3}s`,
-        color: ["#16a34a", "#f59e0b", "#22c55e", "#ea580c", "#fbbf24", "#fff"][i % 6],
+        color: ["#7b1e3a", "#a33b5c", "#5c1228", "#c4a484", "#fbbf24", "#fff"][i % 6],
         size: 7 + (i % 4) * 2,
       })),
     []
@@ -335,21 +335,21 @@ export function OrderGiftBroadcast() {
         )}
 
         {showReveal && (
-          <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-gradient-to-br from-emerald-900 via-brand-green-dark to-emerald-800 p-7 text-center text-white shadow-2xl order-win-pop">
-            <p className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100">
-              <Sparkles className="h-3.5 w-3.5 text-brand-orange" />
+          <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-gradient-to-br from-[#5c1228] via-[#7b1e3a] to-[#3d0c1c] p-7 text-center text-white shadow-2xl order-win-pop">
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-rose-100">
+              <Sparkles className="h-3.5 w-3.5 text-rose-200" />
               Team order win
               {active.shownCount === 1 ? " · encore" : ""}
             </p>
             <h2 className="mt-4 text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight">
               {active.actorName} got an order!
             </h2>
-            <p className="mt-2 text-sm text-emerald-50/90">
+            <p className="mt-2 text-sm text-rose-50/90">
               The gift opened — celebrate this win with the team.
             </p>
             <Button
               onClick={finishShow}
-              className="mt-5 bg-white text-brand-green-dark hover:bg-emerald-50 font-semibold gap-2"
+              className="mt-5 bg-white text-[#5c1228] hover:bg-rose-50 font-semibold gap-2"
             >
               <PartyPopper className="h-4 w-4" />
               Awesome

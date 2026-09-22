@@ -186,28 +186,35 @@ export function Sidebar({
   }
 
   const content = (
-    <div className="flex h-full flex-col">
-      <div className={cn("flex items-center gap-3 border-b border-neutral-200 p-4", collapsed && !mobile && "justify-center")}>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-green to-brand-orange">
+    <div className="flex h-full flex-col bg-white">
+      <div
+        className={cn(
+          "flex items-center gap-3 border-b border-[#7b1e3a]/15 px-4 py-4",
+          collapsed && !mobile && "justify-center px-2"
+        )}
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#7b1e3a] shadow-md shadow-[#7b1e3a]/25">
           <div className="relative">
             <Laptop className="h-4 w-4 text-white" />
-            <Smartphone className="absolute -bottom-1 -right-1 h-2.5 w-2.5 text-white" />
+            <Smartphone className="absolute -bottom-1 -right-1 h-2.5 w-2.5 text-rose-200" />
           </div>
         </div>
         {(!collapsed || mobile) && (
           <div className="min-w-0">
-            <p className="text-sm font-bold text-neutral-900 leading-tight">UNSTOPPABLE</p>
-            <p className="text-xs font-semibold text-brand-green">TEAM</p>
+            <p className="text-sm font-bold text-[#5c1228] leading-tight tracking-wide">UNSTOPPABLE</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7b1e3a]">
+              TEAM
+            </p>
           </div>
         )}
         {mobile && (
-          <Button variant="ghost" size="icon" className="ml-auto" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="ml-auto text-[#7b1e3a]" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
         {filteredNav.map((item) => {
           const Icon = item.icon;
           const isActive = isNavActive(pathname, item, filteredNav);
@@ -217,26 +224,26 @@ export function Sidebar({
               href={item.href}
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                 isActive
-                  ? "bg-brand-green/10 text-brand-green-dark"
-                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
+                  ? "bg-[#7b1e3a] text-white shadow-sm shadow-[#7b1e3a]/25"
+                  : "text-[#5c1228]/70 hover:bg-[#f6e8ec] hover:text-[#5c1228]",
                 collapsed && !mobile && "justify-center px-2"
               )}
               title={collapsed && !mobile ? item.label : undefined}
             >
-              <Icon className={cn("h-5 w-5 shrink-0", isActive && "text-brand-green")} />
+              <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "text-[#7b1e3a]")} />
               {(!collapsed || mobile) && <span>{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-neutral-200 p-3 space-y-1">
+      <div className="border-t border-[#7b1e3a]/12 p-3 space-y-1 bg-[#faf8f9]">
         <button
           onClick={handleLogout}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-600 hover:bg-red-50 hover:text-red-600 transition-colors",
+            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#5c1228]/70 hover:bg-[#f6e8ec] hover:text-[#7b1e3a] transition-colors",
             collapsed && !mobile && "justify-center px-2"
           )}
         >
@@ -246,7 +253,7 @@ export function Sidebar({
         {!mobile && onToggle && (
           <button
             onClick={onToggle}
-            className="flex w-full items-center justify-center rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+            className="flex w-full items-center justify-center rounded-xl p-2 text-[#7b1e3a]/50 hover:bg-[#f6e8ec] hover:text-[#7b1e3a]"
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
@@ -258,8 +265,10 @@ export function Sidebar({
   if (mobile) {
     return (
       <div className="fixed inset-0 z-50 lg:hidden">
-        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-        <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl">{content}</aside>
+        <div className="absolute inset-0 bg-[#2a0a14]/50" onClick={onClose} />
+        <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-2xl border-r border-[#7b1e3a]/10">
+          {content}
+        </aside>
       </div>
     );
   }
@@ -267,7 +276,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col border-r border-neutral-200 bg-white transition-all duration-300",
+        "hidden lg:flex flex-col border-r border-[#7b1e3a]/12 bg-white transition-all duration-300",
         collapsed ? "w-[68px]" : "w-64"
       )}
     >

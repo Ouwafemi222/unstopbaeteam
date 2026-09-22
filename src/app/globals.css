@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
+/* Bogodi brand — white + burgundy */
 :root {
-  --background: #f8f9fa;
-  --foreground: #1a1a2e;
-  --brand-green: #16a34a;
-  --brand-green-dark: #15803d;
-  --brand-green-light: #dcfce7;
-  --brand-orange: #f59e0b;
-  --brand-orange-dark: #d97706;
-  --brand-orange-light: #fef3c7;
+  --background: #faf8f9;
+  --foreground: #1f1216;
+  --brand-green: #7b1e3a;
+  --brand-green-dark: #5c1228;
+  --brand-green-light: #f6e8ec;
+  --brand-orange: #a33b5c;
+  --brand-orange-dark: #822e49;
+  --brand-orange-light: #fceef2;
 }
 
 @theme inline {
@@ -32,8 +33,8 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+::-webkit-scrollbar-thumb { background: #d4c4c9; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #a88993; }
 
 /* Login team photo animations */
 @keyframes team-slide-zoom-in {

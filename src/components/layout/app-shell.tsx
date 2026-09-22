@@ -9,6 +9,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { LocationBadge } from "@/components/shared/location-badge";
 import { SuperAdminStar } from "@/components/shared/super-admin-star";
+import { DailyGingerMotivation } from "@/components/dashboard/daily-ginger-motivation";
 import type { Profile } from "@/types/database";
 
 const BUCKET = "attachments";
@@ -62,7 +63,8 @@ export function AppShell({
   }, [profile?.avatar_url, supabase]);
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-[#faf8f9]">
+      <DailyGingerMotivation displayName={displayName} />
       <Sidebar
         permissions={permissions}
         collapsed={collapsed}
@@ -83,7 +85,7 @@ export function AppShell({
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center gap-4 border-b border-neutral-200 bg-white px-4 lg:px-6">
+        <header className="flex h-16 items-center gap-4 border-b border-[#7b1e3a]/12 bg-white px-4 lg:px-6">
           <MobileMenuButton onClick={() => setMobileOpen(true)} />
           {!isScopedMember && <GlobalSearch className="flex-1 max-w-2xl" />}
           {isScopedMember && <div className="flex-1" />}
@@ -92,7 +94,7 @@ export function AppShell({
             <NotificationBell />
             <Link
               href="/profile"
-              className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-neutral-100 transition-colors group"
+              className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-[#f6e8ec] transition-colors group"
             >
               {/* Avatar */}
               <div className="relative h-9 w-9 shrink-0">
@@ -101,11 +103,11 @@ export function AppShell({
                     src={avatarUrl}
                     alt={displayName ?? "Profile"}
                     fill
-                    className="rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-brand-green/20 group-hover:ring-brand-green/40 transition"
+                    className="rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-[#7b1e3a]/20 group-hover:ring-[#7b1e3a]/40 transition"
                     sizes="36px"
                   />
                 ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-green to-brand-orange text-xs font-bold text-white border-2 border-white shadow-sm">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#7b1e3a] text-xs font-bold text-white border-2 border-white shadow-sm">
                     {initials}
                   </div>
                 )}
@@ -116,16 +118,16 @@ export function AppShell({
                 )}
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-semibold text-neutral-800 leading-tight">
+                <p className="text-sm font-semibold text-[#5c1228] leading-tight">
                   {displayName || profile?.preferred_name || profile?.full_name || "User"}
                 </p>
                 <p className="text-xs leading-tight">
                   {isSuperAdmin ? (
-                    <span className="inline-flex items-center gap-1 text-amber-600 font-semibold">
+                    <span className="inline-flex items-center gap-1 text-[#7b1e3a] font-semibold">
                       SA · Super Admin
                     </span>
                   ) : (
-                    <span className="text-neutral-400">View profile</span>
+                    <span className="text-[#5c1228]/45">View profile</span>
                   )}
                 </p>
               </div>
