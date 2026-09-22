@@ -1,6 +1,7 @@
 export type AccountStatus =
   | "active" | "new" | "pending_setup" | "verification_pending"
-  | "verified" | "restricted" | "disabled" | "suspended" | "closed" | "blocked" | "archived";
+  | "verified" | "restricted" | "disabled" | "suspended" | "closed"
+  | "blocked" | "archived" | "reserved";
 
 export type MessageStatus =
   | "new" | "replied" | "qualified" | "not_qualified"
@@ -19,9 +20,26 @@ export interface Profile {
   avatar_url: string | null;
   phone: string | null;
   is_active: boolean;
+  notification_sound_id?: string | null;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type DeactivationRequestStatus = "pending" | "approved" | "rejected";
+
+export interface AccountDeactivationRequest {
+  id: string;
+  user_id: string;
+  team_member_id: string;
+  status: DeactivationRequestStatus;
+  reason: string | null;
+  account_ids: string[] | null;
+  requested_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
 }
 
 export interface MemberPresenceLocation {
@@ -181,7 +199,14 @@ export interface DateRange {
   to: Date;
 }
 
-export type DateFilter = "today" | "this_week" | "this_month" | "last_month" | "custom" | "all";
+export type DateFilter =
+  | "today"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "custom"
+  | "all";
 
 export interface MemberMonthlyPlan {
   id: string;
@@ -321,6 +346,7 @@ export interface TeamLiveEvent {
   actor_name: string;
   summary: string;
   href: string | null;
+  team_member_id?: string | null;
   created_by: string | null;
   created_at: string;
 }

@@ -31,6 +31,7 @@ import {
   Trophy,
   Banknote,
   UserPlus,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
   { href: "/weekly-activity", label: "Weekly Activity", icon: ClipboardList, permission: "reports.view" },
   { href: "/money", label: "Money Made", icon: Banknote, superOnly: true },
+  { href: "/reserved-accounts", label: "Reserved Accounts", icon: Archive, superOnly: true },
   { href: "/reports", label: "Reports", icon: FileText, permission: "reports.view" },
   { href: "/fines", label: "Fines & Debts", icon: AlertTriangle, permission: "team_members.view" },
   { href: "/search", label: "Search", icon: Search },

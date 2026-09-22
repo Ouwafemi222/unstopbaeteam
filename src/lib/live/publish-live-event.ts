@@ -9,6 +9,7 @@ export function publishLiveEvent(payload: {
   actorName: string;
   summary: string;
   href?: string | null;
+  teamMemberId?: string | null;
 }) {
   void fetch("/api/live-events", {
     method: "POST",

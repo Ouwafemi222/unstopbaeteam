@@ -82,6 +82,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
       .select("*, country:countries(name, flag_emoji)")
       .eq("team_member_id", member.id)
       .is("archived_at", null)
+      .neq("status", "reserved")
       .order("created_at", { ascending: false }),
     supabase
       .from("messages")

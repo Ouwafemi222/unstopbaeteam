@@ -8,9 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Camera, KeyRound, Loader2, Mail, ShieldCheck, User2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  KeyRound,
+  Loader2,
+  Mail,
+  ShieldCheck,
+  User2,
+  Volume2,
+} from "lucide-react";
 import Image from "next/image";
 import { SuperAdminStar } from "@/components/shared/super-admin-star";
+import { formatDate } from "@/lib/utils";
+import {
+  DEFAULT_NOTIFICATION_SOUND,
+  NOTIFICATION_SOUNDS,
+  getStoredNotificationSound,
+  isNotificationSoundId,
+  playMessageNotificationSound,
+  setStoredNotificationSound,
+  type NotificationSoundId,
+} from "@/lib/audio/message-notification-sound";
 import type { Profile } from "@/types/database";
 
 const BUCKET = "attachments";
@@ -32,6 +51,15 @@ export default function ProfilePage() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [selectedSound, setSelectedSound] = useState<NotificationSoundId>(DEFAULT_NOTIFICATION_SOUND);
+  const [savingSound, setSavingSound] = useState(false);
+  const [deactReason, setDeactReason] = useState("");
+  const [confirmDeact, setConfirmDeact] = useState(false);
+  const [submittingDeact, setSubmittingDeact] = useState(false);
+  const [pendingDeactivation, setPendingDeactivation] = useState<{
+    id: string;
+    requested_at: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
@@ -42,9 +70,10 @@ export default function ProfilePage() {
       } = await supabase.auth.getUser();
       if (user) {
         setEmail(user.email ?? null);
-        const [{ data }, { data: roles }] = await Promise.all([
+        const [{ data }, { data: roles }, { data: member }] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", user.id).single(),
           supabase.from("user_roles").select("role:roles(slug)").eq("user_id", user.id),
+          supabase.from("team_members").select("id").eq("user_id", user.id).maybeSingle(),
         ]);
         setProfile(data);
         setIsSuperAdmin(
@@ -52,6 +81,13 @@ export default function ProfilePage() {
             (r) => r.role?.slug === "super_admin"
           ) ?? false
         );
+        const fromProfile = data?.notification_sound_id;
+        if (isNotificationSoundId(fromProfile)) {
+          setSelectedSound(fromProfile);
+          setStoredNotificationSound(fromProfile);
+        } else {
+          setSelectedSound(getStoredNotificationSound());
+        }
         if (data?.avatar_url) {
           if (data.avatar_url.startsWith("http")) {
             setAvatarUrl(data.avatar_url);
@@ -61,6 +97,15 @@ export default function ProfilePage() {
               .createSignedUrl(data.avatar_url, 3600);
             setAvatarUrl(signed?.signedUrl ?? null);
           }
+        }
+        if (member?.id) {
+          const { data: pending } = await supabase
+            .from("account_deactivation_requests")
+            .select("id, requested_at")
+            .eq("team_member_id", member.id)
+            .eq("status", "pending")
+            .maybeSingle();
+          if (pending) setPendingDeactivation(pending);
         }
       }
       setLoading(false);
@@ -117,6 +162,49 @@ export default function ProfilePage() {
     if (error) toast.error(error.message);
     else toast.success("Profile updated");
     setSaving(false);
+  }
+
+  async function handleSaveSound() {
+    if (!profile) return;
+    setSavingSound(true);
+    setStoredNotificationSound(selectedSound);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ notification_sound_id: selectedSound })
+      .eq("id", profile.id);
+    if (error) toast.error(error.message);
+    else {
+      setProfile((p) => (p ? { ...p, notification_sound_id: selectedSound } : p));
+      toast.success("Notification sound saved");
+      playMessageNotificationSound(selectedSound);
+    }
+    setSavingSound(false);
+  }
+
+  async function handleRequestDeactivation() {
+    setSubmittingDeact(true);
+    try {
+      const res = await fetch("/api/account-deactivation/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deactReason.trim() || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Could not submit request");
+        return;
+      }
+      setPendingDeactivation({
+        id: data.requestId,
+        requested_at: new Date().toISOString(),
+      });
+      setConfirmDeact(false);
+      toast.success("Request sent — an admin will review it. Nothing was deactivated.");
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setSubmittingDeact(false);
+    }
   }
 
   async function handleSendPasswordEmail() {
@@ -277,6 +365,65 @@ export default function ProfilePage() {
         </Card>
       </form>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Volume2 className="h-5 w-5 text-[#7b1e3a]" />
+            Sound notification
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            Pick the sound you hear when someone on the team receives a message. Use Test to preview
+            before saving.
+          </p>
+          <div className="space-y-2">
+            {NOTIFICATION_SOUNDS.map((sound) => (
+              <label
+                key={sound.id}
+                className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
+                  selectedSound === sound.id
+                    ? "border-[#7b1e3a] bg-[#7b1e3a]/5"
+                    : "border-neutral-200 hover:border-[#7b1e3a]/35"
+                }`}
+              >
+                <span className="flex items-start gap-3 min-w-0">
+                  <input
+                    type="radio"
+                    name="notification_sound"
+                    value={sound.id}
+                    checked={selectedSound === sound.id}
+                    onChange={() => setSelectedSound(sound.id)}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-neutral-900">{sound.label}</span>
+                    <span className="block text-xs text-neutral-500">{sound.description}</span>
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 gap-1.5"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    playMessageNotificationSound(sound.id);
+                  }}
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                  Test
+                </Button>
+              </label>
+            ))}
+          </div>
+          <Button type="button" disabled={savingSound} onClick={handleSaveSound} className="gap-2">
+            {savingSound ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {savingSound ? "Saving…" : "Save sound preference"}
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card className="border-brand-orange/25 bg-gradient-to-br from-white to-brand-orange-light/30">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -352,6 +499,82 @@ export default function ProfilePage() {
               Open set new password
             </Link>
           </p>
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-200 bg-red-50/30">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2 text-red-800">
+            <AlertTriangle className="h-5 w-5" />
+            Deactivate account
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-neutral-700">
+            Request to step away from your Fiverr accounts. Nothing is deactivated automatically —
+            a super admin reviews your request. If approved, your accounts move to{" "}
+            <strong>Reserved</strong> (not deleted, not blocked). Your login stays active.
+          </p>
+
+          {pendingDeactivation ? (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 space-y-1">
+              <p className="text-sm font-semibold text-amber-900">Request pending review</p>
+              <p className="text-sm text-amber-800">
+                Submitted {formatDate(pendingDeactivation.requested_at)}. An admin will review it
+                before any accounts are moved to Reserved.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="deact_reason">Reason (optional)</Label>
+                <Input
+                  id="deact_reason"
+                  value={deactReason}
+                  onChange={(e) => setDeactReason(e.target.value)}
+                  placeholder="e.g. Taking a break this month"
+                />
+              </div>
+              {!confirmDeact ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                  onClick={() => setConfirmDeact(true)}
+                >
+                  Request account deactivation
+                </Button>
+              ) : (
+                <div className="rounded-xl border border-red-200 bg-white p-4 space-y-3">
+                  <p className="text-sm text-neutral-800 font-medium">
+                    Confirm: send a review request to admin? Your accounts will stay active until
+                    they approve (then Reserved only).
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      disabled={submittingDeact}
+                      onClick={handleRequestDeactivation}
+                      className="bg-red-700 hover:bg-red-800 gap-2"
+                    >
+                      {submittingDeact ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      {submittingDeact ? "Sending…" : "Yes, send request"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={submittingDeact}
+                      onClick={() => setConfirmDeact(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

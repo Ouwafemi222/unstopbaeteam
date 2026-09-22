@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,13 +20,38 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
+  const knownIdsRef = useRef<Set<string> | null>(null);
+  const bootstrappedRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      setNotifications(data.notifications ?? []);
+      const next: Notification[] = data.notifications ?? [];
+
+      if (bootstrappedRef.current && knownIdsRef.current) {
+        for (const n of next) {
+          if (!knownIdsRef.current.has(n.id) && !n.read_at) {
+            toast(n.title, {
+              description: n.message,
+              duration: 10_000,
+              action: n.link
+                ? {
+                    label: "Review",
+                    onClick: () => {
+                      window.location.assign(n.link!);
+                    },
+                  }
+                : undefined,
+            });
+          }
+        }
+      }
+
+      knownIdsRef.current = new Set(next.map((n) => n.id));
+      bootstrappedRef.current = true;
+      setNotifications(next);
       setUnreadCount(data.unreadCount ?? 0);
     } catch {
       // ignore poll errors
@@ -35,7 +60,7 @@ export function NotificationBell() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 120_000);
+    const interval = setInterval(load, 25_000);
     return () => clearInterval(interval);
   }, [load]);
 

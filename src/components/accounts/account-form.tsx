@@ -515,6 +515,7 @@ export function AccountForm({
                     <option value="restricted">Restricted</option>
                     <option value="suspended">Suspended</option>
                     <option value="blocked">Blocked</option>
+                    <option value="reserved">Reserved</option>
                     <option value="disabled">Disabled</option>
                     <option value="closed">Closed</option>
                   </Select>

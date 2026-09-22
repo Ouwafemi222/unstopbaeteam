@@ -42,8 +42,11 @@ export async function MemberAccountsPanel({
       .select("*, country:countries(name, flag_emoji)")
       .eq("team_member_id", memberId)
       .is("archived_at", null)
+      .neq("status", "reserved")
       .order("created_at", { ascending: false });
     list = (accounts ?? []) as FiverrAccount[];
+  } else {
+    list = list.filter((a) => a.status !== "reserved");
   }
 
   if (allowBlock) {

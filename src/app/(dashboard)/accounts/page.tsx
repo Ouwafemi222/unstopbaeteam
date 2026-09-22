@@ -12,6 +12,7 @@ export default async function AccountsPage() {
     supabase.from("fiverr_accounts")
       .select("*, team_member:team_members(full_name), country:countries(name, flag_emoji)")
       .is("archived_at", null)
+      .neq("status", "reserved")
       .order("created_at", { ascending: false }),
     supabase.from("team_members").select("id, full_name").eq("status", "active").order("full_name"),
     supabase.from("countries").select("*").eq("is_active", true).order("name"),

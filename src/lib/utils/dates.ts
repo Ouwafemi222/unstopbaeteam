@@ -6,6 +6,7 @@ import {
   startOfMonth,
   endOfMonth,
   subMonths,
+  subWeeks,
   format,
 } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
@@ -35,6 +36,14 @@ export function getDateRange(filter: DateFilter, custom?: DateRange): { from: st
         from: format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
         to: format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"),
       };
+    case "last_week": {
+      const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+      const lastWeekStart = subWeeks(thisWeekStart, 1);
+      return {
+        from: format(lastWeekStart, "yyyy-MM-dd"),
+        to: format(endOfWeek(lastWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      };
+    }
     case "this_month":
       return {
         from: format(startOfMonth(now), "yyyy-MM-dd"),
@@ -132,6 +141,7 @@ export const ACCOUNT_STATUS_LABELS: Record<string, string> = {
   closed: "Closed",
   blocked: "Blocked",
   archived: "Archived",
+  reserved: "Reserved",
 };
 
 export const MESSAGE_STATUS_LABELS: Record<string, string> = {

@@ -13,6 +13,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/performance",
   "/weekly-activity",
   "/money",
+  "/reserved-accounts",
   "/services",
   "/search",
   "/orders",

@@ -125,7 +125,8 @@ export function MessageForm({
         summary: gigName
           ? `got a message — check it out · ${gigName.slice(0, 80)}`
           : "got a message — check it out",
-        href: isSelfService ? "/my-messages" : "/messages",
+        href: `/message-activity/${teamMemberId}?period=this_week`,
+        teamMemberId,
       });
 
       toast.success("Message recorded — team stream updated");

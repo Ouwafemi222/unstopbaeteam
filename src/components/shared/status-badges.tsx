@@ -14,6 +14,7 @@ const statusVariant: Record<AccountStatus, "success" | "warning" | "danger" | "i
   closed: "neutral",
   blocked: "danger",
   archived: "neutral",
+  reserved: "info",
 };
 
 export function AccountStatusBadge({ status }: { status: AccountStatus }) {

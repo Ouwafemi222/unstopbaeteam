@@ -30,6 +30,10 @@ export async function POST(request: Request) {
       ? body.summary.trim().slice(0, 200)
       : null;
   const href = typeof body.href === "string" ? body.href.slice(0, 300) : null;
+  const teamMemberId =
+    typeof body.teamMemberId === "string" && body.teamMemberId.trim()
+      ? body.teamMemberId.trim()
+      : null;
 
   if (!kind || !actorName || !summary) {
     return NextResponse.json(
@@ -50,6 +54,7 @@ export async function POST(request: Request) {
       actor_name: actorName,
       summary,
       href,
+      team_member_id: teamMemberId,
       created_by: user.id,
     })
     .select("id, created_at")
