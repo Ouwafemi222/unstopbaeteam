@@ -30,6 +30,7 @@ import {
   ClipboardList,
   Trophy,
   Banknote,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,11 +45,13 @@ type NavItem = {
   permission?: string;
   /** Only visible to super admins */
   superOnly?: boolean;
+  /** Match pathname exactly (no prefix match for children) */
+  exact?: boolean;
 };
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/team-members", label: "Team Members", icon: Users, permission: "team_members.view" },
+  { href: "/team-members", label: "All Team Members", icon: Users, permission: "team_members.view" },
   { href: "/accounts", label: "Fiverr Accounts", icon: Briefcase, permission: "accounts.view" },
   { href: "/messages", label: "Messages", icon: MessageSquare, permission: "messages.view" },
   { href: "/orders", label: "Orders Received", icon: Trophy, permission: "messages.view" },
@@ -63,7 +66,7 @@ const navItems: NavItem[] = [
   { href: "/activity", label: "Activity", icon: Activity, permission: "activity.view" },
   { href: "/users", label: "Users & Roles", icon: Shield, permission: "users.view" },
   { href: "/settings", label: "Settings", icon: Settings, permission: "settings.manage" },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/profile", label: "Account Settings", icon: User },
 ];
 
 const memberNavItems = (teamMemberId: string): NavItem[] => [
@@ -71,11 +74,12 @@ const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
   { href: "/my-messages", label: "My Messages", icon: MessageSquare },
   { href: "/my-orders", label: "Orders Received", icon: Trophy },
+  { href: "/my-prospects", label: "My Prospects", icon: UserPlus },
   { href: "/my-fines", label: "My Fines", icon: AlertTriangle },
   { href: "/my-debts", label: "My Debt", icon: HandCoins },
   { href: "/my-monthly-plan", label: "Monthly Goals", icon: Target },
   { href: "/my-team", label: "My Team", icon: Users },
-  { href: `/team-members/${teamMemberId}`, label: "My Profile", icon: UserCircle },
+  { href: `/team-members/${teamMemberId}`, label: "My Profile", icon: UserCircle, exact: true },
   { href: "/profile", label: "Account Settings", icon: User },
 ];
 
@@ -102,22 +106,44 @@ function buildNavItems(teamMemberId?: string | null, isScopedMember?: boolean): 
       icon: Trophy,
     });
     items.splice(4, 0, {
+      href: "/my-prospects",
+      label: "My Prospects",
+      icon: UserPlus,
+    });
+    items.splice(5, 0, {
       href: "/my-monthly-plan",
       label: "Monthly Goals",
       icon: Target,
     });
-    items.splice(5, 0, {
+    items.splice(6, 0, {
       href: "/my-team",
       label: "My Team",
       icon: Users,
     });
-    items.splice(6, 0, {
+    items.splice(7, 0, {
       href: `/team-members/${teamMemberId}`,
-      label: "My Team Profile",
+      label: "My Profile",
       icon: UserCircle,
+      exact: true,
     });
   }
   return items;
+}
+
+/** Pick the single best (longest) matching nav href so /team-members and /team-members/:id don't both highlight. */
+function isNavActive(pathname: string, item: NavItem, allItems: NavItem[]): boolean {
+  if (item.exact) {
+    return pathname === item.href;
+  }
+
+  const candidates = allItems.filter((other) => {
+    if (other.exact) return pathname === other.href;
+    return pathname === other.href || pathname.startsWith(other.href + "/");
+  });
+
+  if (candidates.length === 0) return false;
+  const best = [...candidates].sort((a, b) => b.href.length - a.href.length)[0];
+  return best.href === item.href;
 }
 
 interface SidebarProps {
@@ -184,7 +210,7 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {filteredNav.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive = isNavActive(pathname, item, filteredNav);
           return (
             <Link
               key={item.href}

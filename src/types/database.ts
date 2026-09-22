@@ -242,6 +242,17 @@ export interface MemberWeeklyEarning {
   updated_at: string;
 }
 
+export interface MemberProspectEntry {
+  id: string;
+  team_member_id: string;
+  logged_date: string;
+  prospects_count: number;
+  office_prospects_count: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MemberDailyEarning {
   id: string;
   team_member_id: string;
