@@ -61,6 +61,8 @@ const navItems: NavItem[] = [
   { href: "/weekly-activity", label: "Weekly Activity", icon: ClipboardList, permission: "reports.view" },
   { href: "/money", label: "Money Made", icon: Banknote, superOnly: true },
   { href: "/reserved-accounts", label: "Reserved Accounts", icon: Archive, superOnly: true },
+  { href: "/my-fines", label: "My Fines", icon: AlertTriangle, superOnly: true },
+  { href: "/my-debts", label: "My Debt", icon: HandCoins, superOnly: true },
   { href: "/reports", label: "Reports", icon: FileText, permission: "reports.view" },
   { href: "/fines", label: "Fines & Debts", icon: AlertTriangle, permission: "team_members.view" },
   { href: "/search", label: "Search", icon: Search },
@@ -85,7 +87,11 @@ const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/profile", label: "Account Settings", icon: User },
 ];
 
-function buildNavItems(teamMemberId?: string | null, isScopedMember?: boolean): NavItem[] {
+function buildNavItems(
+  teamMemberId?: string | null,
+  isScopedMember?: boolean,
+  isSuperAdmin?: boolean
+): NavItem[] {
   if (isScopedMember && teamMemberId) {
     return memberNavItems(teamMemberId);
   }
@@ -128,6 +134,18 @@ function buildNavItems(teamMemberId?: string | null, isScopedMember?: boolean): 
       icon: UserCircle,
       exact: true,
     });
+    if (!isSuperAdmin) {
+      items.splice(8, 0, {
+        href: "/my-fines",
+        label: "My Fines",
+        icon: AlertTriangle,
+      });
+      items.splice(9, 0, {
+        href: "/my-debts",
+        label: "My Debt",
+        icon: HandCoins,
+      });
+    }
   }
   return items;
 }
@@ -173,7 +191,7 @@ export function Sidebar({
   const router = useRouter();
   const supabase = createClient();
 
-  const filteredNav = buildNavItems(teamMemberId, isScopedMember).filter((item) => {
+  const filteredNav = buildNavItems(teamMemberId, isScopedMember, isSuperAdmin).filter((item) => {
     if (isScopedMember) return true;
     if (item.superOnly) return Boolean(isSuperAdmin);
     const permission = item.permission;

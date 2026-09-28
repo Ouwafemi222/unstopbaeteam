@@ -21,6 +21,8 @@ import { LiveTeamPulseLazy } from "@/components/dashboard/live-team-pulse-lazy";
 interface AdminWelcomeHeroProps {
   displayName: string;
   isSuperAdmin?: boolean;
+  /** When set, super admin can jump to personal fines */
+  showPersonalFinesLink?: boolean;
   yearMonth: string;
   totals: {
     members: number;
@@ -33,7 +35,7 @@ interface AdminWelcomeHeroProps {
   filterSlot?: ReactNode;
 }
 
-const quickLinks = [
+const baseQuickLinks = [
   { href: "/team-members", label: "Team", icon: Users, tone: "green" as const },
   { href: "/weekly-activity", label: "Weekly", icon: ClipboardList, tone: "orange" as const },
   { href: "/accounts", label: "Accounts", icon: Briefcase, tone: "green" as const },
@@ -45,11 +47,18 @@ const quickLinks = [
 export function AdminWelcomeHero({
   displayName,
   isSuperAdmin,
+  showPersonalFinesLink,
   yearMonth,
   totals,
   filterSlot,
 }: AdminWelcomeHeroProps) {
   const firstName = displayName.split(" ")[0] || displayName;
+  const quickLinks = [
+    ...baseQuickLinks,
+    ...(isSuperAdmin && showPersonalFinesLink
+      ? [{ href: "/my-fines", label: "My fines", icon: AlertTriangle, tone: "orange" as const }]
+      : []),
+  ];
 
   return (
     <section className="relative overflow-hidden rounded-[1.75rem] border border-brand-green/20 shadow-lg shadow-brand-green/5">

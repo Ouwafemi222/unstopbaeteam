@@ -13,6 +13,7 @@ import { MemberDashboard } from "@/components/dashboard/member-dashboard";
 import { AdminAddMemberCard } from "@/components/dashboard/admin-add-member-card";
 import { AdminFineOnGroundCard } from "@/components/dashboard/admin-fine-on-ground-card";
 import { AdminUnpaidFinesPanel } from "@/components/dashboard/admin-unpaid-fines-panel";
+import { MemberMyFinesPanel } from "@/components/members/member-my-fines-panel";
 import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-activity-feed";
 import { AdminWelcomeHero } from "@/components/dashboard/admin-welcome-hero";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
@@ -151,6 +152,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <AdminWelcomeHero
         displayName={displayName}
         isSuperAdmin={scope.roleSlugs.includes("super_admin")}
+        showPersonalFinesLink={!!scope.teamMember}
         yearMonth={yearMonth}
         totals={{
           members: totalMembers ?? 0,
@@ -179,6 +181,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <AdminFineOnGroundCard />
 
       <AdminUnpaidFinesPanel variant="dashboard" />
+
+      {scope.teamMember && scope.roleSlugs.includes("super_admin") && (
+        <div className="max-w-3xl">
+          <MemberMyFinesPanel teamMemberId={scope.teamMember.id} variant="dashboard" />
+        </div>
+      )}
 
       <div>
         <div className="flex items-end justify-between gap-3 mb-3 px-0.5">
