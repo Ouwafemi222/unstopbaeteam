@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUserScope } from "@/lib/auth/scope";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchTeamMembersWithActiveFines } from "@/lib/members/team-fines-roster";
 import { MemberMyFinesPanel } from "@/components/members/member-my-fines-panel";
+import { TeamFinesRosterPanel } from "@/components/members/team-fines-roster-panel";
 import { SuperAdminStar } from "@/components/shared/super-admin-star";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function MyFinesPage() {
   const scope = await getUserScope();
@@ -11,6 +15,8 @@ export default async function MyFinesPage() {
 
   const isSuperAdmin = scope.roleSlugs.includes("super_admin");
   const member = scope.teamMember;
+  const admin = createAdminClient();
+  const teamFineRoster = admin ? await fetchTeamMembersWithActiveFines(admin) : [];
 
   if (!member) {
     return (
@@ -49,6 +55,25 @@ export default async function MyFinesPage() {
         </p>
       </div>
       <MemberMyFinesPanel teamMemberId={member.id} variant="page" />
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle className="text-base">Team members with active fines</CardTitle>
+          <Link
+            href="/team-fines"
+            className="text-xs font-medium text-brand-green hover:underline shrink-0"
+          >
+            Full list →
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <TeamFinesRosterPanel
+            roster={teamFineRoster}
+            currentMemberId={member.id}
+            variant="embedded"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

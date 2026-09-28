@@ -62,6 +62,7 @@ const navItems: NavItem[] = [
   { href: "/money", label: "Money Made", icon: Banknote, superOnly: true },
   { href: "/reserved-accounts", label: "Reserved Accounts", icon: Archive, superOnly: true },
   { href: "/my-fines", label: "My Fines", icon: AlertTriangle, superOnly: true },
+  { href: "/team-fines", label: "Team Fines", icon: Users, superOnly: true },
   { href: "/my-debts", label: "My Debt", icon: HandCoins, superOnly: true },
   { href: "/reports", label: "Reports", icon: FileText, permission: "reports.view" },
   { href: "/fines", label: "Fines & Debts", icon: AlertTriangle, permission: "team_members.view" },
@@ -80,6 +81,7 @@ const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/my-orders", label: "Orders Received", icon: Trophy },
   { href: "/my-prospects", label: "My Prospects", icon: UserPlus },
   { href: "/my-fines", label: "My Fines", icon: AlertTriangle },
+  { href: "/team-fines", label: "Team Fines", icon: Users },
   { href: "/my-debts", label: "My Debt", icon: HandCoins },
   { href: "/my-monthly-plan", label: "Monthly Goals", icon: Target },
   { href: "/my-team", label: "My Team", icon: Users },
@@ -141,6 +143,11 @@ function buildNavItems(
         icon: AlertTriangle,
       });
       items.splice(9, 0, {
+        href: "/team-fines",
+        label: "Team Fines",
+        icon: Users,
+      });
+      items.splice(10, 0, {
         href: "/my-debts",
         label: "My Debt",
         icon: HandCoins,
