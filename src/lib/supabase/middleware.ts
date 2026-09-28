@@ -12,6 +12,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/reports",
   "/performance",
   "/weekly-activity",
+  "/team-prospects",
   "/money",
   "/reserved-accounts",
   "/services",

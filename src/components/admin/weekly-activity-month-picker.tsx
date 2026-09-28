@@ -25,7 +25,13 @@ function adminYearMonthOptions(): string[] {
   return [...new Set([...opts, ...forward])].sort();
 }
 
-export function WeeklyActivityMonthPicker({ value }: { value: string }) {
+export function WeeklyActivityMonthPicker({
+  value,
+  basePath = "/weekly-activity",
+}: {
+  value: string;
+  basePath?: string;
+}) {
   const router = useRouter();
   const options = adminYearMonthOptions();
   const byYear = groupYearMonthOptionsByYear(options);
@@ -39,7 +45,7 @@ export function WeeklyActivityMonthPicker({ value }: { value: string }) {
         id="yearMonth"
         value={value}
         onChange={(e) => {
-          router.push(`/weekly-activity?month=${e.target.value}`);
+          router.push(`${basePath}?month=${e.target.value}`);
         }}
         className="min-w-[180px]"
       >

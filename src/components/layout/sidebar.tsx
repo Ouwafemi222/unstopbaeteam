@@ -59,6 +59,7 @@ const navItems: NavItem[] = [
   { href: "/services", label: "Services", icon: Wrench },
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
   { href: "/weekly-activity", label: "Weekly Activity", icon: ClipboardList, permission: "reports.view" },
+  { href: "/team-prospects", label: "Team Prospects", icon: UserPlus, permission: "reports.view" },
   { href: "/money", label: "Money Made", icon: Banknote, superOnly: true },
   { href: "/reserved-accounts", label: "Reserved Accounts", icon: Archive, superOnly: true },
   { href: "/my-fines", label: "My Fines", icon: AlertTriangle, superOnly: true },
