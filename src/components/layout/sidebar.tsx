@@ -17,6 +17,7 @@ import {
   User,
   UserCircle,
   LogOut,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Upload,
@@ -35,7 +36,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -212,6 +213,42 @@ export function Sidebar({
     ? flattenMemberNav(teamMemberId)
     : [dashboard, ...sections.flatMap((s) => s.items), account];
 
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setOpenSections((prev) => {
+      const next = { ...prev };
+      for (const section of sections) {
+        const hasActive = section.items.some((item) =>
+          isNavActive(pathname, item, flatItems)
+        );
+        if (hasActive) next[section.id] = true;
+      }
+      return next;
+    });
+  }, [pathname, sections, flatItems]);
+
+  function isSectionOpen(section: NavSection): boolean {
+    if (openSections[section.id] !== undefined) {
+      return openSections[section.id];
+    }
+    const hasActive = section.items.some((item) => isNavActive(pathname, item, flatItems));
+    if (hasActive) return true;
+    return section.id === "personal";
+  }
+
+  function toggleSection(sectionId: string) {
+    const section = sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    setOpenSections((prev) => {
+      const currentlyOpen =
+        prev[sectionId] ??
+        (section.items.some((item) => isNavActive(pathname, item, flatItems)) ||
+          section.id === "personal");
+      return { ...prev, [sectionId]: !currentlyOpen };
+    });
+  }
+
   function renderLink(item: NavItem) {
     const Icon = item.icon;
     const isActive = isNavActive(pathname, item, flatItems);
@@ -276,16 +313,43 @@ export function Sidebar({
         ) : (
           <>
             {renderLink(dashboard)}
-            {sections.map((section) => (
-              <div key={section.id} className="pt-3 first:pt-2">
-                {(!collapsed || mobile) && (
-                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7b1e3a]/55">
-                    {section.label}
-                  </p>
-                )}
-                <div className="space-y-0.5">{section.items.map((item) => renderLink(item))}</div>
-              </div>
-            ))}
+            {sections.map((section) => {
+              const open = isSectionOpen(section);
+
+              if (collapsed && !mobile) {
+                return (
+                  <div key={section.id} className="space-y-0.5 pt-2">
+                    {section.items.map((item) => renderLink(item))}
+                  </div>
+                );
+              }
+
+              return (
+                <div key={section.id} className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.id)}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left hover:bg-[#f6e8ec]/80 transition-colors"
+                    aria-expanded={open}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7b1e3a]/70">
+                      {section.label}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-[#7b1e3a]/50 transition-transform duration-200",
+                        open && "rotate-180"
+                      )}
+                    />
+                  </button>
+                  {open && (
+                    <div className="mt-0.5 space-y-0.5 pl-1 border-l-2 border-[#7b1e3a]/10 ml-3">
+                      {section.items.map((item) => renderLink(item))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <div className="pt-3 border-t border-[#7b1e3a]/10 mt-3">{renderLink(account)}</div>
           </>
         )}
