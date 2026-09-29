@@ -28,13 +28,22 @@ function adminYearMonthOptions(): string[] {
 export function WeeklyActivityMonthPicker({
   value,
   basePath = "/weekly-activity",
+  tab,
 }: {
   value: string;
   basePath?: string;
+  /** Preserved when changing month on combined weekly-activity page */
+  tab?: "weekly" | "prospects";
 }) {
   const router = useRouter();
   const options = adminYearMonthOptions();
   const byYear = groupYearMonthOptionsByYear(options);
+
+  function pushMonth(month: string) {
+    const params = new URLSearchParams({ month });
+    if (tab && basePath === "/weekly-activity") params.set("tab", tab);
+    router.push(`${basePath}?${params.toString()}`);
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -45,7 +54,7 @@ export function WeeklyActivityMonthPicker({
         id="yearMonth"
         value={value}
         onChange={(e) => {
-          router.push(`${basePath}?month=${e.target.value}`);
+          pushMonth(e.target.value);
         }}
         className="min-w-[180px]"
       >

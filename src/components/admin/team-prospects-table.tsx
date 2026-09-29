@@ -5,17 +5,9 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDate } from "@/lib/utils";
-import type { MemberProspectEntry } from "@/types/database";
+import type { TeamProspectsMemberRow } from "@/lib/admin/team-prospects-rows";
 
-export interface TeamProspectsMemberRow {
-  memberId: string;
-  fullName: string;
-  preferredName: string | null;
-  totalProspects: number;
-  totalOffice: number;
-  daysLogged: number;
-  entries: MemberProspectEntry[];
-}
+export type { TeamProspectsMemberRow };
 
 interface Props {
   rows: TeamProspectsMemberRow[];

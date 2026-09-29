@@ -38,8 +38,8 @@ interface AdminWelcomeHeroProps {
 const baseQuickLinks = [
   { href: "/team-members", label: "Team", icon: Users, tone: "green" as const },
   { href: "/weekly-activity", label: "Weekly", icon: ClipboardList, tone: "orange" as const },
-  { href: "/accounts", label: "Accounts", icon: Briefcase, tone: "green" as const },
-  { href: "/messages", label: "Messages", icon: MessageSquare, tone: "orange" as const },
+  { href: "/accounts", label: "All Accounts", icon: Briefcase, tone: "green" as const },
+  { href: "/messages", label: "All Messages", icon: MessageSquare, tone: "orange" as const },
   { href: "/fines", label: "Fines", icon: AlertTriangle, tone: "orange" as const },
   { href: "/performance", label: "Stats", icon: TrendingUp, tone: "green" as const },
 ];

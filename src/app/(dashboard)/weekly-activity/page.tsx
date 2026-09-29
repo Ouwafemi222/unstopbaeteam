@@ -5,15 +5,25 @@ import { getUserScope } from "@/lib/auth/scope";
 import { currentYearMonth, formatYearMonthLabel } from "@/lib/utils/dates";
 import { getWeeksInMonth, weekForCalendarDate } from "@/lib/members/week-utils";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
+import { fetchTeamProspectsMemberRows } from "@/lib/admin/team-prospects-rows";
 import { WeeklyActivityMonthPicker } from "@/components/admin/weekly-activity-month-picker";
+import {
+  WeeklyActivityTabs,
+  type WeeklyActivityTab,
+} from "@/components/admin/weekly-activity-tabs";
 import {
   WeeklyActivityTable,
   type WeeklyActivityMemberRow,
 } from "@/components/admin/weekly-activity-table";
+import { TeamProspectsTable } from "@/components/admin/team-prospects-table";
 import type { MemberWeeklyEarning } from "@/types/database";
 
 interface Props {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; tab?: string }>;
+}
+
+function parseTab(value: string | undefined): WeeklyActivityTab {
+  return value === "prospects" ? "prospects" : "weekly";
 }
 
 export default async function WeeklyActivityPage({ searchParams }: Props) {
@@ -29,10 +39,40 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
 
   const params = await searchParams;
   const monthParam = params.month;
+  const tab = parseTab(params.tab);
   const yearMonth =
     monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : currentYearMonth();
 
   const supabase = await createClient();
+
+  if (tab === "prospects") {
+    const prospectRows = await fetchTeamProspectsMemberRows(supabase, yearMonth);
+
+    return (
+      <div className="space-y-6 max-w-6xl">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900 flex items-center gap-2">
+              <ClipboardList className="h-6 w-6 text-brand-green" />
+              Weekly Activity
+            </h1>
+            <p className="text-neutral-500 mt-1">
+              Daily prospect logs for{" "}
+              <span className="font-medium text-neutral-700">
+                {formatYearMonthLabel(yearMonth)}
+              </span>
+              . Expand a member to see each day they recorded.
+            </p>
+          </div>
+          <WeeklyActivityMonthPicker value={yearMonth} tab="prospects" />
+        </div>
+
+        <WeeklyActivityTabs tab={tab} yearMonth={yearMonth} />
+        <TeamProspectsTable rows={prospectRows} yearMonth={yearMonth} />
+      </div>
+    );
+  }
+
   const weeks = getWeeksInMonth(yearMonth);
   const weekNumbers = weeks.map((w) => w.week);
   const monthStart = `${yearMonth}-01`;
@@ -101,7 +141,6 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
     };
   });
 
-  // Members with submissions first, then alphabetical within groups
   rows.sort((a, b) => {
     if (a.weeksLogged > 0 && b.weeksLogged === 0) return -1;
     if (a.weeksLogged === 0 && b.weeksLogged > 0) return 1;
@@ -122,15 +161,17 @@ export default async function WeeklyActivityPage({ searchParams }: Props) {
             Weekly Activity
           </h1>
           <p className="text-neutral-500 mt-1">
-            All member weekly evaluation submissions for{" "}
+            Weekly evaluation submissions for{" "}
             <span className="font-medium text-neutral-700">
               {formatYearMonthLabel(yearMonth)}
             </span>
-            , including orders received. Click a row to see activities and notes.
+            . Switch to Daily prospects for day-by-day logs.
           </p>
         </div>
-        <WeeklyActivityMonthPicker value={yearMonth} />
+        <WeeklyActivityMonthPicker value={yearMonth} tab="weekly" />
       </div>
+
+      <WeeklyActivityTabs tab={tab} yearMonth={yearMonth} />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <SummaryCard
