@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { getDateRange, startOfTodayLagosIso, currentYearMonth } from "@/lib/utils/dates";
@@ -18,8 +17,10 @@ import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-a
 import { AdminWelcomeHero } from "@/components/dashboard/admin-welcome-hero";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 import { LocationCard } from "@/components/shared/location-card";
+import { fetchExchangeRates } from "@/lib/currency/fetch-rates";
+import { presenceRowToGeoLocation } from "@/lib/geo/presence-to-location";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
-import type { MemberWeeklyEarning } from "@/types/database";
+import type { MemberWeeklyEarning, TeamLiveEvent } from "@/types/database";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
@@ -59,7 +60,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     user?.profile?.full_name ||
     "there";
 
+  const initialRatesPromise = fetchExchangeRates();
+  const presencePromise =
+    scope.teamMember?.id
+      ? supabase
+          .from("member_presence_locations")
+          .select("city, region, country, country_code, flag, currency_code, timezone_name")
+          .eq("team_member_id", scope.teamMember.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null });
+
   const [
+    initialRates,
+    { data: presenceRow },
+    { data: liveEventsRaw },
     { count: totalMembers },
     { count: totalAccounts },
     { count: accountsThisMonth },
@@ -74,6 +88,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     { data: countries },
     { data: weeklyEarnings },
   ] = await Promise.all([
+    initialRatesPromise,
+    presencePromise,
+    supabase
+      .from("team_live_events")
+      .select("id, kind, actor_name, summary, href, created_by, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20),
     supabase.from("team_members").select("*", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("fiverr_accounts").select("*", { count: "exact", head: true }).is("archived_at", null),
     supabase.from("fiverr_accounts").select("*", { count: "exact", head: true })
@@ -147,6 +168,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const zeroMessageMembers = members?.filter((m) => !memberMessageCounts.has(m.id)) ?? [];
 
+  const initialLocation = presenceRow ? presenceRowToGeoLocation(presenceRow) : null;
+  const initialLiveEvents = (liveEventsRaw ?? []) as TeamLiveEvent[];
+
   return (
     <div className="space-y-6">
       <AdminWelcomeHero
@@ -162,18 +186,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           weeklySubmitted,
           weeklyMissing,
         }}
-        filterSlot={
-          <Suspense fallback={<div className="h-9 w-72 animate-pulse rounded-lg bg-white/20" />}>
-            <DateFilterBar current={filter} />
-          </Suspense>
-        }
+        filterSlot={<DateFilterBar current={filter} />}
+        initialLiveEvents={initialLiveEvents}
       />
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <CurrencyRatesWidget variant="banner" />
+          <CurrencyRatesWidget
+            variant="banner"
+            initialRates={initialRates}
+            ratesPrefetched
+          />
         </div>
-        <LocationCard />
+        <LocationCard initialLocation={initialLocation} />
       </div>
 
       <AdminAddMemberCard />

@@ -18,12 +18,17 @@ type PulseItem = TeamLiveEvent & { exiting?: boolean };
 interface LiveTeamPulseProps {
   /** embedded = sits inside dark admin hero */
   variant?: "default" | "embedded";
+  /** Hydrate from server so the hero is not stuck on “Connecting…”. */
+  initialEvents?: TeamLiveEvent[];
 }
 
-export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
+export function LiveTeamPulse({
+  variant = "default",
+  initialEvents,
+}: LiveTeamPulseProps) {
   const supabase = createClient();
-  const [items, setItems] = useState<PulseItem[]>([]);
-  const [ready, setReady] = useState(false);
+  const [items, setItems] = useState<PulseItem[]>(() => initialEvents ?? []);
+  const [ready, setReady] = useState(() => initialEvents !== undefined);
   const seenIds = useRef(new Set<string>());
   const exitTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const embedded = variant === "embedded";
@@ -71,15 +76,18 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
     let cancelled = false;
 
     async function boot() {
-      const { data } = await supabase
-        .from("team_live_events")
-        .select("id, kind, actor_name, summary, href, created_by, created_at")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (cancelled) return;
-
-      const rows = (data as TeamLiveEvent[]) ?? [];
+      let rows: TeamLiveEvent[] = initialEvents ?? [];
+      if (initialEvents === undefined) {
+        const { data } = await supabase
+          .from("team_live_events")
+          .select("id, kind, actor_name, summary, href, created_by, created_at")
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (cancelled) return;
+        rows = (data as TeamLiveEvent[]) ?? [];
+      } else if (cancelled) {
+        return;
+      }
       const now = Date.now();
       const visible: TeamLiveEvent[] = [];
 
@@ -121,7 +129,7 @@ export function LiveTeamPulse({ variant = "default" }: LiveTeamPulseProps) {
       exitTimers.current.clear();
       void supabase.removeChannel(channel);
     };
-  }, [supabase, pushEvent, scheduleExit, variant]);
+  }, [pushEvent, scheduleExit, variant, initialEvents]);
 
   function eventIcon(kind: string) {
     if (kind === "account") return Briefcase;

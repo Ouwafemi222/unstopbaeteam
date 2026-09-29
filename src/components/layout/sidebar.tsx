@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -202,31 +202,41 @@ export function Sidebar({
   const router = useRouter();
   const supabase = createClient();
 
-  const { dashboard, sections, account } = buildNavSections(
-    teamMemberId,
-    isScopedMember,
-    permissions,
-    Boolean(isSuperAdmin)
+  const permissionsKey = permissions.join("\0");
+
+  const { dashboard, sections, account } = useMemo(
+    () => buildNavSections(teamMemberId, isScopedMember, permissions, Boolean(isSuperAdmin)),
+    [teamMemberId, isScopedMember, permissionsKey, isSuperAdmin]
   );
 
-  const flatItems: NavItem[] = isScopedMember && teamMemberId
-    ? flattenMemberNav(teamMemberId)
-    : [dashboard, ...sections.flatMap((s) => s.items), account];
+  const flatItems = useMemo(
+    (): NavItem[] =>
+      isScopedMember && teamMemberId
+        ? flattenMemberNav(teamMemberId)
+        : [dashboard, ...sections.flatMap((s) => s.items), account],
+    [isScopedMember, teamMemberId, dashboard, sections, account]
+  );
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
+  // Auto-expand the section that contains the current route (pathname only — avoids render loops).
   useEffect(() => {
     setOpenSections((prev) => {
       const next = { ...prev };
+      let changed = false;
       for (const section of sections) {
         const hasActive = section.items.some((item) =>
           isNavActive(pathname, item, flatItems)
         );
-        if (hasActive) next[section.id] = true;
+        if (hasActive && next[section.id] !== true) {
+          next[section.id] = true;
+          changed = true;
+        }
       }
-      return next;
+      return changed ? next : prev;
     });
-  }, [pathname, sections, flatItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sections/flatItems intentionally omitted
+  }, [pathname]);
 
   function isSectionOpen(section: NavSection): boolean {
     if (openSections[section.id] !== undefined) {

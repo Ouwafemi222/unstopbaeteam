@@ -6,34 +6,49 @@ import type { ExchangeRates } from "@/app/api/currency/rates/route";
 
 interface CurrencyRatesWidgetProps {
   variant?: "banner" | "card" | "compact";
+  /** When provided (e.g. from server), skip initial skeleton. */
+  initialRates?: ExchangeRates | null;
+  /** Server already attempted fetch — do not flash loading on mount. */
+  ratesPrefetched?: boolean;
 }
 
-export function CurrencyRatesWidget({ variant = "card" }: CurrencyRatesWidgetProps) {
-  const [rates, setRates] = useState<ExchangeRates | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+export function CurrencyRatesWidget({
+  variant = "card",
+  initialRates = null,
+  ratesPrefetched = false,
+}: CurrencyRatesWidgetProps) {
+  const [rates, setRates] = useState<ExchangeRates | null>(initialRates);
+  const [loading, setLoading] = useState(!ratesPrefetched && !initialRates);
+  const [error, setError] = useState(ratesPrefetched && !initialRates);
 
-  async function fetchRates() {
-    setLoading(true);
-    setError(false);
+  async function fetchRates(silent = false) {
+    if (!silent) {
+      setLoading(true);
+      setError(false);
+    }
     try {
       const res = await fetch("/api/currency/rates");
       const data = await res.json();
       if (data?.error || !data?.rates) throw new Error(data?.error ?? "No rates");
       setRates(data);
+      setError(false);
     } catch (e) {
       console.error("CurrencyRatesWidget:", e);
-      setError(true);
+      if (!silent || !rates) setError(true);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
-    fetchRates();
-    // Refresh every hour
-    const id = setInterval(fetchRates, 60 * 60 * 1000);
+    if (ratesPrefetched) {
+      void fetchRates(true);
+    } else {
+      void fetchRates(false);
+    }
+    const id = setInterval(() => void fetchRates(true), 60 * 60 * 1000);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount + prefetch only
   }, []);
 
   const ngn = rates?.rates.NGN;
@@ -72,7 +87,7 @@ export function CurrencyRatesWidget({ variant = "card" }: CurrencyRatesWidgetPro
           </div>
         )}
         <button
-          onClick={fetchRates}
+          onClick={() => void fetchRates(false)}
           title="Refresh rates"
           className="ml-auto text-neutral-400 hover:text-emerald-600 transition-colors"
         >
@@ -100,7 +115,7 @@ export function CurrencyRatesWidget({ variant = "card" }: CurrencyRatesWidgetPro
           </div>
         </div>
         <button
-          onClick={fetchRates}
+          onClick={() => void fetchRates(false)}
           title="Refresh"
           className="text-neutral-400 hover:text-emerald-600 transition-colors"
         >
@@ -117,7 +132,7 @@ export function CurrencyRatesWidget({ variant = "card" }: CurrencyRatesWidgetPro
       ) : error ? (
         <div className="p-5 text-center text-sm text-neutral-400">
           <p>Could not load rates.</p>
-          <button onClick={fetchRates} className="mt-2 text-emerald-600 hover:underline text-xs">Try again</button>
+          <button onClick={() => void fetchRates(false)} className="mt-2 text-emerald-600 hover:underline text-xs">Try again</button>
         </div>
       ) : (
         <div className="p-4 grid grid-cols-1 gap-3">

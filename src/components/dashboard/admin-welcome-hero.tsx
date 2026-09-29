@@ -16,7 +16,8 @@ import { getGreeting } from "@/lib/utils";
 import { formatYearMonthLabel } from "@/lib/utils/dates";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LiveTeamPulseLazy } from "@/components/dashboard/live-team-pulse-lazy";
+import { LiveTeamPulse } from "@/components/dashboard/live-team-pulse";
+import type { TeamLiveEvent } from "@/types/database";
 
 interface AdminWelcomeHeroProps {
   displayName: string;
@@ -33,6 +34,7 @@ interface AdminWelcomeHeroProps {
     weeklyMissing: number;
   };
   filterSlot?: ReactNode;
+  initialLiveEvents?: TeamLiveEvent[];
 }
 
 const baseQuickLinks = [
@@ -51,6 +53,7 @@ export function AdminWelcomeHero({
   yearMonth,
   totals,
   filterSlot,
+  initialLiveEvents,
 }: AdminWelcomeHeroProps) {
   const firstName = displayName.split(" ")[0] || displayName;
   const quickLinks = [
@@ -153,7 +156,7 @@ export function AdminWelcomeHero({
             </p>
           </div>
           <div className="[&_.live-pulse-empty]:border-white/20 [&_.live-pulse-empty]:bg-white/5 [&_.live-pulse-empty]:text-emerald-50/80">
-            <LiveTeamPulseLazy variant="embedded" />
+            <LiveTeamPulse variant="embedded" initialEvents={initialLiveEvents} />
           </div>
         </div>
 

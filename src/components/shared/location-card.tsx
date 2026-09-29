@@ -4,12 +4,18 @@ import { useEffect, useState } from "react";
 import { MapPin, Loader2 } from "lucide-react";
 import type { GeoLocation } from "@/app/api/geo/location/route";
 
-export function LocationCard() {
-  const [loc, setLoc] = useState<GeoLocation | null>(null);
-  const [loading, setLoading] = useState(true);
+interface LocationCardProps {
+  /** Saved team presence or server-detected geo — avoids endless loading spinner. */
+  initialLocation?: GeoLocation | null;
+}
+
+export function LocationCard({ initialLocation = null }: LocationCardProps) {
+  const [loc, setLoc] = useState<GeoLocation | null>(initialLocation);
+  const [loading, setLoading] = useState(!initialLocation);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (initialLocation) return;
     fetch("/api/geo/location", { cache: "no-store" })
       .then(async (r) => {
         const data = await r.json();
@@ -18,7 +24,7 @@ export function LocationCard() {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [initialLocation]);
 
   return (
     <div className="rounded-2xl border border-sky-200/70 bg-gradient-to-br from-sky-50 via-white to-white px-5 py-4">
