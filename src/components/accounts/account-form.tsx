@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { publishLiveEvent } from "@/lib/live/publish-live-event";
 import type { ParsedAccountFromOcr } from "@/lib/forecast/account-ocr-parse";
+import { matchCountryFromHint } from "@/lib/countries/picker";
 import type { TeamMember, Country, FiverrAccount } from "@/types/database";
 
 interface AccountFormProps {
@@ -116,14 +117,12 @@ export function AccountForm({
 
   function applyOcr(parsed: ParsedAccountFromOcr) {
     let countryId = formValues.country_id;
-    if (parsed.country_code || parsed.country_name) {
-      const match = countries.find(
-        (c) =>
-          (parsed.country_code && c.code.toUpperCase() === parsed.country_code.toUpperCase()) ||
-          (parsed.country_name && c.name.toLowerCase() === parsed.country_name.toLowerCase())
-      );
-      if (match) countryId = match.id;
-    }
+    const match = matchCountryFromHint(
+      countries,
+      parsed.country_code,
+      parsed.country_name
+    );
+    if (match) countryId = match.id;
 
     setFormValues((prev) => ({
       ...prev,
@@ -148,14 +147,12 @@ export function AccountForm({
   }
 
   function resolveCountryId(parsed: ParsedAccountFromOcr): string | null {
-    if (parsed.country_code || parsed.country_name) {
-      const match = countries.find(
-        (c) =>
-          (parsed.country_code && c.code.toUpperCase() === parsed.country_code.toUpperCase()) ||
-          (parsed.country_name && c.name.toLowerCase() === parsed.country_name.toLowerCase())
-      );
-      if (match) return match.id;
-    }
+    const match = matchCountryFromHint(
+      countries,
+      parsed.country_code,
+      parsed.country_name
+    );
+    if (match) return match.id;
     return formValues.country_id || null;
   }
 
@@ -503,7 +500,14 @@ export function AccountForm({
                 </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <CountrySelect countries={countries} defaultValue={v.country_id} />
+                <CountrySelect
+                  countries={countries}
+                  value={v.country_id}
+                  onChange={(country_id) =>
+                    setFormValues((prev) => ({ ...prev, country_id }))
+                  }
+                  required
+                />
                 <div className="space-y-2">
                   <Label htmlFor="status">Account Status</Label>
                   <Select id="status" name="status" defaultValue={v.status}>
