@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  PRUDENCE_OFFICE_URL,
   TEAM_BLUEPRINT_DAYS,
   type BlueprintDay,
   type BlueprintStep,
@@ -41,17 +40,7 @@ export function TeamBlueprintPage({ memberName }: TeamBlueprintPageProps) {
             <strong className="text-white">THE PRUDENCE</strong> office accountability system your team uses in the
             office.
           </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Button
-              asChild
-              size="sm"
-              className="bg-white text-[#5c1228] hover:bg-rose-50 font-semibold"
-            >
-              <a href={PRUDENCE_OFFICE_URL} target="_blank" rel="noopener noreferrer">
-                Open THE PRUDENCE
-                <ExternalLink className="ml-2 h-3.5 w-3.5" />
-              </a>
-            </Button>
+          <div className="mt-5">
             <Button
               asChild
               size="sm"

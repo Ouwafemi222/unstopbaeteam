@@ -1,6 +1,3 @@
-/** Office training reference — same system used in the office. */
-export const PRUDENCE_OFFICE_URL = "https://prudence-path.vercel.app/";
-
 export type BlueprintStep = {
   id: string;
   title: string;
@@ -65,7 +62,6 @@ export const TEAM_BLUEPRINT_DAYS: BlueprintDay[] = [
         title: "Use only THE PRUDENCE package knowledge",
         detail:
           "For office accountability and training, follow the methods and materials from THE PRUDENCE — not random shortcuts from elsewhere. When in doubt, ask your sponsor or admin.",
-        links: [{ label: "THE PRUDENCE (office site)", href: PRUDENCE_OFFICE_URL }],
       },
     ],
   },
