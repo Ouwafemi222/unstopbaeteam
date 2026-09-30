@@ -33,6 +33,7 @@ import {
   Banknote,
   UserPlus,
   Archive,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,12 @@ type NavSection = {
   items: NavItem[];
 };
 
+const teamBlueprintNav: NavItem = {
+  href: "/team-blueprint",
+  label: "Team Blueprint",
+  icon: BookOpen,
+};
+
 const adminNavItems: NavItem[] = [
   { href: "/team-members", label: "All Team Members", icon: Users, permission: "team_members.view" },
   { href: "/accounts", label: "All Fiverr Accounts", icon: Briefcase, permission: "accounts.view" },
@@ -78,6 +85,7 @@ const adminNavItems: NavItem[] = [
 
 function personalWorkspaceItems(teamMemberId: string): NavItem[] {
   const items: NavItem[] = [
+    { href: "/team-blueprint", label: "Team Blueprint", icon: BookOpen },
     { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
     { href: "/my-messages", label: "My Messages", icon: MessageSquare },
     { href: "/my-orders", label: "My Orders", icon: Trophy },
@@ -99,7 +107,8 @@ function personalWorkspaceItems(teamMemberId: string): NavItem[] {
 
 const memberNavItems = (teamMemberId: string): NavItem[] => [
   { href: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
-  ...personalWorkspaceItems(teamMemberId),
+  { href: "/team-blueprint", label: "Team Blueprint", icon: BookOpen },
+  ...personalWorkspaceItems(teamMemberId).filter((item) => item.href !== "/team-blueprint"),
   { href: "/profile", label: "Account Settings", icon: User },
 ];
 
@@ -139,14 +148,23 @@ function buildNavSections(
     });
   }
 
-  const adminItems = adminNavItems.filter((item) =>
+  let adminItems = adminNavItems.filter((item) =>
     filterNavItem(item, permissions, isSuperAdmin)
   );
   if (adminItems.length > 0) {
+    if (!teamMemberId) {
+      adminItems = [teamBlueprintNav, ...adminItems];
+    }
     sections.push({
       id: "admin",
       label: "Team admin",
       items: adminItems,
+    });
+  } else if (!teamMemberId) {
+    sections.push({
+      id: "admin",
+      label: "Team admin",
+      items: [teamBlueprintNav],
     });
   }
 
