@@ -9,7 +9,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { LocationBadge } from "@/components/shared/location-badge";
 import { SuperAdminStar } from "@/components/shared/super-admin-star";
-import { DailyGingerMotivation } from "@/components/dashboard/daily-ginger-motivation";
+import { DailyPopups } from "@/components/celebrations/daily-popups";
 import type { Profile } from "@/types/database";
 
 const BUCKET = "attachments";
@@ -64,7 +64,7 @@ export function AppShell({
 
   return (
     <div className="flex h-screen bg-[#faf8f9]">
-      <DailyGingerMotivation displayName={displayName} />
+      <DailyPopups displayName={displayName} teamMemberId={teamMemberId ?? null} />
       <Sidebar
         permissions={permissions}
         collapsed={collapsed}

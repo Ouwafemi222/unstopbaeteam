@@ -13,6 +13,30 @@ export type BlueprintDay = {
   steps: BlueprintStep[];
 };
 
+export type BlueprintBook = {
+  slug: string;
+  title: string;
+};
+
+/** PDFs live in the private `books` storage bucket as `<slug>.pdf`. */
+export const BOOKS_BUCKET = "books";
+
+export const TEAM_BLUEPRINT_BOOKS: BlueprintBook[] = [
+  { slug: "why-ask-why", title: "Why Ask Why" },
+  { slug: "theres-a-place-called-tomorrow", title: "There's a Place Called Tomorrow" },
+  { slug: "the-art-of-laziness", title: "The Art of Laziness" },
+  { slug: "go-pro", title: "Go Pro" },
+  { slug: "create-your-future", title: "Create Your Future" },
+];
+
+export function bookStoragePath(slug: string): string {
+  return `${slug}.pdf`;
+}
+
+export function findBlueprintBook(slug: string): BlueprintBook | undefined {
+  return TEAM_BLUEPRINT_BOOKS.find((b) => b.slug === slug);
+}
+
 /** Training template — add more days here as you define them with the team. */
 export const TEAM_BLUEPRINT_DAYS: BlueprintDay[] = [
   {

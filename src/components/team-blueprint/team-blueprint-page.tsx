@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {
   BookOpen,
+  ChevronRight,
   ExternalLink,
   FileText,
+  Library,
   MapPin,
   Share2,
   Shield,
@@ -10,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  TEAM_BLUEPRINT_BOOKS,
   TEAM_BLUEPRINT_DAYS,
   type BlueprintDay,
   type BlueprintStep,
@@ -71,6 +74,8 @@ export function TeamBlueprintPage({ memberName }: TeamBlueprintPageProps) {
         <BlueprintDaySection key={day.day} day={day} />
       ))}
 
+      <BlueprintBooksSection />
+
       <p className="text-center text-xs text-neutral-400 px-4">
         More days will be added to this blueprint as your leads define them. Complete Day 1 before heavy Fiverr logging
         in UNSTOPPABLE TEAM.
@@ -97,6 +102,44 @@ function BlueprintDaySection({ day }: { day: BlueprintDay }) {
           <BlueprintStepCard key={step.id} step={step} index={index + 1} />
         ))}
       </ol>
+    </section>
+  );
+}
+
+function BlueprintBooksSection() {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3 px-1">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7b1e3a] text-white shadow-md shadow-[#7b1e3a]/30">
+          <Library className="h-5 w-5" />
+        </span>
+        <div>
+          <h2 className="text-lg font-bold text-neutral-900">Books to read</h2>
+          <p className="text-sm text-neutral-500 mt-0.5">
+            Tap a book to open and read it right here on the website.
+          </p>
+        </div>
+      </div>
+
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {TEAM_BLUEPRINT_BOOKS.map((book, index) => (
+          <li key={book.slug}>
+            <Link
+              href={`/team-blueprint/books/${book.slug}`}
+              className="group flex items-center gap-4 rounded-xl border border-neutral-200/90 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#7b1e3a]/30 hover:shadow-md"
+            >
+              <div className="flex h-14 w-11 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-[#5c1228] to-[#7b1e3a] text-xs font-bold text-white shadow-sm">
+                {index + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-neutral-900 leading-snug">{book.title}</p>
+                <p className="text-xs text-[#7b1e3a] font-medium mt-1">Read book</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-neutral-400 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

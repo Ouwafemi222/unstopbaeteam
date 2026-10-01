@@ -241,6 +241,17 @@ body {
   animation: order-win-bounce 1.2s ease-in-out infinite;
 }
 
+@keyframes nudge-emoji-in {
+  0% { opacity: 0; transform: scale(0.3) rotate(-12deg); }
+  60% { opacity: 0.9; transform: scale(1.08) rotate(4deg); }
+  80% { transform: scale(0.97) rotate(-2deg); }
+  100% { opacity: 0.9; transform: scale(1) rotate(0deg); }
+}
+
+.nudge-emoji-in {
+  animation: nudge-emoji-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes order-gift-shake {
   0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
   20% { transform: translateY(-4px) rotate(-4deg) scale(1.02); }

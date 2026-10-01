@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Flame, PartyPopper, Sparkles, Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +42,7 @@ function todayLagos(): string {
   }).format(new Date());
 }
 
-function alreadyShownToday(): boolean {
+export function gingerShownToday(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) === todayLagos();
   } catch {
@@ -69,8 +69,13 @@ function pickMessage() {
  * Once-per-day motivational popup for every logged-in member —
  * shows even when nobody recorded an order, to ginger the team.
  */
-export function DailyGingerMotivation({ displayName }: { displayName?: string }) {
-  const [open, setOpen] = useState(false);
+export function DailyGingerMotivation({
+  displayName,
+  onClose,
+}: {
+  displayName?: string;
+  onClose: () => void;
+}) {
   const message = useMemo(() => pickMessage(), []);
   const firstName = displayName?.split(" ")[0] || "champ";
 
@@ -88,26 +93,17 @@ export function DailyGingerMotivation({ displayName }: { displayName?: string })
   );
 
   useEffect(() => {
-    if (alreadyShownToday()) return;
-    const t = setTimeout(() => setOpen(true), 900);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [open]);
+  }, []);
 
   function close() {
     markShownToday();
-    setOpen(false);
+    onClose();
   }
-
-  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[78] flex items-center justify-center p-4">
