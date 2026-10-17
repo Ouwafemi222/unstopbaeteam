@@ -34,6 +34,7 @@ import {
   UserPlus,
   Archive,
   BookOpen,
+  ClipboardPen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,12 @@ const teamBlueprintNav: NavItem = {
   icon: BookOpen,
 };
 
+const weeklyEvaluationNav: NavItem = {
+  href: "/weekly-evaluation",
+  label: "Weekly Evaluation",
+  icon: ClipboardPen,
+};
+
 const adminNavItems: NavItem[] = [
   { href: "/team-members", label: "All Team Members", icon: Users, permission: "team_members.view" },
   { href: "/accounts", label: "All Fiverr Accounts", icon: Briefcase, permission: "accounts.view" },
@@ -86,6 +93,7 @@ const adminNavItems: NavItem[] = [
 function personalWorkspaceItems(teamMemberId: string): NavItem[] {
   const items: NavItem[] = [
     { href: "/team-blueprint", label: "Team Blueprint", icon: BookOpen },
+    weeklyEvaluationNav,
     { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
     { href: "/my-messages", label: "My Messages", icon: MessageSquare },
     { href: "/my-orders", label: "My Orders", icon: Trophy },
@@ -153,7 +161,7 @@ function buildNavSections(
   );
   if (adminItems.length > 0) {
     if (!teamMemberId) {
-      adminItems = [teamBlueprintNav, ...adminItems];
+      adminItems = [teamBlueprintNav, weeklyEvaluationNav, ...adminItems];
     }
     sections.push({
       id: "admin",
@@ -164,7 +172,7 @@ function buildNavSections(
     sections.push({
       id: "admin",
       label: "Team admin",
-      items: [teamBlueprintNav],
+      items: [teamBlueprintNav, weeklyEvaluationNav],
     });
   }
 

@@ -15,6 +15,7 @@ import { LocationCard } from "@/components/shared/location-card";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import { MemberProgressActivityBars } from "@/components/members/member-progress-activity-bars";
 import { MemberWeeklyActivitySection } from "@/components/members/member-weekly-activity-section";
+import { MemberEvaluationPrompt } from "@/components/weekly-evaluation/member-evaluation-prompt";
 import { MemberStandingCard } from "@/components/members/member-standing-card";
 import { LiveTeamPulseLazy } from "@/components/dashboard/live-team-pulse-lazy";
 import { MessageWinToasts } from "@/components/dashboard/message-win-toasts";
@@ -158,6 +159,10 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
     <div className="space-y-8">
       <Suspense fallback={null}>
         <MemberFineOnGroundBanner teamMemberId={profile.id} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <MemberEvaluationPrompt teamMemberId={profile.id} />
       </Suspense>
 
       <MessageWinToasts />

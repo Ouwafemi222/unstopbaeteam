@@ -15,6 +15,7 @@ import { AdminUnpaidFinesPanel } from "@/components/dashboard/admin-unpaid-fines
 import { MemberMyFinesPanel } from "@/components/members/member-my-fines-panel";
 import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-activity-feed";
 import { AdminWelcomeHero } from "@/components/dashboard/admin-welcome-hero";
+import { AdminEvaluationPanel } from "@/components/weekly-evaluation/admin-evaluation-panel";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 import { LocationCard } from "@/components/shared/location-card";
 import { fetchExchangeRates } from "@/lib/currency/fetch-rates";
@@ -189,6 +190,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         filterSlot={<DateFilterBar current={filter} />}
         initialLiveEvents={initialLiveEvents}
       />
+
+      {scope.roleSlugs.includes("super_admin") && <AdminEvaluationPanel />}
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">

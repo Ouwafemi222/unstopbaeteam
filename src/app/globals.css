@@ -365,3 +365,27 @@ body {
 @media (max-width: 768px) {
   .responsive-table { display: block; overflow-x: auto; }
 }
+
+@media print {
+  body:has(.weekly-eval-print) {
+    background: white !important;
+  }
+
+  body:has(.weekly-eval-print) aside,
+  body:has(.weekly-eval-print) header {
+    display: none !important;
+  }
+
+  body:has(.weekly-eval-print) .flex.h-screen,
+  body:has(.weekly-eval-print) .flex.h-screen > div {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  body:has(.weekly-eval-print) main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+}
