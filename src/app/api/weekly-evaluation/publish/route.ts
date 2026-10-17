@@ -105,16 +105,28 @@ export async function POST(request: Request) {
     .not("user_id", "is", null);
 
   const notifications = (members ?? [])
-    .filter((member) => member.user_id && member.user_id !== user.id)
+    .filter((member) => member.user_id)
     .map((member) => {
       const name = member.preferred_name || member.full_name?.split(" ")[0] || "there";
+      const own = member.user_id === user.id;
       return {
         user_id: member.user_id as string,
         title: "Weekly evaluation is ready",
-        message: `Hi ${name} — the sheet for ${rangeLabel} is on your dashboard. Fill it in and submit.`,
+        message: own
+          ? `You sent the sheet for ${rangeLabel}. Open Weekly Evaluation and fill yours too.`
+          : `Hi ${name} — the sheet for ${rangeLabel} is ready. Open Weekly Evaluation in your menu, fill it in, and submit.`,
         link: "/weekly-evaluation",
       };
     });
+
+  if (!notifications.some((item) => item.user_id === user.id)) {
+    notifications.push({
+      user_id: user.id,
+      title: "Weekly evaluation is ready",
+      message: `You sent the sheet for ${rangeLabel}. Open Weekly Evaluation and fill yours too.`,
+      link: "/weekly-evaluation",
+    });
+  }
 
   if (notifications.length > 0) {
     const admin = createAdminClient();

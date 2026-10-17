@@ -39,7 +39,7 @@ export function PublishForm({ windowLabel }: { windowLabel: string }) {
         toast.error(data.error || "Could not send the sheet.");
         return;
       }
-      toast.success(`Sent. It is now on every team member’s dashboard (${data.rangeLabel}).`);
+      toast.success(`Sent. It is now on the Weekly Evaluation page for the team, including you (${data.rangeLabel}).`);
       router.refresh();
     } catch {
       toast.error("Could not send the sheet.");
@@ -56,9 +56,9 @@ export function PublishForm({ windowLabel }: { windowLabel: string }) {
         </p>
         <h2 className="mt-1 text-2xl font-bold">Send this week’s evaluation</h2>
         <p className="mt-2 max-w-xl text-sm text-rose-50/90 leading-relaxed">
-          This sheet covers <strong>{windowLabel}</strong>. Press send and it pops up on every
-          team member’s dashboard. They fill it in and submit. You then see each answer next to
-          what they actually recorded.
+          This sheet covers <strong>{windowLabel}</strong>. Press send and it lands in the Weekly
+          Evaluation page for every team member, including you. They fill it in and submit. You
+          then see each answer next to what they actually recorded.
         </p>
       </div>
 

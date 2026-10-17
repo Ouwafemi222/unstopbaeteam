@@ -27,45 +27,56 @@ export default async function WeeklyEvaluationPage() {
       );
     }
 
-    const ownReview = scope.teamMember
-      ? snapshot.reviews.find((review) => review.teamMemberId === scope.teamMember?.id)
-      : undefined;
+    const ownSheet =
+      scope.teamMember && snapshot.activeRound
+        ? await loadMemberSheet(supabase, scope.teamMember.id)
+        : null;
 
     return (
       <div className="mx-auto max-w-3xl space-y-8 pb-12">
         <header>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7b1e3a]">
-            Team template
+            Your page
           </p>
           <h1 className="mt-1 text-2xl font-bold text-neutral-900">Weekly Evaluation</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Send it once this week. Members submit from their dashboard. Their answers are checked
-            against the accounts, messages, orders, and prospects they recorded.
+            This is the same page every team member opens. When you send the sheet, it arrives
+            here for you too. The team check sits underneath your own answers.
           </p>
         </header>
 
         {snapshot.canPublish && <PublishForm windowLabel={snapshot.windowLabel} />}
 
+        {ownSheet?.ok && ownSheet.round && !ownSheet.submission && ownSheet.rangeLabel && (
+          <SubmitForm
+            roundId={ownSheet.round.id}
+            topics={ownSheet.topics}
+            rangeLabel={ownSheet.rangeLabel}
+          />
+        )}
+
+        {ownSheet?.ok && ownSheet.submission && (
+          <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            You already submitted your own sheet
+            {ownSheet.rangeLabel ? ` for ${ownSheet.rangeLabel}` : ""}.
+          </p>
+        )}
+
+        {snapshot.activeRound && !scope.teamMember && (
+          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            This login is not linked to a team member profile, so your own sheet cannot be saved.
+            Link your user on your member profile, then open this page again.
+          </p>
+        )}
+
         {snapshot.activeRound && (
-          <>
-            <ReviewList
-              reviews={snapshot.reviews}
-              rangeLabel={formatSheetRange(
-                snapshot.activeRound.week_start,
-                snapshot.activeRound.week_end
-              )}
-            />
-            {ownReview && !ownReview.submitted && (
-              <SubmitForm
-                roundId={snapshot.activeRound.id}
-                topics={snapshot.topics}
-                rangeLabel={formatSheetRange(
-                  snapshot.activeRound.week_start,
-                  snapshot.activeRound.week_end
-                )}
-              />
+          <ReviewList
+            reviews={snapshot.reviews}
+            rangeLabel={formatSheetRange(
+              snapshot.activeRound.week_start,
+              snapshot.activeRound.week_end
             )}
-          </>
+          />
         )}
 
         {snapshot.previousRound && snapshot.previousReviews.length > 0 && (
@@ -99,8 +110,8 @@ export default async function WeeklyEvaluationPage() {
       <div className="mx-auto max-w-3xl rounded-2xl border border-[#7b1e3a]/15 bg-white px-5 py-6">
         <h1 className="text-2xl font-bold text-neutral-900">Weekly Evaluation</h1>
         <p className="mt-2 text-sm text-neutral-500">
-          Your trainer has not sent this week’s sheet yet. It will pop up on your dashboard when
-          they do.
+          Your trainer has not sent this week’s sheet yet. When they do, it will be waiting on
+          this page.
         </p>
         <Link href="/dashboard" className="mt-4 inline-block text-sm font-semibold text-[#7b1e3a]">
           Back to dashboard
