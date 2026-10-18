@@ -180,6 +180,21 @@ export interface Message {
   country?: Country;
 }
 
+export interface EmailRecord {
+  id: string;
+  team_member_id: string;
+  received_date: string;
+  received_time: string | null;
+  sender_name: string | null;
+  sender_email: string | null;
+  subject: string;
+  notes: string | null;
+  recorded_by: string | null;
+  created_at: string;
+  updated_at: string;
+  team_member?: { full_name: string } | null;
+}
+
 export interface ActivityLog {
   id: string;
   user_id: string | null;

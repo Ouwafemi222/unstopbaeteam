@@ -5,6 +5,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/team-members",
   "/accounts",
   "/messages",
+  "/emails",
   "/import",
   "/users",
   "/activity",

@@ -35,6 +35,7 @@ import {
   Archive,
   BookOpen,
   ClipboardPen,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,7 @@ const adminNavItems: NavItem[] = [
   { href: "/team-members", label: "All Team Members", icon: Users, permission: "team_members.view" },
   { href: "/accounts", label: "All Fiverr Accounts", icon: Briefcase, permission: "accounts.view" },
   { href: "/messages", label: "All Messages", icon: MessageSquare, permission: "messages.view" },
+  { href: "/emails", label: "All Emails", icon: Mail, superOnly: true },
   { href: "/orders", label: "All Orders", icon: Trophy, permission: "messages.view" },
   { href: "/services", label: "Services", icon: Wrench },
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
@@ -96,6 +98,7 @@ function personalWorkspaceItems(teamMemberId: string): NavItem[] {
     weeklyEvaluationNav,
     { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
     { href: "/my-messages", label: "My Messages", icon: MessageSquare },
+    { href: "/my-emails", label: "My Emails", icon: Mail },
     { href: "/my-orders", label: "My Orders", icon: Trophy },
     { href: "/my-prospects", label: "My Prospects", icon: UserPlus },
     { href: "/my-fines", label: "My Fines", icon: AlertTriangle },
