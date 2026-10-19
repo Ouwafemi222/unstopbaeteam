@@ -1,14 +1,9 @@
 import Link from "next/link";
-import { Plus, Pencil, Briefcase, Ban } from "lucide-react";
+import { Plus, Briefcase } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { AccountStatusBadge } from "@/components/shared/status-badges";
-import {
-  BlockAccountButton,
-  RestoreAccountButton,
-} from "@/components/accounts/block-account-button";
-import { formatDate } from "@/lib/utils";
+import { MemberAccountsBrowser } from "@/components/accounts/member-accounts-browser";
 import type { FiverrAccount } from "@/types/database";
 
 interface MemberAccountsPanelProps {
@@ -82,7 +77,7 @@ export async function MemberAccountsPanel({
         </Link>
       </div>
 
-      {list.length === 0 ? (
+      {list.length === 0 && blocked.length === 0 ? (
         <Card className="border-dashed border-2 border-brand-green/30 bg-brand-green-light/10">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center px-6">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green/10 text-brand-green mb-4">
@@ -90,8 +85,8 @@ export async function MemberAccountsPanel({
             </div>
             <h3 className="text-lg font-semibold text-neutral-900">No accounts recorded yet</h3>
             <p className="text-sm text-neutral-500 mt-2 max-w-md">
-              Open a new Fiverr account? Tap below and fill in your username, email, phone, country,
-              secret question, opening date, and verification details.
+              Open a new Fiverr account? Add the username, email, phone, country, proxy, and
+              verification details.
             </p>
             <Link href={`${basePath}/new`} className="mt-6">
               <Button size="lg">
@@ -102,104 +97,12 @@ export async function MemberAccountsPanel({
           </CardContent>
         </Card>
       ) : (
-        <div className="responsive-table bg-white rounded-xl border shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-neutral-500 bg-neutral-50">
-                <th className="p-3 font-medium">Username</th>
-                <th className="p-3 font-medium">Email</th>
-                <th className="p-3 font-medium">Phone</th>
-                <th className="p-3 font-medium">Country</th>
-                <th className="p-3 font-medium">Status</th>
-                <th className="p-3 font-medium">Verification</th>
-                <th className="p-3 font-medium">Opened</th>
-                <th className="p-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((acc) => (
-                <tr key={acc.id} className="border-b hover:bg-neutral-50">
-                  <td className="p-3 font-medium text-neutral-900">{acc.username}</td>
-                  <td className="p-3">{acc.email ?? "—"}</td>
-                  <td className="p-3">{acc.phone ?? "—"}</td>
-                  <td className="p-3">
-                    {(acc.country as { flag_emoji?: string; name?: string })?.flag_emoji}{" "}
-                    {(acc.country as { name?: string })?.name ?? "—"}
-                  </td>
-                  <td className="p-3">
-                    <AccountStatusBadge status={acc.status} />
-                  </td>
-                  <td className="p-3 text-xs">
-                    {acc.verification_code ? (
-                      <span className="font-mono font-medium">{acc.verification_code}</span>
-                    ) : (
-                      <span className="text-neutral-400">—</span>
-                    )}
-                    {(acc.verification_screenshot_paths?.length ?? 0) > 0 && (
-                      <span className="block text-neutral-500 mt-0.5">
-                        {acc.verification_screenshot_paths.length} screenshot
-                        {acc.verification_screenshot_paths.length === 1 ? "" : "s"}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3">{formatDate(acc.opening_date)}</td>
-                  <td className="p-3">
-                    <div className="flex flex-wrap items-center gap-1">
-                      <Link href={`${basePath}/${acc.id}/edit`}>
-                        <Button variant="ghost" size="sm">
-                          <Pencil className="h-4 w-4" /> Edit
-                        </Button>
-                      </Link>
-                      {allowBlock && (
-                        <BlockAccountButton accountId={acc.id} username={acc.username} />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {allowBlock && blocked.length > 0 && (
-        <div className="space-y-2 pt-2">
-          <h3 className="text-sm font-semibold text-neutral-700 flex items-center gap-2 px-1">
-            <Ban className="h-4 w-4 text-red-500" />
-            Blocked accounts ({blocked.length})
-          </h3>
-          <p className="text-xs text-neutral-500 px-1">
-            These stay off your active list. Restore one if Fiverr unblocks it.
-          </p>
-          <div className="responsive-table bg-neutral-50 rounded-xl border border-neutral-200">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-neutral-500">
-                  <th className="p-3 font-medium">Username</th>
-                  <th className="p-3 font-medium">Email</th>
-                  <th className="p-3 font-medium">Status</th>
-                  <th className="p-3 font-medium">Blocked</th>
-                  <th className="p-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {blocked.map((acc) => (
-                  <tr key={acc.id} className="border-b border-neutral-200">
-                    <td className="p-3 font-medium text-neutral-700">{acc.username}</td>
-                    <td className="p-3 text-neutral-500">{acc.email ?? "—"}</td>
-                    <td className="p-3">
-                      <AccountStatusBadge status={acc.status} />
-                    </td>
-                    <td className="p-3 text-neutral-500">{formatDate(acc.archived_at)}</td>
-                    <td className="p-3">
-                      <RestoreAccountButton accountId={acc.id} username={acc.username} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <MemberAccountsBrowser
+          accounts={list}
+          blocked={blocked}
+          basePath={basePath}
+          allowBlock={allowBlock}
+        />
       )}
     </div>
   );

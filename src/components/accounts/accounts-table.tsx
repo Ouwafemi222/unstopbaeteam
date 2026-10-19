@@ -30,6 +30,8 @@ export function AccountsTable({ accounts, members, countries }: AccountsTablePro
           acc.username.toLowerCase().includes(q) ||
           acc.email?.toLowerCase().includes(q) ||
           acc.phone?.includes(q) ||
+          acc.proxy_host?.toLowerCase().includes(q) ||
+          acc.proxy_username?.toLowerCase().includes(q) ||
           acc.team_member?.full_name?.toLowerCase().includes(q);
         if (!match) return false;
       }

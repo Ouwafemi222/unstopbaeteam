@@ -15,7 +15,7 @@ export default async function MyAccountsNewPage() {
       backHref="/my-accounts"
       backLabel="Back to My Fiverr Accounts"
       title="Record New Fiverr Account"
-      subtitle="Add every important detail for the account you opened — OCR or manual, your call."
+      subtitle="Add the Fiverr login, the proxy host, port, username, and code, plus verification."
       icon={Briefcase}
       tone="account"
       maxWidthClass="max-w-3xl"

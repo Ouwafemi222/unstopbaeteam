@@ -23,8 +23,8 @@ export default async function MyAccountsPage() {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">My Fiverr Accounts</h1>
         <p className="text-neutral-500 mt-1">
-          Record every account you open — username, email, phone, secret question, and verification
-          details. Use <strong>Block</strong> to remove a blocked Fiverr account from your list.
+          Search your own accounts, then open one to see the login, proxy, and verification details.
+          Use <strong>Block</strong> to take a blocked Fiverr account off the active list.
         </p>
       </div>
       <MemberAccountsPanel

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, KeyRound, Loader2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Briefcase, Copy, KeyRound, Loader2, Server, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +98,12 @@ export function AccountForm({
     valuesFromAccount(account, lockedTeamMemberId)
   );
   const [formKey, setFormKey] = useState(0);
+  const [proxy, setProxy] = useState({
+    host: account?.proxy_host ?? "",
+    port: account?.proxy_port ?? "",
+    username: account?.proxy_username ?? "",
+    code: account?.proxy_code ?? "",
+  });
   const router = useRouter();
   const supabase = createClient();
 
@@ -329,6 +335,10 @@ export function AccountForm({
       verification_notes: (form.get("verification_notes") as string) || null,
       secret_question: (form.get("secret_question") as string)?.trim() || null,
       secret_answer: (form.get("secret_answer") as string)?.trim() || null,
+      proxy_host: (form.get("proxy_host") as string)?.trim() || null,
+      proxy_port: (form.get("proxy_port") as string)?.trim() || null,
+      proxy_username: (form.get("proxy_username") as string)?.trim() || null,
+      proxy_code: (form.get("proxy_code") as string)?.trim() || null,
       info_supplied_by: (form.get("info_supplied_by") as string) || null,
       notes: (form.get("notes") as string) || null,
       updated_by: user?.id,
@@ -407,6 +417,20 @@ export function AccountForm({
 
   const v = formValues;
   const showForm = fillMode === "manual" || mode === "edit" || formKey > 0;
+  const proxyString = [proxy.host, proxy.port, proxy.username, proxy.code]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(":");
+
+  async function copyProxy() {
+    if (!proxyString) return;
+    try {
+      await navigator.clipboard.writeText(proxyString);
+      toast.success("Proxy copied");
+    } catch {
+      toast.error("Could not copy the proxy");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -568,6 +592,76 @@ export function AccountForm({
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea id="notes" name="notes" rows={2} defaultValue={v.notes} />
               </div>
+            </div>
+          </section>
+
+          <section className="form-section-enter form-section-enter-delay-3 rounded-2xl border border-neutral-200/80 bg-white/95 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b bg-gradient-to-r from-violet-50 to-transparent flex items-center gap-2">
+              <Server className="h-4 w-4 text-violet-700" />
+              <h2 className="text-sm font-semibold text-neutral-900">Proxy</h2>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-neutral-500">
+                Save the proxy you used for this account: host, port, username, and the code.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="proxy_host">Host</Label>
+                  <Input
+                    id="proxy_host"
+                    name="proxy_host"
+                    placeholder="e.g. 192.168.0.1"
+                    value={proxy.host}
+                    onChange={(event) => setProxy((prev) => ({ ...prev, host: event.target.value }))}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="proxy_port">Port</Label>
+                  <Input
+                    id="proxy_port"
+                    name="proxy_port"
+                    inputMode="numeric"
+                    placeholder="e.g. 8080"
+                    value={proxy.port}
+                    onChange={(event) => setProxy((prev) => ({ ...prev, port: event.target.value }))}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="proxy_username">Username</Label>
+                  <Input
+                    id="proxy_username"
+                    name="proxy_username"
+                    placeholder="Proxy username"
+                    value={proxy.username}
+                    onChange={(event) =>
+                      setProxy((prev) => ({ ...prev, username: event.target.value }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="proxy_code">Code</Label>
+                  <Input
+                    id="proxy_code"
+                    name="proxy_code"
+                    placeholder="Proxy code or password"
+                    value={proxy.code}
+                    onChange={(event) => setProxy((prev) => ({ ...prev, code: event.target.value }))}
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              {proxyString && (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border border-violet-100 bg-violet-50/70 px-3 py-2.5">
+                  <p className="min-w-0 flex-1 font-mono text-xs text-neutral-800 break-all">{proxyString}</p>
+                  <Button type="button" variant="outline" size="sm" onClick={copyProxy}>
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </Button>
+                </div>
+              )}
             </div>
           </section>
 

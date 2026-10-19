@@ -147,6 +147,10 @@ export interface FiverrAccount {
   verification_screenshot_paths: string[];
   secret_question: string | null;
   secret_answer: string | null;
+  proxy_host: string | null;
+  proxy_port: string | null;
+  proxy_username: string | null;
+  proxy_code: string | null;
   info_supplied_by: string | null;
   notes: string | null;
   archived_at: string | null;

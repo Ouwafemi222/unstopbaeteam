@@ -71,6 +71,16 @@ export default async function AccountDetailPage({ params }: Props) {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle className="text-base">Proxy</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between gap-4"><span className="text-neutral-500">Host</span><span className="font-mono text-right">{account.proxy_host ?? "—"}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-neutral-500">Port</span><span className="font-mono">{account.proxy_port ?? "—"}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-neutral-500">Username</span><span className="text-right">{account.proxy_username ?? "—"}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-neutral-500">Code</span><span className="font-mono text-right">{account.proxy_code ?? "—"}</span></div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle className="text-base">Secret Question &amp; Answer</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
