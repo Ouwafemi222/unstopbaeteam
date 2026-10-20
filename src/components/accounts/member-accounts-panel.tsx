@@ -30,28 +30,31 @@ export async function MemberAccountsPanel({
 
   let list = initialAccounts ?? [];
   let blocked: FiverrAccount[] = [];
+  let loadError: string | null = null;
 
   if (!initialAccounts) {
-    const { data: accounts } = await supabase
+    const { data: accounts, error } = await supabase
       .from("fiverr_accounts")
-      .select("*, country:countries(name, flag_emoji), service:services(name)")
+      .select("*, country:countries(name, flag_emoji)")
       .eq("team_member_id", memberId)
       .is("archived_at", null)
       .neq("status", "reserved")
       .order("created_at", { ascending: false });
+    if (error) loadError = error.message;
     list = (accounts ?? []) as FiverrAccount[];
   } else {
     list = list.filter((a) => a.status !== "reserved");
   }
 
   if (allowBlock) {
-    const { data: blockedRows } = await supabase
+    const { data: blockedRows, error } = await supabase
       .from("fiverr_accounts")
-      .select("*, country:countries(name, flag_emoji), service:services(name)")
+      .select("*, country:countries(name, flag_emoji)")
       .eq("team_member_id", memberId)
       .eq("status", "blocked")
       .not("archived_at", "is", null)
       .order("archived_at", { ascending: false });
+    if (error && !loadError) loadError = error.message;
     blocked = (blockedRows ?? []) as FiverrAccount[];
   }
 
@@ -77,7 +80,13 @@ export async function MemberAccountsPanel({
         </Link>
       </div>
 
-      {list.length === 0 && blocked.length === 0 ? (
+      {loadError && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Accounts could not be loaded: {loadError}
+        </p>
+      )}
+
+      {list.length === 0 && blocked.length === 0 && !loadError ? (
         <Card className="border-dashed border-2 border-brand-green/30 bg-brand-green-light/10">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center px-6">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green/10 text-brand-green mb-4">
