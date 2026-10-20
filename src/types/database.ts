@@ -153,6 +153,8 @@ export interface FiverrAccount {
   proxy_code: string | null;
   info_supplied_by: string | null;
   notes: string | null;
+  service_id: string | null;
+  written_service: string | null;
   archived_at: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -160,6 +162,7 @@ export interface FiverrAccount {
   updated_at: string;
   team_member?: TeamMember | { full_name: string; id?: string };
   country?: Country | { name: string; flag_emoji: string; code?: string } | null;
+  service?: { name: string } | null;
 }
 
 export interface Message {

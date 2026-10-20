@@ -57,6 +57,7 @@ export default async function AccountDetailPage({ params }: Props) {
         <Card>
           <CardHeader><CardTitle className="text-base">Account Details</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between gap-4"><span className="text-neutral-500">Service</span><span className="text-right">{account.written_service ?? "—"}</span></div>
             <div className="flex justify-between"><span className="text-neutral-500">Email</span><span>{account.email ?? "—"}</span></div>
             <div className="flex justify-between"><span className="text-neutral-500">Phone</span><span>{account.phone ?? "—"}</span></div>
             <div className="flex justify-between"><span className="text-neutral-500">Country</span>

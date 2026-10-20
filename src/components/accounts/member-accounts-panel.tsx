@@ -34,7 +34,7 @@ export async function MemberAccountsPanel({
   if (!initialAccounts) {
     const { data: accounts } = await supabase
       .from("fiverr_accounts")
-      .select("*, country:countries(name, flag_emoji)")
+      .select("*, country:countries(name, flag_emoji), service:services(name)")
       .eq("team_member_id", memberId)
       .is("archived_at", null)
       .neq("status", "reserved")
@@ -47,7 +47,7 @@ export async function MemberAccountsPanel({
   if (allowBlock) {
     const { data: blockedRows } = await supabase
       .from("fiverr_accounts")
-      .select("*, country:countries(name, flag_emoji)")
+      .select("*, country:countries(name, flag_emoji), service:services(name)")
       .eq("team_member_id", memberId)
       .eq("status", "blocked")
       .not("archived_at", "is", null)

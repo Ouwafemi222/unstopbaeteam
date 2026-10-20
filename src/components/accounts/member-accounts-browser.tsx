@@ -36,6 +36,8 @@ function matches(account: FiverrAccount, query: string) {
     account.proxy_port,
     account.proxy_username,
     account.proxy_code,
+    account.written_service,
+    account.service?.name,
     countryLabel(account),
   ]
     .filter(Boolean)
@@ -80,7 +82,7 @@ export function MemberAccountsBrowser({
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search your accounts by username, email, phone, country, or proxy"
+            placeholder="Search your accounts by username, service, email, phone, or proxy"
             className="h-11 pl-10"
             aria-label="Search your Fiverr accounts"
           />
@@ -109,6 +111,7 @@ export function MemberAccountsBrowser({
             <thead>
               <tr className="border-b text-left text-neutral-500 bg-neutral-50">
                 <th className="p-3 font-medium">Username</th>
+                <th className="p-3 font-medium">Service</th>
                 <th className="p-3 font-medium">Email</th>
                 <th className="p-3 font-medium">Phone</th>
                 <th className="p-3 font-medium">Country</th>
@@ -124,6 +127,7 @@ export function MemberAccountsBrowser({
                 return (
                   <tr key={acc.id} className="border-b hover:bg-neutral-50">
                     <td className="p-3 font-medium text-neutral-900">{acc.username}</td>
+                    <td className="p-3">{acc.written_service || acc.service?.name || "—"}</td>
                     <td className="p-3">{acc.email ?? "—"}</td>
                     <td className="p-3">{acc.phone ?? "—"}</td>
                     <td className="p-3">{countryLabel(acc) || "—"}</td>

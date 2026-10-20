@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, Copy, KeyRound, Loader2, Server, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Briefcase, Copy, KeyRound, Loader2, Server, ShieldCheck, Sparkles, UserRound, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import { publishLiveEvent } from "@/lib/live/publish-live-event";
 import type { ParsedAccountFromOcr } from "@/lib/forecast/account-ocr-parse";
 import { matchCountryFromHint } from "@/lib/countries/picker";
-import type { TeamMember, Country, FiverrAccount } from "@/types/database";
+import type { TeamMember, Country, FiverrAccount, Service } from "@/types/database";
 
 interface AccountFormProps {
   mode: "create" | "edit";
@@ -89,6 +89,8 @@ export function AccountForm({
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [writtenService, setWrittenService] = useState(account?.written_service ?? "");
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [verificationCode, setVerificationCode] = useState(account?.verification_code ?? "");
   const [pendingScreenshots, setPendingScreenshots] = useState<File[]>([]);
@@ -109,14 +111,16 @@ export function AccountForm({
 
   useEffect(() => {
     async function load() {
-      const [{ data: m }, { data: c }] = await Promise.all([
+      const [{ data: m }, { data: c }, { data: serviceRows }] = await Promise.all([
         isSelfService
           ? Promise.resolve({ data: null })
           : supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
         supabase.from("countries").select("*").eq("is_active", true).order("name"),
+        supabase.from("services").select("*").eq("is_active", true).order("name"),
       ]);
       if (m) setMembers(m ?? []);
       setCountries(c ?? []);
+      setServices((serviceRows as Service[]) ?? []);
     }
     load();
   }, [supabase, isSelfService]);
@@ -304,6 +308,13 @@ export function AccountForm({
       ? lockedTeamMemberId
       : (form.get("team_member_id") as string)) as string;
 
+    const serviceName = ((form.get("written_service") as string) || "").trim();
+    if (mode === "create" && !serviceName) {
+      toast.error("Add the service this account was opened for.");
+      setLoading(false);
+      return;
+    }
+
     const codeRaw = verificationCode.trim();
     if (codeRaw && codeRaw.length !== 4) {
       toast.error("Verification code must be exactly 4 digits");
@@ -339,6 +350,13 @@ export function AccountForm({
       proxy_port: (form.get("proxy_port") as string)?.trim() || null,
       proxy_username: (form.get("proxy_username") as string)?.trim() || null,
       proxy_code: (form.get("proxy_code") as string)?.trim() || null,
+      written_service: (form.get("written_service") as string)?.trim() || null,
+      service_id:
+        services.find(
+          (service) =>
+            service.name.toLowerCase() ===
+            ((form.get("written_service") as string) || "").trim().toLowerCase()
+        )?.id ?? null,
       info_supplied_by: (form.get("info_supplied_by") as string) || null,
       notes: (form.get("notes") as string) || null,
       updated_by: user?.id,
@@ -477,6 +495,56 @@ export function AccountForm({
                   </Select>
                 </div>
               )}
+            </div>
+          </section>
+
+          <section className="form-section-enter form-section-enter-delay-2 rounded-2xl border border-neutral-200/80 bg-white/95 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b bg-gradient-to-r from-amber-50 to-transparent flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-amber-700" />
+              <h2 className="text-sm font-semibold text-neutral-900">Service this account is for</h2>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-neutral-500">
+                Which service did you open this Fiverr account to write? Pick one, or type it if it is not listed.
+              </p>
+              {services.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {services.map((service) => {
+                    const selected = writtenService.trim().toLowerCase() === service.name.toLowerCase();
+                    return (
+                      <button
+                        key={service.id}
+                        type="button"
+                        onClick={() => setWrittenService(service.name)}
+                        className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                          selected
+                            ? "border-brand-green bg-brand-green text-white"
+                            : "border-neutral-200 bg-white text-neutral-700 hover:border-brand-green/40"
+                        }`}
+                      >
+                        {service.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="written_service">Service {mode === "create" ? "*" : ""}</Label>
+                <Input
+                  id="written_service"
+                  name="written_service"
+                  required={mode === "create"}
+                  placeholder="e.g. Logo design"
+                  value={writtenService}
+                  onChange={(event) => setWrittenService(event.target.value)}
+                  list="account-service-suggestions"
+                />
+                <datalist id="account-service-suggestions">
+                  {services.map((service) => (
+                    <option key={service.id} value={service.name} />
+                  ))}
+                </datalist>
+              </div>
             </div>
           </section>
 
