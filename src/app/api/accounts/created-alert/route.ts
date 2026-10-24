@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   const memberName = member?.full_name ?? "A team member";
-  const message = `${memberName} added Fiverr account @${username} on the website today. Check it out.`;
+  const message = `${memberName} added Fiverr account @${username} on the website.`;
 
   const admin = createAdminClient();
   if (!admin) {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   await admin.from("user_notifications").insert(
     adminIds.map((userId) => ({
       user_id: userId,
-      title: "New account added today",
+      title: "New account added",
       message,
       link: `/accounts/${accountId}`,
     }))

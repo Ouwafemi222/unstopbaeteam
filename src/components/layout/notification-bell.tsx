@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { presentAccountAddedNotification } from "@/lib/notifications/account-added-when";
 
 interface Notification {
   id: string;
@@ -33,8 +34,9 @@ export function NotificationBell() {
       if (bootstrappedRef.current && knownIdsRef.current) {
         for (const n of next) {
           if (!knownIdsRef.current.has(n.id) && !n.read_at) {
-            toast(n.title, {
-              description: n.message,
+            const shown = presentAccountAddedNotification(n);
+            toast(shown.title, {
+              description: shown.message,
               duration: 10_000,
               action: n.link
                 ? {
@@ -198,15 +200,17 @@ export function NotificationBell() {
               {notifications.length === 0 ? (
                 <p className="p-4 text-sm text-neutral-400 text-center">No notifications yet</p>
               ) : (
-                notifications.map((n) => (
+                notifications.map((n) => {
+                  const shown = presentAccountAddedNotification(n);
+                  return (
                   <div
                     key={n.id}
                     className={`border-b px-4 py-3 text-sm ${
                       n.read_at ? "bg-white" : "bg-brand-green-light/20"
                     }`}
                   >
-                    <p className="font-medium text-neutral-900">{n.title}</p>
-                    <p className="text-neutral-500 mt-0.5">{n.message}</p>
+                    <p className="font-medium text-neutral-900">{shown.title}</p>
+                    <p className="text-neutral-500 mt-0.5">{shown.message}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       {n.link && (
                         <Link
@@ -239,7 +243,8 @@ export function NotificationBell() {
                       )}
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
