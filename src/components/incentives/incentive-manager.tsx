@@ -25,6 +25,7 @@ export function IncentiveManager() {
       supabase
         .from("incentives")
         .select("*, team_member:team_members(full_name)")
+        .is("slot", null)
         .order("created_at", { ascending: false }),
       supabase.from("team_members").select("id, full_name").eq("status", "active").order("full_name"),
     ]);
@@ -86,7 +87,7 @@ export function IncentiveManager() {
     <div className="space-y-6">
       <form onSubmit={handleAdd} className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-900">Set an incentive</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">Extra incentive</h2>
           <p className="mt-1 text-sm text-neutral-500">
             This streams across the team dashboard and drops in when they enter the site.
           </p>

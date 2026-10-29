@@ -206,6 +206,8 @@ export interface Incentive {
   id: string;
   title: string;
   detail: string | null;
+  prize: string | null;
+  slot: string | null;
   team_member_id: string | null;
   is_active: boolean;
   created_by: string | null;

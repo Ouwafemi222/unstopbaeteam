@@ -19,7 +19,7 @@ export function IncentiveEntryDrop({ teamMemberId }: { teamMemberId?: string | n
     let cancelled = false;
     supabase
       .from("incentives")
-      .select("id, title, detail, team_member_id, is_active")
+      .select("id, title, detail, prize, team_member_id, is_active")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -84,7 +84,10 @@ export function IncentiveEntryDrop({ teamMemberId }: { teamMemberId?: string | n
             <ul className="mt-4 space-y-2">
               {items.map((item) => (
                 <li key={item.id} className="rounded-xl bg-[#f6e8ec] px-3 py-2">
-                  <p className="font-semibold text-neutral-900">{item.title}</p>
+                  <p className="font-semibold text-neutral-900">
+                    {item.prize ? `${item.prize} · ` : ""}
+                    {item.title}
+                  </p>
                   {item.detail && <p className="text-sm text-neutral-600">{item.detail}</p>}
                 </li>
               ))}

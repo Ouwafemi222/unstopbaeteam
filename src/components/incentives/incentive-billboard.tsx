@@ -14,7 +14,7 @@ export function IncentiveBillboard({ teamMemberId }: { teamMemberId?: string | n
     let cancelled = false;
     supabase
       .from("incentives")
-      .select("id, title, detail, team_member_id, is_active, created_at")
+      .select("id, title, detail, prize, team_member_id, is_active, created_at")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -53,6 +53,9 @@ export function IncentiveBillboard({ teamMemberId }: { teamMemberId?: string | n
       </div>
 
       <div className="px-5 pb-2 pt-3">
+        {feature.prize && (
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#f6e8ec]">{feature.prize}</p>
+        )}
         <p className="text-3xl font-black tracking-tight sm:text-5xl">{feature.title}</p>
         {feature.detail && (
           <p className="mt-2 max-w-2xl text-sm text-white/80 sm:text-base">{feature.detail}</p>
@@ -63,7 +66,7 @@ export function IncentiveBillboard({ teamMemberId }: { teamMemberId?: string | n
         <div className="incentive-marquee flex w-max gap-10 whitespace-nowrap px-6 text-lg font-extrabold uppercase tracking-wide">
           {stream.map((item, index) => (
             <span key={`${item.id}-${index}`} className="flex items-center gap-10">
-              {item.title}
+              {item.prize ? `${item.prize} · ${item.title}` : item.title}
               <span className="text-[#f6e8ec]">★</span>
             </span>
           ))}
