@@ -36,6 +36,7 @@ import {
   BookOpen,
   ClipboardPen,
   Mail,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -81,6 +82,7 @@ const adminNavItems: NavItem[] = [
   { href: "/services", label: "Services", icon: Wrench },
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
   { href: "/weekly-activity", label: "Weekly Activity", icon: ClipboardList, permission: "reports.view" },
+  { href: "/incentives", label: "Incentives", icon: Gift, superOnly: true },
   { href: "/money", label: "Money Made", icon: Banknote, superOnly: true },
   { href: "/reserved-accounts", label: "Reserved Accounts", icon: Archive, superOnly: true },
   { href: "/reports", label: "Reports", icon: FileText, permission: "reports.view" },

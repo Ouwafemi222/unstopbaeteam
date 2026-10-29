@@ -15,6 +15,7 @@ import { AdminUnpaidFinesPanel } from "@/components/dashboard/admin-unpaid-fines
 import { MemberMyFinesPanel } from "@/components/members/member-my-fines-panel";
 import { AdminAccountActivityFeed } from "@/components/dashboard/admin-account-activity-feed";
 import { AdminWelcomeHero } from "@/components/dashboard/admin-welcome-hero";
+import { IncentiveBillboard } from "@/components/incentives/incentive-billboard";
 import { AdminEvaluationPanel } from "@/components/weekly-evaluation/admin-evaluation-panel";
 import { CurrencyRatesWidget } from "@/components/shared/currency-rates-widget";
 import { LocationCard } from "@/components/shared/location-card";
@@ -174,6 +175,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="space-y-6">
+      <IncentiveBillboard teamMemberId={scope.teamMember?.id} />
+
       <AdminWelcomeHero
         displayName={displayName}
         isSuperAdmin={scope.roleSlugs.includes("super_admin")}

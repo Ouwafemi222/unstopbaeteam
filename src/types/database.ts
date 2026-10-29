@@ -202,6 +202,18 @@ export interface EmailRecord {
   team_member?: { full_name: string } | null;
 }
 
+export interface Incentive {
+  id: string;
+  title: string;
+  detail: string | null;
+  team_member_id: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  team_member?: { full_name: string } | null;
+}
+
 export interface ActivityLog {
   id: string;
   user_id: string | null;

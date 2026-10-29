@@ -361,6 +361,25 @@ body {
   animation-delay: 0.18s;
 }
 
+@keyframes incentive-drop {
+  0% { transform: translateY(-130%); opacity: 0; }
+  70% { transform: translateY(8px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.incentive-drop {
+  animation: incentive-drop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes incentive-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.incentive-marquee {
+  animation: incentive-marquee 32s linear infinite;
+}
+
 /* Table responsive */
 @media (max-width: 768px) {
   .responsive-table { display: block; overflow-x: auto; }

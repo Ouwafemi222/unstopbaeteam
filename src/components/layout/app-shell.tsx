@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LocationBadge } from "@/components/shared/location-badge";
 import { SuperAdminStar } from "@/components/shared/super-admin-star";
 import { DailyPopups } from "@/components/celebrations/daily-popups";
+import { IncentiveEntryDrop } from "@/components/incentives/incentive-entry-drop";
 import { FinePaymentRug } from "@/components/fines/fine-payment-rug";
 import type { Profile } from "@/types/database";
 
@@ -66,6 +67,7 @@ export function AppShell({
   return (
     <div className="flex h-screen bg-[#faf8f9]">
       <DailyPopups displayName={displayName} teamMemberId={teamMemberId ?? null} />
+      <IncentiveEntryDrop teamMemberId={teamMemberId ?? null} />
       <FinePaymentRug />
       <Sidebar
         permissions={permissions}

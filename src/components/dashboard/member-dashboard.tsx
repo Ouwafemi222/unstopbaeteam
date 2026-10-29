@@ -18,6 +18,7 @@ import { MemberWeeklyActivitySection } from "@/components/members/member-weekly-
 import { MemberEvaluationPrompt } from "@/components/weekly-evaluation/member-evaluation-prompt";
 import { MemberStandingCard } from "@/components/members/member-standing-card";
 import { LiveTeamPulseLazy } from "@/components/dashboard/live-team-pulse-lazy";
+import { IncentiveBillboard } from "@/components/incentives/incentive-billboard";
 import { MessageWinToasts } from "@/components/dashboard/message-win-toasts";
 import { buildMemberActivityFeed } from "@/lib/members/activity-feed";
 import {
@@ -167,6 +168,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
 
       <MessageWinToasts />
       <LiveTeamPulseLazy />
+      <IncentiveBillboard teamMemberId={profile.id} />
 
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-green via-brand-green-dark to-emerald-900 text-white px-6 py-8 md:px-10 md:py-10 shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />

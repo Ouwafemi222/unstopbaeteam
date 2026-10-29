@@ -19,6 +19,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/services",
   "/search",
   "/orders",
+  "/incentives",
 ];
 
 const ADMIN_ROLE_SLUGS = new Set([
