@@ -7,8 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { currentYearMonth } from "@/lib/utils/dates";
+import { lagosDayEndIso, lagosDayStartIso } from "@/lib/weekly-evaluation/week";
+import { getMemberImageUrl } from "@/lib/storage/member-uploads";
 import { INCENTIVE_SLOTS, type IncentiveSlot } from "@/lib/incentives/catalog";
 import type { Incentive } from "@/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface MemberRow {
   id: string;
@@ -19,6 +22,29 @@ interface Standing {
   memberId: string;
   name: string;
   score: number;
+}
+
+interface StarEvidence {
+  id: string;
+  team_member_id: string;
+  buyer_name: string | null;
+  received_date: string;
+  screenshot_path: string;
+  url: string | null;
+}
+
+async function fetchAll<T>(
+  run: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+) {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await run(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) return rows;
+  }
 }
 
 function monthBounds(yearMonth: string) {
@@ -46,6 +72,8 @@ export function IncentiveBoard() {
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [autoScores, setAutoScores] = useState<Record<string, Record<string, number>>>({});
   const [manualScores, setManualScores] = useState<Record<string, Record<string, string>>>({});
+  const [starEvidence, setStarEvidence] = useState<StarEvidence[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingPrizes, setSavingPrizes] = useState(false);
   const supabase = useMemo(() => createClient(), []);
@@ -54,40 +82,123 @@ export function IncentiveBoard() {
     let cancelled = false;
 
     async function load() {
-      const [
-        { data: incentiveRows },
-        { data: people },
-        { data: prospects },
-        { data: earnings },
-        { data: accounts },
-        { data: messages },
-        { data: scores },
-      ] = await Promise.all([
-        supabase.from("incentives").select("*").not("slot", "is", null),
-        supabase.from("team_members").select("id, full_name").eq("status", "active").order("full_name"),
-        supabase
-          .from("member_prospect_entries")
-          .select("team_member_id, office_prospects_count")
-          .gte("logged_date", bounds.from)
-          .lte("logged_date", bounds.to),
-        supabase
-          .from("member_weekly_earnings")
-          .select("team_member_id, amount_ngn, amount")
-          .eq("year_month", yearMonth),
-        supabase
-          .from("fiverr_accounts")
-          .select("team_member_id")
-          .gte("opening_date", bounds.from)
-          .lte("opening_date", bounds.to)
-          .is("archived_at", null)
-          .neq("status", "reserved"),
-        supabase
-          .from("messages")
-          .select("team_member_id")
-          .gte("received_date", bounds.from)
-          .lte("received_date", bounds.to),
-        supabase.from("incentive_scores").select("slot, team_member_id, score").eq("year_month", yearMonth),
-      ]);
+      const db = supabase as SupabaseClient;
+      const createdFrom = lagosDayStartIso(bounds.from);
+      const createdTo = lagosDayEndIso(bounds.to);
+      let incentiveRows: Incentive[] = [];
+      let people: MemberRow[] = [];
+      let prospects: { team_member_id: string; office_prospects_count: number | null }[] = [];
+      let earnings: { team_member_id: string; amount_ngn: number | null; amount: number | null }[] = [];
+      let openedAccounts: { id: string; team_member_id: string }[] = [];
+      let createdAccounts: { id: string; team_member_id: string }[] = [];
+      let messages: { team_member_id: string }[] = [];
+      let scores: { slot: string; team_member_id: string; score: number | null }[] = [];
+      let stars: StarEvidence[] = [];
+
+      try {
+        const [
+          incentivePage,
+          peoplePage,
+          prospectPage,
+          earningPage,
+          openedPage,
+          createdPage,
+          messagePage,
+          scorePage,
+          starPage,
+        ] = await Promise.all([
+          fetchAll<Incentive>((from, to) =>
+            db.from("incentives").select("*").not("slot", "is", null).range(from, to)
+          ),
+          fetchAll<MemberRow>((from, to) =>
+            db
+              .from("team_members")
+              .select("id, full_name")
+              .eq("status", "active")
+              .order("full_name")
+              .range(from, to)
+          ),
+          fetchAll<{ team_member_id: string; office_prospects_count: number | null }>((from, to) =>
+            db
+              .from("member_prospect_entries")
+              .select("team_member_id, office_prospects_count")
+              .gte("logged_date", bounds.from)
+              .lte("logged_date", bounds.to)
+              .range(from, to)
+          ),
+          fetchAll<{ team_member_id: string; amount_ngn: number | null; amount: number | null }>((from, to) =>
+            db
+              .from("member_weekly_earnings")
+              .select("team_member_id, amount_ngn, amount")
+              .eq("year_month", yearMonth)
+              .range(from, to)
+          ),
+          fetchAll<{ id: string; team_member_id: string }>((from, to) =>
+            db
+              .from("fiverr_accounts")
+              .select("id, team_member_id")
+              .gte("opening_date", bounds.from)
+              .lte("opening_date", bounds.to)
+              .is("archived_at", null)
+              .neq("status", "reserved")
+              .range(from, to)
+          ),
+          fetchAll<{ id: string; team_member_id: string }>((from, to) =>
+            db
+              .from("fiverr_accounts")
+              .select("id, team_member_id")
+              .gte("created_at", createdFrom)
+              .lte("created_at", createdTo)
+              .is("archived_at", null)
+              .neq("status", "reserved")
+              .range(from, to)
+          ),
+          fetchAll<{ team_member_id: string }>((from, to) =>
+            db
+              .from("messages")
+              .select("team_member_id")
+              .gte("received_date", bounds.from)
+              .lte("received_date", bounds.to)
+              .range(from, to)
+          ),
+          fetchAll<{ slot: string; team_member_id: string; score: number | null }>((from, to) =>
+            db
+              .from("incentive_scores")
+              .select("slot, team_member_id, score")
+              .eq("year_month", yearMonth)
+              .range(from, to)
+          ),
+          fetchAll<Omit<StarEvidence, "url">>((from, to) =>
+            db
+              .from("five_star_reviews")
+              .select("id, team_member_id, buyer_name, received_date, screenshot_path")
+              .gte("received_date", bounds.from)
+              .lte("received_date", bounds.to)
+              .order("received_date", { ascending: false })
+              .range(from, to)
+          ),
+        ]);
+        incentiveRows = incentivePage;
+        people = peoplePage;
+        prospects = prospectPage;
+        earnings = earningPage;
+        openedAccounts = openedPage;
+        createdAccounts = createdPage;
+        messages = messagePage;
+        scores = scorePage;
+        stars = await Promise.all(
+          starPage.map(async (review) => ({
+            ...review,
+            url: await getMemberImageUrl(db, review.screenshot_path),
+          }))
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : "Could not read the live records");
+          setLoading(false);
+        }
+        return;
+      }
 
       if (cancelled) return;
 
@@ -112,9 +223,16 @@ export function IncentiveBoard() {
         add(earn, row.team_member_id, value);
       }
       const opened: Record<string, number> = {};
-      for (const row of accounts ?? []) add(opened, row.team_member_id, 1);
+      const seenAccounts = new Set<string>();
+      for (const row of [...openedAccounts, ...createdAccounts]) {
+        if (seenAccounts.has(row.id)) continue;
+        seenAccounts.add(row.id);
+        add(opened, row.team_member_id, 1);
+      }
       const received: Record<string, number> = {};
-      for (const row of messages ?? []) add(received, row.team_member_id, 1);
+      for (const row of messages) add(received, row.team_member_id, 1);
+      const starCounts: Record<string, number> = {};
+      for (const row of stars) add(starCounts, row.team_member_id, 1);
 
       const typed: Record<string, Record<string, string>> = {};
       for (const slot of INCENTIVE_SLOTS) {
@@ -127,12 +245,15 @@ export function IncentiveBoard() {
 
       setSaved(rows);
       setPrizes(nextPrizes);
-      setMembers((people ?? []) as MemberRow[]);
+      setMembers(people);
+      setStarEvidence(stars);
+      setLoadError(null);
       setAutoScores({
         office_prospects: office,
         top_earner: earn,
         top_accounts: opened,
         top_messages: received,
+        five_stars: starCounts,
       });
       setManualScores(typed);
       setLoading(false);
@@ -215,6 +336,14 @@ export function IncentiveBoard() {
     if (error) toast.error(error.message);
   }
 
+  if (loadError) {
+    return (
+      <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        The live records could not be read: {loadError}
+      </p>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -258,9 +387,11 @@ export function IncentiveBoard() {
               <div>
                 <p className="font-semibold text-neutral-900">{slot.label}</p>
                 <p className="text-xs text-neutral-500">
-                  {slot.source === "auto"
-                    ? "Counted from what members record this month"
-                    : "You type each member’s score below"}
+                  {slot.slot === "five_stars"
+                    ? "Counted from the 5-star screenshots members save"
+                    : slot.source === "auto"
+                      ? "Counted from what members record this month"
+                      : "You type each member’s score below"}
                 </p>
               </div>
             </div>
@@ -291,7 +422,11 @@ export function IncentiveBoard() {
               </div>
 
               {slot.source === "auto" && rows.length === 0 ? (
-                <p className="mt-3 text-sm text-neutral-500">Nobody has recorded this yet this month.</p>
+                <p className="mt-3 text-sm text-neutral-500">
+                  {slot.slot === "five_stars"
+                    ? "No 5-star screenshots saved this month yet. Members record them under My 5 Stars."
+                    : "Nobody has recorded this yet this month."}
+                </p>
               ) : (
                 <ul className="mt-3 space-y-2">
                   {(slot.source === "manual"
@@ -336,6 +471,27 @@ export function IncentiveBoard() {
                               : `${row.score} ${slot.unit}`}
                           </p>
                         )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {slot.slot === "five_stars" && starEvidence.length > 0 && (
+                <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {starEvidence.map((review) => {
+                    const name = members.find((member) => member.id === review.team_member_id)?.full_name ?? "Member";
+                    return (
+                      <li key={review.id} className="overflow-hidden rounded-xl border border-neutral-200">
+                        {review.url && (
+                          <a href={review.url} target="_blank" rel="noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={review.url} alt={`${name} 5-star evidence`} className="h-36 w-full object-cover" />
+                          </a>
+                        )}
+                        <p className="px-3 py-2 text-sm text-neutral-700">
+                          <span className="font-medium text-neutral-900">{name}</span>
+                          {review.buyer_name ? ` · ${review.buyer_name}` : ""} · {review.received_date}
+                        </p>
                       </li>
                     );
                   })}

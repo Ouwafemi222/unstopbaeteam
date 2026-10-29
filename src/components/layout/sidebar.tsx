@@ -37,6 +37,7 @@ import {
   ClipboardPen,
   Mail,
   Gift,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,7 @@ function personalWorkspaceItems(teamMemberId: string): NavItem[] {
     { href: "/my-messages", label: "My Messages", icon: MessageSquare },
     { href: "/my-emails", label: "My Emails", icon: Mail },
     { href: "/my-orders", label: "My Orders", icon: Trophy },
+    { href: "/my-stars", label: "My 5 Stars", icon: Star },
     { href: "/my-prospects", label: "My Prospects", icon: UserPlus },
     { href: "/my-fines", label: "My Fines", icon: AlertTriangle },
     { href: "/team-fines", label: "Team Fines", icon: Users },

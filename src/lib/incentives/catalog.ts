@@ -7,7 +7,7 @@ export const INCENTIVE_SLOTS = [
   { slot: "well_dressed", label: "Most well dressed", source: "manual", unit: "points" },
   { slot: "top_accounts", label: "Top accounts created in a month", source: "auto", unit: "accounts" },
   { slot: "top_messages", label: "Top messages received in a month", source: "auto", unit: "messages" },
-  { slot: "five_stars", label: "Most members who received 5 stars", source: "manual", unit: "stars" },
+  { slot: "five_stars", label: "Most members who received 5 stars", source: "auto", unit: "stars" },
 ] as const;
 
 export type IncentiveSlot = (typeof INCENTIVE_SLOTS)[number]["slot"];

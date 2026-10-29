@@ -216,6 +216,19 @@ export interface Incentive {
   team_member?: { full_name: string } | null;
 }
 
+export interface FiveStarReview {
+  id: string;
+  team_member_id: string;
+  received_date: string;
+  buyer_name: string | null;
+  gig_name: string | null;
+  note: string | null;
+  screenshot_path: string;
+  recorded_by: string | null;
+  created_at: string;
+  team_member?: { full_name: string } | null;
+}
+
 export interface ActivityLog {
   id: string;
   user_id: string | null;
