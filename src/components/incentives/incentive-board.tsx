@@ -64,49 +64,160 @@ function monthLabel(yearMonth: string) {
   });
 }
 
-export function IncentiveBoard() {
-  const yearMonth = currentYearMonth();
+function shiftMonth(yearMonth: string, delta: number) {
+  const [year, month] = yearMonth.split("-").map(Number);
+  const date = new Date(year, month - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+interface MonthPack {
+  auto: Record<string, Record<string, number>>;
+  manual: Record<string, Record<string, string>>;
+  stars: StarEvidence[];
+}
+
+async function loadMonthPack(db: SupabaseClient, yearMonth: string): Promise<MonthPack> {
   const bounds = monthBounds(yearMonth);
+  const createdFrom = lagosDayStartIso(bounds.from);
+  const createdTo = lagosDayEndIso(bounds.to);
+
+  const [prospects, earnings, openedAccounts, createdAccounts, messages, scores, starPage] =
+    await Promise.all([
+      fetchAll<{ team_member_id: string; office_prospects_count: number | null }>((from, to) =>
+        db
+          .from("member_prospect_entries")
+          .select("team_member_id, office_prospects_count")
+          .gte("logged_date", bounds.from)
+          .lte("logged_date", bounds.to)
+          .range(from, to)
+      ),
+      fetchAll<{ team_member_id: string; amount_ngn: number | null; amount: number | null }>((from, to) =>
+        db
+          .from("member_weekly_earnings")
+          .select("team_member_id, amount_ngn, amount")
+          .eq("year_month", yearMonth)
+          .range(from, to)
+      ),
+      fetchAll<{ id: string; team_member_id: string }>((from, to) =>
+        db
+          .from("fiverr_accounts")
+          .select("id, team_member_id")
+          .gte("opening_date", bounds.from)
+          .lte("opening_date", bounds.to)
+          .is("archived_at", null)
+          .neq("status", "reserved")
+          .range(from, to)
+      ),
+      fetchAll<{ id: string; team_member_id: string }>((from, to) =>
+        db
+          .from("fiverr_accounts")
+          .select("id, team_member_id")
+          .gte("created_at", createdFrom)
+          .lte("created_at", createdTo)
+          .is("archived_at", null)
+          .neq("status", "reserved")
+          .range(from, to)
+      ),
+      fetchAll<{ team_member_id: string }>((from, to) =>
+        db
+          .from("messages")
+          .select("team_member_id")
+          .gte("received_date", bounds.from)
+          .lte("received_date", bounds.to)
+          .range(from, to)
+      ),
+      fetchAll<{ slot: string; team_member_id: string; score: number | null }>((from, to) =>
+        db
+          .from("incentive_scores")
+          .select("slot, team_member_id, score")
+          .eq("year_month", yearMonth)
+          .range(from, to)
+      ),
+      fetchAll<Omit<StarEvidence, "url">>((from, to) =>
+        db
+          .from("five_star_reviews")
+          .select("id, team_member_id, buyer_name, received_date, screenshot_path")
+          .gte("received_date", bounds.from)
+          .lte("received_date", bounds.to)
+          .order("received_date", { ascending: false })
+          .range(from, to)
+      ),
+    ]);
+
+  const add = (bucket: Record<string, number>, id: string | null, amount: number) => {
+    if (!id) return;
+    bucket[id] = (bucket[id] ?? 0) + amount;
+  };
+  const office: Record<string, number> = {};
+  for (const row of prospects) add(office, row.team_member_id, Number(row.office_prospects_count ?? 0));
+  const earn: Record<string, number> = {};
+  for (const row of earnings) {
+    const value = row.amount_ngn != null ? Number(row.amount_ngn) : Number(row.amount ?? 0);
+    add(earn, row.team_member_id, value);
+  }
+  const opened: Record<string, number> = {};
+  const seenAccounts = new Set<string>();
+  for (const row of [...openedAccounts, ...createdAccounts]) {
+    if (seenAccounts.has(row.id)) continue;
+    seenAccounts.add(row.id);
+    add(opened, row.team_member_id, 1);
+  }
+  const received: Record<string, number> = {};
+  for (const row of messages) add(received, row.team_member_id, 1);
+  const stars = await Promise.all(
+    starPage.map(async (review) => ({
+      ...review,
+      url: await getMemberImageUrl(db, review.screenshot_path),
+    }))
+  );
+  const starCounts: Record<string, number> = {};
+  for (const row of stars) add(starCounts, row.team_member_id, 1);
+
+  const manual: Record<string, Record<string, string>> = {};
+  for (const slot of INCENTIVE_SLOTS) {
+    if (slot.source === "manual") manual[slot.slot] = {};
+  }
+  for (const row of scores) {
+    if (!manual[row.slot]) manual[row.slot] = {};
+    manual[row.slot][row.team_member_id] = String(row.score ?? 0);
+  }
+
+  return {
+    auto: {
+      office_prospects: office,
+      top_earner: earn,
+      top_accounts: opened,
+      top_messages: received,
+      five_stars: starCounts,
+    },
+    manual,
+    stars,
+  };
+}
+
+export function IncentiveBoard() {
+  const nowMonth = currentYearMonth();
+  const lastMonth = shiftMonth(nowMonth, -1);
+  const [sectionMonth, setSectionMonth] = useState<Record<string, string>>(() =>
+    Object.fromEntries(INCENTIVE_SLOTS.map((slot) => [slot.slot, nowMonth]))
+  );
+  const [packs, setPacks] = useState<Record<string, MonthPack>>({});
   const [prizes, setPrizes] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Incentive[]>([]);
   const [members, setMembers] = useState<MemberRow[]>([]);
-  const [autoScores, setAutoScores] = useState<Record<string, Record<string, number>>>({});
-  const [manualScores, setManualScores] = useState<Record<string, Record<string, string>>>({});
-  const [starEvidence, setStarEvidence] = useState<StarEvidence[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingPrizes, setSavingPrizes] = useState(false);
   const supabase = useMemo(() => createClient(), []);
+  const inflight = useMemo(() => new Set<string>(), []);
 
   useEffect(() => {
     let cancelled = false;
+    const db = supabase as SupabaseClient;
 
-    async function load() {
-      const db = supabase as SupabaseClient;
-      const createdFrom = lagosDayStartIso(bounds.from);
-      const createdTo = lagosDayEndIso(bounds.to);
-      let incentiveRows: Incentive[] = [];
-      let people: MemberRow[] = [];
-      let prospects: { team_member_id: string; office_prospects_count: number | null }[] = [];
-      let earnings: { team_member_id: string; amount_ngn: number | null; amount: number | null }[] = [];
-      let openedAccounts: { id: string; team_member_id: string }[] = [];
-      let createdAccounts: { id: string; team_member_id: string }[] = [];
-      let messages: { team_member_id: string }[] = [];
-      let scores: { slot: string; team_member_id: string; score: number | null }[] = [];
-      let stars: StarEvidence[] = [];
-
+    async function loadBase() {
       try {
-        const [
-          incentivePage,
-          peoplePage,
-          prospectPage,
-          earningPage,
-          openedPage,
-          createdPage,
-          messagePage,
-          scorePage,
-          starPage,
-        ] = await Promise.all([
+        const [incentiveRows, people, pack] = await Promise.all([
           fetchAll<Incentive>((from, to) =>
             db.from("incentives").select("*").not("slot", "is", null).range(from, to)
           ),
@@ -118,159 +229,69 @@ export function IncentiveBoard() {
               .order("full_name")
               .range(from, to)
           ),
-          fetchAll<{ team_member_id: string; office_prospects_count: number | null }>((from, to) =>
-            db
-              .from("member_prospect_entries")
-              .select("team_member_id, office_prospects_count")
-              .gte("logged_date", bounds.from)
-              .lte("logged_date", bounds.to)
-              .range(from, to)
-          ),
-          fetchAll<{ team_member_id: string; amount_ngn: number | null; amount: number | null }>((from, to) =>
-            db
-              .from("member_weekly_earnings")
-              .select("team_member_id, amount_ngn, amount")
-              .eq("year_month", yearMonth)
-              .range(from, to)
-          ),
-          fetchAll<{ id: string; team_member_id: string }>((from, to) =>
-            db
-              .from("fiverr_accounts")
-              .select("id, team_member_id")
-              .gte("opening_date", bounds.from)
-              .lte("opening_date", bounds.to)
-              .is("archived_at", null)
-              .neq("status", "reserved")
-              .range(from, to)
-          ),
-          fetchAll<{ id: string; team_member_id: string }>((from, to) =>
-            db
-              .from("fiverr_accounts")
-              .select("id, team_member_id")
-              .gte("created_at", createdFrom)
-              .lte("created_at", createdTo)
-              .is("archived_at", null)
-              .neq("status", "reserved")
-              .range(from, to)
-          ),
-          fetchAll<{ team_member_id: string }>((from, to) =>
-            db
-              .from("messages")
-              .select("team_member_id")
-              .gte("received_date", bounds.from)
-              .lte("received_date", bounds.to)
-              .range(from, to)
-          ),
-          fetchAll<{ slot: string; team_member_id: string; score: number | null }>((from, to) =>
-            db
-              .from("incentive_scores")
-              .select("slot, team_member_id, score")
-              .eq("year_month", yearMonth)
-              .range(from, to)
-          ),
-          fetchAll<Omit<StarEvidence, "url">>((from, to) =>
-            db
-              .from("five_star_reviews")
-              .select("id, team_member_id, buyer_name, received_date, screenshot_path")
-              .gte("received_date", bounds.from)
-              .lte("received_date", bounds.to)
-              .order("received_date", { ascending: false })
-              .range(from, to)
-          ),
+          loadMonthPack(db, nowMonth),
         ]);
-        incentiveRows = incentivePage;
-        people = peoplePage;
-        prospects = prospectPage;
-        earnings = earningPage;
-        openedAccounts = openedPage;
-        createdAccounts = createdPage;
-        messages = messagePage;
-        scores = scorePage;
-        stars = await Promise.all(
-          starPage.map(async (review) => ({
-            ...review,
-            url: await getMemberImageUrl(db, review.screenshot_path),
-          }))
-        );
+        if (cancelled) return;
+        const nextPrizes: Record<string, string> = {};
+        for (const slot of INCENTIVE_SLOTS) {
+          nextPrizes[slot.slot] = incentiveRows.find((row) => row.slot === slot.slot)?.prize ?? "";
+        }
+        setSaved(incentiveRows);
+        setPrizes(nextPrizes);
+        setMembers(people);
+        setPacks({ [nowMonth]: pack });
+        setLoadError(null);
       } catch (error) {
         if (!cancelled) {
           setLoadError(error instanceof Error ? error.message : "Could not read the live records");
-          setLoading(false);
         }
-        return;
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      if (cancelled) return;
-
-      const rows = (incentiveRows ?? []) as Incentive[];
-      const nextPrizes: Record<string, string> = {};
-      for (const slot of INCENTIVE_SLOTS) {
-        nextPrizes[slot.slot] = rows.find((row) => row.slot === slot.slot)?.prize ?? "";
-      }
-
-      const add = (bucket: Record<string, number>, id: string | null, amount: number) => {
-        if (!id) return;
-        bucket[id] = (bucket[id] ?? 0) + amount;
-      };
-
-      const office: Record<string, number> = {};
-      for (const row of prospects ?? []) {
-        add(office, row.team_member_id, Number(row.office_prospects_count ?? 0));
-      }
-      const earn: Record<string, number> = {};
-      for (const row of earnings ?? []) {
-        const value = row.amount_ngn != null ? Number(row.amount_ngn) : Number(row.amount ?? 0);
-        add(earn, row.team_member_id, value);
-      }
-      const opened: Record<string, number> = {};
-      const seenAccounts = new Set<string>();
-      for (const row of [...openedAccounts, ...createdAccounts]) {
-        if (seenAccounts.has(row.id)) continue;
-        seenAccounts.add(row.id);
-        add(opened, row.team_member_id, 1);
-      }
-      const received: Record<string, number> = {};
-      for (const row of messages) add(received, row.team_member_id, 1);
-      const starCounts: Record<string, number> = {};
-      for (const row of stars) add(starCounts, row.team_member_id, 1);
-
-      const typed: Record<string, Record<string, string>> = {};
-      for (const slot of INCENTIVE_SLOTS) {
-        if (slot.source === "manual") typed[slot.slot] = {};
-      }
-      for (const row of scores ?? []) {
-        if (!typed[row.slot]) typed[row.slot] = {};
-        typed[row.slot][row.team_member_id] = String(row.score ?? 0);
-      }
-
-      setSaved(rows);
-      setPrizes(nextPrizes);
-      setMembers(people);
-      setStarEvidence(stars);
-      setLoadError(null);
-      setAutoScores({
-        office_prospects: office,
-        top_earner: earn,
-        top_accounts: opened,
-        top_messages: received,
-        five_stars: starCounts,
-      });
-      setManualScores(typed);
-      setLoading(false);
     }
 
-    load();
+    loadBase();
     return () => {
       cancelled = true;
     };
-  }, [supabase, yearMonth, bounds.from, bounds.to]);
+  }, [supabase, nowMonth]);
 
-  function standings(slot: IncentiveSlot, source: "auto" | "manual"): Standing[] {
+  useEffect(() => {
+    const db = supabase as SupabaseClient;
+    const needed = [...new Set(Object.values(sectionMonth))].filter(
+      (month) => !packs[month] && !inflight.has(month)
+    );
+    if (needed.length === 0) return;
+    let cancelled = false;
+    for (const month of needed) inflight.add(month);
+
+    Promise.all(
+      needed.map(async (month) => {
+        try {
+          const pack = await loadMonthPack(db, month);
+          if (!cancelled) setPacks((current) => ({ ...current, [month]: pack }));
+        } catch (error) {
+          if (!cancelled) {
+            toast.error(error instanceof Error ? error.message : "Could not read that month");
+          }
+        } finally {
+          inflight.delete(month);
+        }
+      })
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sectionMonth, packs, supabase, inflight]);
+
+  function standings(slot: IncentiveSlot, source: "auto" | "manual", yearMonth: string): Standing[] {
+    const pack = packs[yearMonth];
     const scores =
       source === "auto"
-        ? autoScores[slot] ?? {}
+        ? pack?.auto[slot] ?? {}
         : Object.fromEntries(
-            Object.entries(manualScores[slot] ?? {}).map(([id, value]) => [id, Number(value) || 0])
+            Object.entries(pack?.manual[slot] ?? {}).map(([id, value]) => [id, Number(value) || 0])
           );
     return members
       .map((member) => ({
@@ -317,7 +338,7 @@ export function IncentiveBoard() {
     setSavingPrizes(false);
   }
 
-  async function saveScore(slot: string, memberId: string, raw: string) {
+  async function saveScore(slot: string, memberId: string, raw: string, yearMonth: string) {
     const score = Number(raw);
     if (!Number.isFinite(score) || score < 0) {
       toast.error("Use a number, 0 or higher.");
@@ -401,39 +422,88 @@ export function IncentiveBoard() {
 
       <section className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-900">Who is winning · {monthLabel(yearMonth)}</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">Who is winning</h2>
           <p className="mt-1 text-sm text-neutral-500">
-            The longest bar is in front. Recorded work fills the counted spaces. You score the rest.
+            Pick the month on each space. Last month still shows, even when that space has no prize.
           </p>
         </div>
 
         {INCENTIVE_SLOTS.map((slot) => {
-          const rows = standings(slot.slot, slot.source);
+          const chosenMonth = sectionMonth[slot.slot] ?? nowMonth;
+          const pack = packs[chosenMonth];
+          const rows = standings(slot.slot, slot.source, chosenMonth);
           const leader = rows.find((row) => row.score > 0);
           const top = leader?.score ?? 0;
+          const starEvidence = pack?.stars ?? [];
           return (
             <article key={slot.slot} className="rounded-2xl border border-neutral-200 bg-white p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="font-semibold text-neutral-900">{slot.label}</h3>
-                <p className="text-sm font-medium text-[#7b1e3a]">
-                  {prizes[slot.slot]?.trim() || "No prize yet"}
-                  {leader ? ` · ${leader.name} is ahead` : ""}
-                </p>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-neutral-900">{slot.label}</h3>
+                  <p className="text-sm font-medium text-[#7b1e3a]">
+                    {prizes[slot.slot]?.trim() || "No prize yet"}
+                    {leader ? ` · ${leader.name} is ahead` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-xs font-medium text-neutral-500" htmlFor={`month-${slot.slot}`}>
+                    Month
+                  </label>
+                  <Input
+                    id={`month-${slot.slot}`}
+                    type="month"
+                    value={chosenMonth}
+                    max={nowMonth}
+                    className="h-9 w-[160px]"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (!value || value > nowMonth) return;
+                      setSectionMonth((current) => ({ ...current, [slot.slot]: value }));
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setSectionMonth((current) => ({ ...current, [slot.slot]: lastMonth }))
+                    }
+                  >
+                    Last month
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setSectionMonth((current) => ({ ...current, [slot.slot]: nowMonth }))
+                    }
+                  >
+                    This month
+                  </Button>
+                </div>
               </div>
+              <p className="mt-2 text-xs text-neutral-500">Showing {monthLabel(chosenMonth)}</p>
+              {!pack ? (
+                <div className="mt-3 flex items-center gap-2 text-sm text-neutral-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Reading {monthLabel(chosenMonth)}
+                </div>
+              ) : null}
 
-              {slot.source === "auto" && rows.length === 0 ? (
+              {pack && slot.source === "auto" && rows.length === 0 ? (
                 <p className="mt-3 text-sm text-neutral-500">
                   {slot.slot === "five_stars"
-                    ? "No 5-star screenshots saved this month yet. Members record them under My 5 Stars."
-                    : "Nobody has recorded this yet this month."}
+                    ? `No 5-star screenshots saved in ${monthLabel(chosenMonth)}. Members record them under My 5 Stars.`
+                    : `Nobody recorded this in ${monthLabel(chosenMonth)}.`}
                 </p>
-              ) : (
+              ) : pack ? (
                 <ul className="mt-3 space-y-2">
                   {(slot.source === "manual"
                     ? members.map((member) => ({
                         memberId: member.id,
                         name: member.full_name,
-                        score: Number(manualScores[slot.slot]?.[member.id] ?? 0) || 0,
+                        score: Number(pack.manual[slot.slot]?.[member.id] ?? 0) || 0,
                       }))
                     : rows
                   ).map((row) => {
@@ -453,16 +523,32 @@ export function IncentiveBoard() {
                         {slot.source === "manual" ? (
                           <Input
                             inputMode="decimal"
-                            value={manualScores[slot.slot]?.[row.memberId] ?? ""}
+                            value={pack.manual[slot.slot]?.[row.memberId] ?? ""}
                             placeholder="0"
                             className="h-8 text-right"
-                            onChange={(event) =>
-                              setManualScores((current) => ({
-                                ...current,
-                                [slot.slot]: { ...current[slot.slot], [row.memberId]: event.target.value },
-                              }))
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setPacks((current) => {
+                                const monthPack = current[chosenMonth];
+                                if (!monthPack) return current;
+                                return {
+                                  ...current,
+                                  [chosenMonth]: {
+                                    ...monthPack,
+                                    manual: {
+                                      ...monthPack.manual,
+                                      [slot.slot]: {
+                                        ...monthPack.manual[slot.slot],
+                                        [row.memberId]: value,
+                                      },
+                                    },
+                                  },
+                                };
+                              });
+                            }}
+                            onBlur={(event) =>
+                              saveScore(slot.slot, row.memberId, event.target.value || "0", chosenMonth)
                             }
-                            onBlur={(event) => saveScore(slot.slot, row.memberId, event.target.value || "0")}
                           />
                         ) : (
                           <p className="text-right text-xs tabular-nums text-neutral-500">
@@ -475,8 +561,8 @@ export function IncentiveBoard() {
                     );
                   })}
                 </ul>
-              )}
-              {slot.slot === "five_stars" && starEvidence.length > 0 && (
+              ) : null}
+              {slot.slot === "five_stars" && pack && starEvidence.length > 0 && (
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                   {starEvidence.map((review) => {
                     const name = members.find((member) => member.id === review.team_member_id)?.full_name ?? "Member";
