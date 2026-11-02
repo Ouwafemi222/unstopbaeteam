@@ -52,6 +52,8 @@ type NavItem = {
   permission?: string;
   /** Only visible to super admins */
   superOnly?: boolean;
+  /** Also visible to team leaders when superOnly is set */
+  teamLeader?: boolean;
   /** Match pathname exactly (no prefix match for children) */
   exact?: boolean;
 };
@@ -83,7 +85,7 @@ const adminNavItems: NavItem[] = [
   { href: "/services", label: "Services", icon: Wrench },
   { href: "/performance", label: "Monthly Performance", icon: TrendingUp, permission: "reports.view" },
   { href: "/weekly-activity", label: "Weekly Activity", icon: ClipboardList, permission: "reports.view" },
-  { href: "/incentives", label: "Incentives", icon: Gift, superOnly: true },
+  { href: "/incentives", label: "Incentives", icon: Gift, superOnly: true, teamLeader: true },
   { href: "/money", label: "Money Made", icon: Banknote, superOnly: true },
   { href: "/reserved-accounts", label: "Reserved Accounts", icon: Archive, superOnly: true },
   { href: "/reports", label: "Reports", icon: FileText, permission: "reports.view" },
@@ -130,9 +132,10 @@ const memberNavItems = (teamMemberId: string): NavItem[] => [
 function filterNavItem(
   item: NavItem,
   permissions: string[],
-  isSuperAdmin: boolean
+  isSuperAdmin: boolean,
+  isTeamLeader: boolean
 ): boolean {
-  if (item.superOnly) return Boolean(isSuperAdmin);
+  if (item.superOnly) return Boolean(isSuperAdmin) || Boolean(item.teamLeader && isTeamLeader);
   const permission = item.permission;
   if (!permission) return true;
   return permissions.includes(permission) || permissions.some((p) => p.includes("super"));
@@ -142,7 +145,8 @@ function buildNavSections(
   teamMemberId: string | null | undefined,
   isScopedMember: boolean | undefined,
   permissions: string[],
-  isSuperAdmin: boolean
+  isSuperAdmin: boolean,
+  isTeamLeader: boolean
 ): { dashboard: NavItem; sections: NavSection[]; account: NavItem } {
   if (isScopedMember && teamMemberId) {
     return {
@@ -164,7 +168,7 @@ function buildNavSections(
   }
 
   let adminItems = adminNavItems.filter((item) =>
-    filterNavItem(item, permissions, isSuperAdmin)
+    filterNavItem(item, permissions, isSuperAdmin, isTeamLeader)
   );
   if (adminItems.length > 0) {
     if (!teamMemberId) {
@@ -219,6 +223,7 @@ interface SidebarProps {
   teamMemberId?: string | null;
   isScopedMember?: boolean;
   isSuperAdmin?: boolean;
+  isTeamLeader?: boolean;
 }
 
 export function Sidebar({
@@ -230,6 +235,7 @@ export function Sidebar({
   teamMemberId,
   isScopedMember,
   isSuperAdmin,
+  isTeamLeader,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -238,8 +244,15 @@ export function Sidebar({
   const permissionsKey = permissions.join("\0");
 
   const { dashboard, sections, account } = useMemo(
-    () => buildNavSections(teamMemberId, isScopedMember, permissions, Boolean(isSuperAdmin)),
-    [teamMemberId, isScopedMember, permissionsKey, isSuperAdmin]
+    () =>
+      buildNavSections(
+        teamMemberId,
+        isScopedMember,
+        permissions,
+        Boolean(isSuperAdmin),
+        Boolean(isTeamLeader)
+      ),
+    [teamMemberId, isScopedMember, permissionsKey, isSuperAdmin, isTeamLeader]
   );
 
   const flatItems = useMemo(

@@ -24,6 +24,7 @@ interface AppShellProps {
   isScopedMember?: boolean;
   displayName?: string;
   isSuperAdmin?: boolean;
+  isTeamLeader?: boolean;
 }
 
 export function AppShell({
@@ -34,6 +35,7 @@ export function AppShell({
   isScopedMember,
   displayName,
   isSuperAdmin,
+  isTeamLeader,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -76,6 +78,7 @@ export function AppShell({
         teamMemberId={teamMemberId}
         isScopedMember={isScopedMember}
         isSuperAdmin={isSuperAdmin}
+        isTeamLeader={isTeamLeader}
       />
       {mobileOpen && (
         <Sidebar
@@ -85,6 +88,7 @@ export function AppShell({
           teamMemberId={teamMemberId}
           isScopedMember={isScopedMember}
           isSuperAdmin={isSuperAdmin}
+          isTeamLeader={isTeamLeader}
         />
       )}
 

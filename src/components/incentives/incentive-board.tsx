@@ -7,16 +7,17 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { currentYearMonth } from "@/lib/utils/dates";
-import { lagosDayEndIso, lagosDayStartIso } from "@/lib/weekly-evaluation/week";
-import { getMemberImageUrl } from "@/lib/storage/member-uploads";
 import { INCENTIVE_SLOTS, type IncentiveSlot } from "@/lib/incentives/catalog";
+import {
+  fetchAll,
+  loadMonthPack,
+  monthLabel,
+  shiftMonth,
+  type MonthPack,
+  type ProgressMember,
+} from "@/lib/incentives/progress";
 import type { Incentive } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-interface MemberRow {
-  id: string;
-  full_name: string;
-}
 
 interface Standing {
   memberId: string;
@@ -24,178 +25,25 @@ interface Standing {
   score: number;
 }
 
-interface StarEvidence {
-  id: string;
-  team_member_id: string;
-  buyer_name: string | null;
-  received_date: string;
-  screenshot_path: string;
-  url: string | null;
-}
-
-async function fetchAll<T>(
-  run: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
-) {
-  const pageSize = 1000;
-  const rows: T[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await run(from, from + pageSize - 1);
-    if (error) throw new Error(error.message);
-    const batch = data ?? [];
-    rows.push(...batch);
-    if (batch.length < pageSize) return rows;
+async function fetchProgress(month: string) {
+  const response = await fetch(`/api/incentives/progress?month=${month}`);
+  const body = (await response.json()) as {
+    members?: ProgressMember[];
+    prizes?: Record<string, string>;
+    pack?: MonthPack;
+    error?: string;
+  };
+  if (!response.ok || !body.pack) {
+    throw new Error(body.error || "Could not read incentive progress");
   }
-}
-
-function monthBounds(yearMonth: string) {
-  const [year, month] = yearMonth.split("-").map(Number);
-  const last = new Date(year, month, 0).getDate();
   return {
-    from: `${yearMonth}-01`,
-    to: `${yearMonth}-${String(last).padStart(2, "0")}`,
+    members: body.members ?? [],
+    prizes: body.prizes ?? {},
+    pack: body.pack,
   };
 }
 
-function monthLabel(yearMonth: string) {
-  const [year, month] = yearMonth.split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString("en-NG", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function shiftMonth(yearMonth: string, delta: number) {
-  const [year, month] = yearMonth.split("-").map(Number);
-  const date = new Date(year, month - 1 + delta, 1);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-interface MonthPack {
-  auto: Record<string, Record<string, number>>;
-  manual: Record<string, Record<string, string>>;
-  stars: StarEvidence[];
-}
-
-async function loadMonthPack(db: SupabaseClient, yearMonth: string): Promise<MonthPack> {
-  const bounds = monthBounds(yearMonth);
-  const createdFrom = lagosDayStartIso(bounds.from);
-  const createdTo = lagosDayEndIso(bounds.to);
-
-  const [prospects, earnings, openedAccounts, createdAccounts, messages, scores, starPage] =
-    await Promise.all([
-      fetchAll<{ team_member_id: string; office_prospects_count: number | null }>((from, to) =>
-        db
-          .from("member_prospect_entries")
-          .select("team_member_id, office_prospects_count")
-          .gte("logged_date", bounds.from)
-          .lte("logged_date", bounds.to)
-          .range(from, to)
-      ),
-      fetchAll<{ team_member_id: string; amount_ngn: number | null; amount: number | null }>((from, to) =>
-        db
-          .from("member_weekly_earnings")
-          .select("team_member_id, amount_ngn, amount")
-          .eq("year_month", yearMonth)
-          .range(from, to)
-      ),
-      fetchAll<{ id: string; team_member_id: string }>((from, to) =>
-        db
-          .from("fiverr_accounts")
-          .select("id, team_member_id")
-          .gte("opening_date", bounds.from)
-          .lte("opening_date", bounds.to)
-          .is("archived_at", null)
-          .neq("status", "reserved")
-          .range(from, to)
-      ),
-      fetchAll<{ id: string; team_member_id: string }>((from, to) =>
-        db
-          .from("fiverr_accounts")
-          .select("id, team_member_id")
-          .gte("created_at", createdFrom)
-          .lte("created_at", createdTo)
-          .is("archived_at", null)
-          .neq("status", "reserved")
-          .range(from, to)
-      ),
-      fetchAll<{ team_member_id: string }>((from, to) =>
-        db
-          .from("messages")
-          .select("team_member_id")
-          .gte("received_date", bounds.from)
-          .lte("received_date", bounds.to)
-          .range(from, to)
-      ),
-      fetchAll<{ slot: string; team_member_id: string; score: number | null }>((from, to) =>
-        db
-          .from("incentive_scores")
-          .select("slot, team_member_id, score")
-          .eq("year_month", yearMonth)
-          .range(from, to)
-      ),
-      fetchAll<Omit<StarEvidence, "url">>((from, to) =>
-        db
-          .from("five_star_reviews")
-          .select("id, team_member_id, buyer_name, received_date, screenshot_path")
-          .gte("received_date", bounds.from)
-          .lte("received_date", bounds.to)
-          .order("received_date", { ascending: false })
-          .range(from, to)
-      ),
-    ]);
-
-  const add = (bucket: Record<string, number>, id: string | null, amount: number) => {
-    if (!id) return;
-    bucket[id] = (bucket[id] ?? 0) + amount;
-  };
-  const office: Record<string, number> = {};
-  for (const row of prospects) add(office, row.team_member_id, Number(row.office_prospects_count ?? 0));
-  const earn: Record<string, number> = {};
-  for (const row of earnings) {
-    const value = row.amount_ngn != null ? Number(row.amount_ngn) : Number(row.amount ?? 0);
-    add(earn, row.team_member_id, value);
-  }
-  const opened: Record<string, number> = {};
-  const seenAccounts = new Set<string>();
-  for (const row of [...openedAccounts, ...createdAccounts]) {
-    if (seenAccounts.has(row.id)) continue;
-    seenAccounts.add(row.id);
-    add(opened, row.team_member_id, 1);
-  }
-  const received: Record<string, number> = {};
-  for (const row of messages) add(received, row.team_member_id, 1);
-  const stars = await Promise.all(
-    starPage.map(async (review) => ({
-      ...review,
-      url: await getMemberImageUrl(db, review.screenshot_path),
-    }))
-  );
-  const starCounts: Record<string, number> = {};
-  for (const row of stars) add(starCounts, row.team_member_id, 1);
-
-  const manual: Record<string, Record<string, string>> = {};
-  for (const slot of INCENTIVE_SLOTS) {
-    if (slot.source === "manual") manual[slot.slot] = {};
-  }
-  for (const row of scores) {
-    if (!manual[row.slot]) manual[row.slot] = {};
-    manual[row.slot][row.team_member_id] = String(row.score ?? 0);
-  }
-
-  return {
-    auto: {
-      office_prospects: office,
-      top_earner: earn,
-      top_accounts: opened,
-      top_messages: received,
-      five_stars: starCounts,
-    },
-    manual,
-    stars,
-  };
-}
-
-export function IncentiveBoard() {
+export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
   const nowMonth = currentYearMonth();
   const lastMonth = shiftMonth(nowMonth, -1);
   const [sectionMonth, setSectionMonth] = useState<Record<string, string>>(() =>
@@ -204,7 +52,7 @@ export function IncentiveBoard() {
   const [packs, setPacks] = useState<Record<string, MonthPack>>({});
   const [prizes, setPrizes] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Incentive[]>([]);
-  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [members, setMembers] = useState<ProgressMember[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingPrizes, setSavingPrizes] = useState(false);
@@ -217,11 +65,21 @@ export function IncentiveBoard() {
 
     async function loadBase() {
       try {
+        if (readOnly) {
+          const body = await fetchProgress(nowMonth);
+          if (cancelled) return;
+          setPrizes(body.prizes);
+          setMembers(body.members);
+          setPacks({ [nowMonth]: body.pack });
+          setLoadError(null);
+          return;
+        }
+
         const [incentiveRows, people, pack] = await Promise.all([
           fetchAll<Incentive>((from, to) =>
             db.from("incentives").select("*").not("slot", "is", null).range(from, to)
           ),
-          fetchAll<MemberRow>((from, to) =>
+          fetchAll<ProgressMember>((from, to) =>
             db
               .from("team_members")
               .select("id, full_name")
@@ -254,7 +112,7 @@ export function IncentiveBoard() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, nowMonth]);
+  }, [supabase, nowMonth, readOnly]);
 
   useEffect(() => {
     const db = supabase as SupabaseClient;
@@ -268,8 +126,8 @@ export function IncentiveBoard() {
     Promise.all(
       needed.map(async (month) => {
         try {
-          const pack = await loadMonthPack(db, month);
-          if (!cancelled) setPacks((current) => ({ ...current, [month]: pack }));
+          const pack = readOnly ? (await fetchProgress(month)).pack : await loadMonthPack(db, month);
+          if (!cancelled && pack) setPacks((current) => ({ ...current, [month]: pack }));
         } catch (error) {
           if (!cancelled) {
             toast.error(error instanceof Error ? error.message : "Could not read that month");
@@ -283,7 +141,7 @@ export function IncentiveBoard() {
     return () => {
       cancelled = true;
     };
-  }, [sectionMonth, packs, supabase, inflight]);
+  }, [sectionMonth, packs, supabase, inflight, readOnly]);
 
   function standings(slot: IncentiveSlot, source: "auto" | "manual", yearMonth: string): Standing[] {
     const pack = packs[yearMonth];
@@ -375,6 +233,7 @@ export function IncentiveBoard() {
 
   return (
     <div className="space-y-8">
+      {!readOnly && (
       <section className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -419,12 +278,15 @@ export function IncentiveBoard() {
           ))}
         </div>
       </section>
+      )}
 
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-neutral-900">Who is winning</h2>
           <p className="mt-1 text-sm text-neutral-500">
-            Pick the month on each space. Last month still shows, even when that space has no prize.
+            {readOnly
+              ? "Open any month on each space to see how the team is moving."
+              : "Pick the month on each space. Last month still shows, even when that space has no prize."}
           </p>
         </div>
 
@@ -520,7 +382,7 @@ export function IncentiveBoard() {
                             style={{ width: row.score > 0 ? `${width}%` : "0%" }}
                           />
                         </div>
-                        {slot.source === "manual" ? (
+                        {slot.source === "manual" && !readOnly ? (
                           <Input
                             inputMode="decimal"
                             value={pack.manual[slot.slot]?.[row.memberId] ?? ""}
