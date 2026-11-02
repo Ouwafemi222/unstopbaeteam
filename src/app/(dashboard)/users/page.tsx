@@ -10,10 +10,11 @@ export default async function UsersPage() {
   const admin = user ? await isSuperAdmin() : false;
   const canManage = user ? admin || user.permissions.includes("users.manage_roles") : false;
 
-  const [{ data: profiles }, { data: roles }, { data: userRoles }] = await Promise.all([
+  const [{ data: profiles }, { data: roles }, { data: userRoles }, { data: teamMembers }] = await Promise.all([
     supabase.from("profiles").select("*").order("full_name"),
     supabase.from("roles").select("*").order("name"),
     supabase.from("user_roles").select("*, role:roles(name, slug)"),
+    supabase.from("team_members").select("id, full_name, email, user_id, role_in_team").order("full_name"),
   ]);
 
   return (
@@ -43,6 +44,7 @@ export default async function UsersPage() {
         profiles={profiles ?? []}
         roles={roles ?? []}
         userRoles={(userRoles ?? []) as { id: string; user_id: string; role_id: string; role: { name: string; slug: string } | null }[]}
+        teamMembers={(teamMembers ?? []) as { id: string; full_name: string; email: string | null; user_id: string | null; role_in_team: string | null }[]}
         canManage={canManage}
       />
 
