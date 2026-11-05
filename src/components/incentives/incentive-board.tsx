@@ -372,11 +372,18 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                     const width = top > 0 ? Math.max(4, Math.round((row.score / top) * 100)) : 0;
                     const ahead = leader?.memberId === row.memberId && row.score > 0;
                     return (
-                      <li key={row.memberId} className="grid items-center gap-2 sm:grid-cols-[160px_1fr_88px]">
+                      <li
+                        key={row.memberId}
+                        className={
+                          slot.unit === "₦"
+                            ? "grid items-center gap-2 sm:grid-cols-[minmax(0,10rem)_minmax(4rem,1fr)_9rem]"
+                            : "grid items-center gap-2 sm:grid-cols-[minmax(0,10rem)_minmax(4rem,1fr)_5.5rem]"
+                        }
+                      >
                         <p className={`truncate text-sm ${ahead ? "font-semibold text-[#7b1e3a]" : "text-neutral-700"}`}>
                           {row.name}
                         </p>
-                        <div className="h-2.5 overflow-hidden rounded-full bg-neutral-100">
+                        <div className="h-2.5 min-w-[4rem] overflow-hidden rounded-full bg-neutral-100">
                           <div
                             className={`h-full rounded-full ${ahead ? "bg-[#7b1e3a]" : "bg-[#a33b5c]/70"}`}
                             style={{ width: row.score > 0 ? `${width}%` : "0%" }}
@@ -413,7 +420,7 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                             }
                           />
                         ) : (
-                          <p className="text-right text-xs tabular-nums text-neutral-500">
+                          <p className="whitespace-nowrap text-right text-xs tabular-nums text-neutral-500">
                             {slot.unit === "₦"
                               ? `₦${Math.round(row.score).toLocaleString()}`
                               : `${row.score} ${slot.unit}`}
