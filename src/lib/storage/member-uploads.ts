@@ -12,6 +12,11 @@ export function monthlyPlanImagePath(
   return `monthly-plans/${teamMemberId}/${yearMonth}/${kind}-${Date.now()}.${safeExt}`;
 }
 
+export function messageScreenshotPath(teamMemberId: string, ext: string) {
+  const safeExt = ext.replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
+  return `messages/${teamMemberId}/${Date.now()}.${safeExt}`;
+}
+
 export function accountVerificationScreenshotPath(
   teamMemberId: string,
   accountId: string,

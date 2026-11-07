@@ -15,7 +15,7 @@ export default async function MyMessagesNewPage() {
       backHref="/my-messages"
       backLabel="Back to My Messages"
       title="Record Message Received"
-      subtitle="Log a Fiverr message in a few taps — your team will see it slide across the live dashboard stream."
+      subtitle="Log the Fiverr message and attach a screenshot. That picture is the evidence it was received."
       icon={MessageSquare}
       tone="message"
     >

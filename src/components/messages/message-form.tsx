@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock, Loader2, MessageSquare, Sparkles, UserRound, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,8 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { DateInput, TimeInput } from "@/components/shared/date-input";
 import { publishLiveEvent } from "@/lib/live/publish-live-event";
+import { getMemberImageUrl, messageScreenshotPath, uploadMemberImage } from "@/lib/storage/member-uploads";
+import { MessageScreenshotMark, type MessageScreenshotMarkHandle } from "@/components/messages/message-screenshot-mark";
+import { MessageOcrReadout } from "@/components/messages/message-ocr-readout";
+import type { MessageOcrReadout as OcrReadout } from "@/lib/messages/ocr-parse";
 import { toast } from "sonner";
 import type { TeamMember, FiverrAccount, Service, Message } from "@/types/database";
+
+const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 
 interface MessageFormProps {
   mode: "create" | "edit";
@@ -38,6 +44,23 @@ export function MessageForm({
     lockedTeamMemberId ?? message?.team_member_id ?? ""
   );
   const [quickMode, setQuickMode] = useState(mode === "create");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [savedShotUrl, setSavedShotUrl] = useState<string | null>(null);
+  const [readout, setReadout] = useState<OcrReadout | null>(
+    message?.ocr_text
+      ? {
+          date: message.ocr_date,
+          time: message.ocr_time,
+          buyer: message.ocr_buyer,
+          gig: message.ocr_gig,
+          text: message.ocr_text,
+        }
+      : null
+  );
+  const [readoutFresh, setReadoutFresh] = useState(false);
+  const [reading, setReading] = useState(false);
+  const screenshotRef = useRef<HTMLInputElement>(null);
+  const markRef = useRef<MessageScreenshotMarkHandle>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -60,6 +83,17 @@ export function MessageForm({
   }, [lockedTeamMemberId]);
 
   useEffect(() => {
+    if (!message?.screenshot_path) return;
+    let cancelled = false;
+    getMemberImageUrl(supabase, message.screenshot_path).then((url) => {
+      if (!cancelled) setSavedShotUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [message?.screenshot_path, supabase]);
+
+  useEffect(() => {
     if (!selectedMember) {
       setAccounts([]);
       return;
@@ -71,6 +105,17 @@ export function MessageForm({
       .is("archived_at", null)
       .then(({ data }) => setAccounts(data ?? []));
   }, [selectedMember, supabase]);
+
+  async function readScreenshot(file: File): Promise<OcrReadout> {
+    const body = new FormData();
+    body.append("file", file);
+    const response = await fetch("/api/messages/ocr", { method: "POST", body });
+    const payload = (await response.json()) as { readout?: OcrReadout; error?: string };
+    if (!response.ok || !payload.readout) {
+      throw new Error(payload.error || "Could not read the screenshot");
+    }
+    return payload.readout;
+  }
 
   function resolveActorName(teamMemberId: string) {
     if (isSelfService) return lockedTeamMemberName ?? "A member";
@@ -89,6 +134,58 @@ export function MessageForm({
       isSelfService ? lockedTeamMemberId : (form.get("team_member_id") as string)
     ) as string;
 
+    if (mode === "create" && !screenshot) {
+      toast.error("Add a screenshot of the message you received.");
+      setLoading(false);
+      return;
+    }
+    if (screenshot && !screenshot.type.startsWith("image/")) {
+      toast.error("The evidence has to be an image.");
+      setLoading(false);
+      return;
+    }
+    if (screenshot && screenshot.size > MAX_SCREENSHOT_BYTES) {
+      toast.error("Use an image under 5 MB.");
+      setLoading(false);
+      return;
+    }
+
+    let screenshotPath = message?.screenshot_path ?? null;
+    let nextReadout = readout;
+    if (screenshot) {
+      if (!markRef.current?.hasMark()) {
+        toast.error("Circle the date on the screenshot with the pencil.");
+        setLoading(false);
+        return;
+      }
+      const annotated = await markRef.current.exportImage();
+      if (!annotated) {
+        toast.error("The screenshot is still loading. Circle the date, then save.");
+        setLoading(false);
+        return;
+      }
+      if (!readoutFresh || !nextReadout) {
+        try {
+          nextReadout = await readScreenshot(annotated);
+          setReadout(nextReadout);
+          setReadoutFresh(true);
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Could not read the screenshot");
+          setLoading(false);
+          return;
+        }
+      }
+      const path = messageScreenshotPath(teamMemberId, "jpg");
+      try {
+        await uploadMemberImage(supabase, annotated, path);
+        screenshotPath = path;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not upload the screenshot");
+        setLoading(false);
+        return;
+      }
+    }
+
     const payload = {
       team_member_id: teamMemberId,
       fiverr_account_id: (form.get("fiverr_account_id") as string) || null,
@@ -99,6 +196,12 @@ export function MessageForm({
       prospect_name: (form.get("prospect_name") as string) || null,
       status: (form.get("status") as string) || "new",
       notes: (form.get("notes") as string) || null,
+      screenshot_path: screenshotPath,
+      ocr_text: nextReadout?.text ?? message?.ocr_text ?? null,
+      ocr_date: nextReadout?.date ?? message?.ocr_date ?? null,
+      ocr_time: nextReadout?.time ?? message?.ocr_time ?? null,
+      ocr_buyer: nextReadout?.buyer ?? message?.ocr_buyer ?? null,
+      ocr_gig: nextReadout?.gig ?? message?.ocr_gig ?? null,
       recorded_by: user?.id,
     };
 
@@ -140,6 +243,10 @@ export function MessageForm({
         if (gig) gig.value = "";
         if (notes) notes.value = "";
         if (prospect) prospect.value = "";
+        setScreenshot(null);
+        setReadout(null);
+        setReadoutFresh(false);
+        if (screenshotRef.current) screenshotRef.current.value = "";
         return;
       }
       void data;
@@ -313,6 +420,88 @@ export function MessageForm({
                 <option value="follow_up">Follow-Up</option>
                 <option value="closed">Closed</option>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="message_screenshot">
+                Screenshot of the message{mode === "create" ? " *" : ""}
+              </Label>
+              <Input
+                ref={screenshotRef}
+                id="message_screenshot"
+                name="message_screenshot"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                required={mode === "create"}
+                onChange={(event) => {
+                  setScreenshot(event.target.files?.[0] ?? null);
+                  setReadout(null);
+                  setReadoutFresh(false);
+                }}
+              />
+              <p className="text-xs text-neutral-500">
+                {mode === "create"
+                  ? "Upload the message, then circle the date. PNG, JPG, or WEBP, under 5 MB."
+                  : "Upload a new picture to replace the evidence. Circle the date again so OCR can re-read it."}
+              </p>
+              {screenshot && (
+                <>
+                  <MessageScreenshotMark
+                    ref={markRef}
+                    file={screenshot}
+                    onChange={() => setReadoutFresh(false)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={reading}
+                    onClick={async () => {
+                      if (!markRef.current?.hasMark()) {
+                        toast.error("Circle the date on the screenshot first.");
+                        return;
+                      }
+                      const annotated = await markRef.current.exportImage();
+                      if (!annotated) {
+                        toast.error("The screenshot is still loading.");
+                        return;
+                      }
+                      setReading(true);
+                      try {
+                        const next = await readScreenshot(annotated);
+                        setReadout(next);
+                        setReadoutFresh(true);
+                        toast.success("Screenshot read. The admin will see this when they check.");
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : "Could not read the screenshot");
+                      } finally {
+                        setReading(false);
+                      }
+                    }}
+                  >
+                    {reading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Read the circled screenshot
+                  </Button>
+                </>
+              )}
+              {!screenshot && savedShotUrl && (
+                <a href={savedShotUrl} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={savedShotUrl}
+                    alt="Saved message evidence"
+                    className="mt-2 h-40 w-full rounded-xl border border-neutral-200 object-cover"
+                  />
+                </a>
+              )}
+              {readout && (
+                <MessageOcrReadout
+                  recordedDate={undefined}
+                  ocrDate={readout.date}
+                  ocrTime={readout.time}
+                  ocrBuyer={readout.buyer}
+                  ocrGig={readout.gig}
+                  ocrText={readout.text}
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>

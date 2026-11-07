@@ -8,7 +8,7 @@ export default function NewMessagePage() {
       backHref="/messages"
       backLabel="Back to Messages"
       title="Record Message"
-      subtitle="Capture who got the message and when — it will stream live on every dashboard."
+      subtitle="Record who got the message, and attach a screenshot as the evidence."
       icon={MessageSquare}
       tone="message"
     >

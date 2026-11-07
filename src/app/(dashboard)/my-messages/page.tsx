@@ -21,7 +21,7 @@ export default async function MyMessagesPage() {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">My Messages</h1>
         <p className="text-neutral-500 mt-1">
-          Record every Fiverr message you receive — date, gig, service, and account.
+          Record every Fiverr message you receive, and attach a screenshot as the evidence.
         </p>
       </div>
       <MemberMessagesPanel

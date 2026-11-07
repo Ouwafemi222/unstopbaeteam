@@ -178,6 +178,12 @@ export interface Message {
   message_source: string;
   status: MessageStatus;
   notes: string | null;
+  screenshot_path: string | null;
+  ocr_text: string | null;
+  ocr_date: string | null;
+  ocr_time: string | null;
+  ocr_buyer: string | null;
+  ocr_gig: string | null;
   recorded_by: string | null;
   created_at: string;
   updated_at: string;
