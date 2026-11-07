@@ -65,7 +65,7 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
   const createdFrom = lagosDayStartIso(bounds.from);
   const createdTo = lagosDayEndIso(bounds.to);
 
-  const [prospects, earnings, openedAccounts, createdAccounts, messages, scores, starPage] =
+  const [prospects, earnings, orders, openedAccounts, createdAccounts, messages, scores, starPage] =
     await Promise.all([
       fetchAll<{ team_member_id: string; office_prospects_count: number | null }>((from, to) =>
         db
@@ -75,11 +75,25 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
           .lte("logged_date", bounds.to)
           .range(from, to)
       ),
-      fetchAll<{ team_member_id: string; amount_ngn: number | null; amount: number | null }>((from, to) =>
+      fetchAll<{
+        team_member_id: string;
+        amount_ngn: number | null;
+        amount: number | null;
+        gross_amount: number | null;
+        currency: string | null;
+      }>((from, to) =>
         db
           .from("member_weekly_earnings")
-          .select("team_member_id, amount_ngn, amount")
+          .select("team_member_id, amount_ngn, amount, gross_amount, currency")
           .eq("year_month", yearMonth)
+          .range(from, to)
+      ),
+      fetchAll<{ team_member_id: string; order_amount: number | null }>((from, to) =>
+        db
+          .from("orders_received")
+          .select("team_member_id, order_amount")
+          .gte("received_date", bounds.from)
+          .lte("received_date", bounds.to)
           .range(from, to)
       ),
       fetchAll<{ id: string; team_member_id: string }>((from, to) =>
@@ -134,10 +148,20 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
   };
   const office: Record<string, number> = {};
   for (const row of prospects) add(office, row.team_member_id, Number(row.office_prospects_count ?? 0));
-  const earn: Record<string, number> = {};
+  const weeklyEarn: Record<string, number> = {};
   for (const row of earnings) {
-    const value = row.amount_ngn != null ? Number(row.amount_ngn) : Number(row.amount ?? 0);
-    add(earn, row.team_member_id, value);
+    const ngn = Number(row.amount_ngn ?? 0);
+    const net = Number(row.amount ?? 0);
+    const gross = Number(row.gross_amount ?? 0);
+    const value = ngn > 0 ? ngn : net > 0 ? net : gross;
+    add(weeklyEarn, row.team_member_id, value);
+  }
+  const orderEarn: Record<string, number> = {};
+  for (const row of orders) add(orderEarn, row.team_member_id, Number(row.order_amount ?? 0));
+  const earn: Record<string, number> = {};
+  for (const id of new Set([...Object.keys(weeklyEarn), ...Object.keys(orderEarn)])) {
+    const weekly = weeklyEarn[id] ?? 0;
+    earn[id] = weekly > 0 ? weekly : (orderEarn[id] ?? 0);
   }
   const opened: Record<string, number> = {};
   const seenAccounts = new Set<string>();

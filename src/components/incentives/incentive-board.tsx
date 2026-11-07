@@ -157,7 +157,6 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
         name: member.full_name,
         score: scores[member.id] ?? 0,
       }))
-      .filter((row) => source === "manual" || row.score > 0)
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   }
 
@@ -353,32 +352,23 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                 </div>
               ) : null}
 
-              {pack && slot.source === "auto" && rows.length === 0 ? (
+              {pack && top === 0 ? (
                 <p className="mt-3 text-sm text-neutral-500">
                   {slot.slot === "five_stars"
-                    ? `No 5-star screenshots saved in ${monthLabel(chosenMonth)}. Members record them under My 5 Stars.`
-                    : `Nobody recorded this in ${monthLabel(chosenMonth)}.`}
+                    ? `No 5-star screenshots saved in ${monthLabel(chosenMonth)} yet.`
+                    : `No score recorded in ${monthLabel(chosenMonth)} yet.`}
                 </p>
-              ) : pack ? (
+              ) : null}
+
+              {pack ? (
                 <ul className="mt-3 space-y-2">
-                  {(slot.source === "manual"
-                    ? members.map((member) => ({
-                        memberId: member.id,
-                        name: member.full_name,
-                        score: Number(pack.manual[slot.slot]?.[member.id] ?? 0) || 0,
-                      }))
-                    : rows
-                  ).map((row) => {
+                  {rows.map((row) => {
                     const width = top > 0 ? Math.max(4, Math.round((row.score / top) * 100)) : 0;
                     const ahead = leader?.memberId === row.memberId && row.score > 0;
                     return (
                       <li
                         key={row.memberId}
-                        className={
-                          slot.unit === "₦"
-                            ? "grid items-center gap-2 sm:grid-cols-[minmax(0,10rem)_minmax(4rem,1fr)_9rem]"
-                            : "grid items-center gap-2 sm:grid-cols-[minmax(0,10rem)_minmax(4rem,1fr)_5.5rem]"
-                        }
+                        className="grid items-center gap-2 sm:grid-cols-[minmax(0,10rem)_minmax(4rem,1fr)_9rem]"
                       >
                         <p className={`truncate text-sm ${ahead ? "font-semibold text-[#7b1e3a]" : "text-neutral-700"}`}>
                           {row.name}
