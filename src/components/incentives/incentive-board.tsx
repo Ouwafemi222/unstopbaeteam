@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { currentYearMonth } from "@/lib/utils/dates";
 import { INCENTIVE_SLOTS, type IncentiveSlot } from "@/lib/incentives/catalog";
+import { EvidencePreview } from "@/components/shared/evidence-preview";
 import {
   fetchAll,
   loadMonthPack,
@@ -428,10 +429,11 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                     return (
                       <li key={review.id} className="overflow-hidden rounded-xl border border-neutral-200">
                         {review.url && (
-                          <a href={review.url} target="_blank" rel="noreferrer">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={review.url} alt={`${name} 5-star evidence`} className="h-36 w-full object-cover" />
-                          </a>
+                          <EvidencePreview
+                            src={review.url}
+                            alt={`${name} 5-star evidence`}
+                            className="h-36 w-full object-cover"
+                          />
                         )}
                         <p className="px-3 py-2 text-sm text-neutral-700">
                           <span className="font-medium text-neutral-900">{name}</span>

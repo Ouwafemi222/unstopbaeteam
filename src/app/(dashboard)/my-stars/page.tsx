@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { getMemberImageUrl } from "@/lib/storage/member-uploads";
+import { EvidencePreview } from "@/components/shared/evidence-preview";
 import type { FiveStarReview } from "@/types/database";
 
 export default async function MyStarsPage() {
@@ -73,10 +74,7 @@ export default async function MyStarsPage() {
           {withShots.map(({ review, url }) => (
             <li key={review.id} className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
               {url && (
-                <a href={url} target="_blank" rel="noreferrer">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="5-star review evidence" className="h-48 w-full object-cover" />
-                </a>
+                <EvidencePreview src={url} alt="5-star review evidence" className="h-48 w-full object-cover" />
               )}
               <div className="space-y-1 p-4">
                 <p className="font-semibold text-neutral-900">{review.buyer_name || "Buyer"}</p>
