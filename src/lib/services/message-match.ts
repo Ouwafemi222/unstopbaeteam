@@ -12,8 +12,6 @@ const SERVICE_GIG_KEYWORDS: Record<string, string[]> = {
   ],
   "ai-development": [
     "comfyui",
-    "poker bot",
-    "poker analysis",
     "chatbot",
     "n8n",
     "rork",
@@ -31,6 +29,7 @@ const SERVICE_GIG_KEYWORDS: Record<string, string[]> = {
     "email tracking",
     "supervisor",
   ],
+  "poker-bot": ["poker bot", "pokerbot", "poker analysis", "poker"],
   "content-writing": ["resume", "writing", "copy"],
   "digital-marketing": [
     "marketing",

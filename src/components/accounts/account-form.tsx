@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { publishLiveEvent } from "@/lib/live/publish-live-event";
 import type { ParsedAccountFromOcr } from "@/lib/forecast/account-ocr-parse";
 import { matchCountryFromHint } from "@/lib/countries/picker";
+import { hasPokerBot, isServiceUuid, loadActiveServices, POKER_BOT_NAME, POKER_BOT_SLUG } from "@/lib/services/poker-bot";
 import type { TeamMember, Country, FiverrAccount, Service } from "@/types/database";
 
 interface AccountFormProps {
@@ -111,16 +112,16 @@ export function AccountForm({
 
   useEffect(() => {
     async function load() {
-      const [{ data: m }, { data: c }, { data: serviceRows }] = await Promise.all([
+      const [{ data: m }, { data: c }, serviceRows] = await Promise.all([
         isSelfService
           ? Promise.resolve({ data: null })
           : supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
         supabase.from("countries").select("*").eq("is_active", true).order("name"),
-        supabase.from("services").select("*").eq("is_active", true).order("name"),
+        loadActiveServices(supabase),
       ]);
       if (m) setMembers(m ?? []);
       setCountries(c ?? []);
-      setServices((serviceRows as Service[]) ?? []);
+      setServices(serviceRows);
     }
     load();
   }, [supabase, isSelfService]);
@@ -351,12 +352,14 @@ export function AccountForm({
       proxy_username: (form.get("proxy_username") as string)?.trim() || null,
       proxy_code: (form.get("proxy_code") as string)?.trim() || null,
       written_service: (form.get("written_service") as string)?.trim() || null,
-      service_id:
-        services.find(
+      service_id: (() => {
+        const match = services.find(
           (service) =>
             service.name.toLowerCase() ===
             ((form.get("written_service") as string) || "").trim().toLowerCase()
-        )?.id ?? null,
+        );
+        return match && isServiceUuid(match.id) ? match.id : null;
+      })(),
       info_supplied_by: (form.get("info_supplied_by") as string) || null,
       notes: (form.get("notes") as string) || null,
       updated_by: user?.id,
@@ -501,15 +504,27 @@ export function AccountForm({
           <section className="form-section-enter form-section-enter-delay-2 rounded-2xl border border-neutral-200/80 bg-white/95 shadow-sm overflow-hidden">
             <div className="px-5 py-3.5 border-b bg-gradient-to-r from-amber-50 to-transparent flex items-center gap-2">
               <Wrench className="h-4 w-4 text-amber-700" />
-              <h2 className="text-sm font-semibold text-neutral-900">Service this account is for</h2>
+              <h2 className="text-sm font-semibold text-neutral-900">Service you are writing</h2>
             </div>
             <div className="p-5 space-y-4">
               <p className="text-sm text-neutral-500">
-                Which service did you open this Fiverr account to write? Pick one, or type it if it is not listed.
+                Add the service this Fiverr account is being written for. Pick Poker Bot or another service, or type one that is not listed.
               </p>
-              {services.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {services.map((service) => {
+              <div className="flex flex-wrap gap-2">
+                {(hasPokerBot(services)
+                  ? services
+                  : [
+                      ...services,
+                      {
+                        id: "local-poker-bot",
+                        name: POKER_BOT_NAME,
+                        slug: POKER_BOT_SLUG,
+                        description: null,
+                        is_active: true,
+                        created_at: "",
+                      } satisfies Service,
+                    ]
+                ).map((service) => {
                     const selected = writtenService.trim().toLowerCase() === service.name.toLowerCase();
                     return (
                       <button
@@ -527,14 +542,13 @@ export function AccountForm({
                     );
                   })}
                 </div>
-              )}
               <div className="space-y-2">
-                <Label htmlFor="written_service">Service {mode === "create" ? "*" : ""}</Label>
+                <Label htmlFor="written_service">Service you are writing {mode === "create" ? "*" : ""}</Label>
                 <Input
                   id="written_service"
                   name="written_service"
                   required={mode === "create"}
-                  placeholder="e.g. Logo design"
+                  placeholder="e.g. Poker Bot"
                   value={writtenService}
                   onChange={(event) => setWrittenService(event.target.value)}
                   list="account-service-suggestions"
@@ -543,6 +557,7 @@ export function AccountForm({
                   {services.map((service) => (
                     <option key={service.id} value={service.name} />
                   ))}
+                  {!hasPokerBot(services) && <option value={POKER_BOT_NAME} />}
                 </datalist>
               </div>
             </div>

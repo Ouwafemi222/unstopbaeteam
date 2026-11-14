@@ -15,6 +15,7 @@ import { getMemberImageUrl, messageScreenshotPath, uploadMemberImage } from "@/l
 import { MessageScreenshotMark, type MessageScreenshotMarkHandle } from "@/components/messages/message-screenshot-mark";
 import { MessageOcrReadout } from "@/components/messages/message-ocr-readout";
 import type { MessageOcrReadout as OcrReadout } from "@/lib/messages/ocr-parse";
+import { hasPokerBot, loadActiveServices, POKER_BOT_NAME, POKER_BOT_SLUG } from "@/lib/services/poker-bot";
 import { toast } from "sonner";
 import type { TeamMember, FiverrAccount, Service, Message } from "@/types/database";
 
@@ -66,14 +67,28 @@ export function MessageForm({
 
   useEffect(() => {
     async function load() {
-      const [{ data: m }, { data: s }] = await Promise.all([
+      const [{ data: m }, serviceRows] = await Promise.all([
         isSelfService
           ? Promise.resolve({ data: null })
           : supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
-        supabase.from("services").select("*").eq("is_active", true).order("name"),
+        loadActiveServices(supabase),
       ]);
       if (m) setMembers(m ?? []);
-      setServices(s ?? []);
+      setServices(
+        hasPokerBot(serviceRows)
+          ? serviceRows
+          : [
+              ...serviceRows,
+              {
+                id: "local-poker-bot",
+                name: POKER_BOT_NAME,
+                slug: POKER_BOT_SLUG,
+                description: null,
+                is_active: true,
+                created_at: "",
+              },
+            ]
+      );
     }
     load();
   }, [supabase, isSelfService]);
@@ -186,10 +201,22 @@ export function MessageForm({
       }
     }
 
+    let serviceId = ((form.get("service_id") as string) || "").trim();
+    if (serviceId === "local-poker-bot") {
+      const response = await fetch("/api/services/poker-bot");
+      const body = (await response.json()) as { service?: { id: string } | null };
+      if (!body.service?.id) {
+        toast.error("Poker Bot is not in the service list yet. Run the Poker Bot SQL, then choose it again.");
+        setLoading(false);
+        return;
+      }
+      serviceId = body.service.id;
+    }
+
     const payload = {
       team_member_id: teamMemberId,
       fiverr_account_id: (form.get("fiverr_account_id") as string) || null,
-      service_id: (form.get("service_id") as string) || null,
+      service_id: serviceId || null,
       received_date: form.get("received_date") as string,
       received_time: (form.get("received_time") as string) || null,
       gig_name: (form.get("gig_name") as string) || null,
