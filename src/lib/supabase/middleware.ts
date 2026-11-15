@@ -16,6 +16,7 @@ const ADMIN_ONLY_PREFIXES = [
   "/team-prospects",
   "/money",
   "/reserved-accounts",
+  "/removed-members",
   "/services",
   "/search",
   "/orders",
@@ -87,6 +88,25 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
+    const { data: removedRow, error: removedError } = await supabase
+      .from("team_members")
+      .select("access_removed_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!removedError && removedRow?.access_removed_at && pathname !== "/api/access/check") {
+      await supabase.auth.signOut();
+      if (pathname.startsWith("/login")) return supabaseResponse;
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "access=removed";
+      const redirectResponse = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie);
+      });
+      return redirectResponse;
+    }
+
     if (isAuthPage || pathname === "/") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";

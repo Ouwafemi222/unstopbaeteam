@@ -104,6 +104,8 @@ export interface TeamMember {
   notes: string | null;
   user_id: string | null;
   sponsor_id: string | null;
+  access_removed_at: string | null;
+  access_removed_by: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;

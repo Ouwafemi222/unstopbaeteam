@@ -32,6 +32,7 @@ import {
   Trophy,
   Banknote,
   UserPlus,
+  UserX,
   Archive,
   BookOpen,
   ClipboardPen,
@@ -78,6 +79,7 @@ const weeklyEvaluationNav: NavItem = {
 
 const adminNavItems: NavItem[] = [
   { href: "/team-members", label: "All Team Members", icon: Users, permission: "team_members.view" },
+  { href: "/removed-members", label: "Account removed", icon: UserX, superOnly: true },
   { href: "/accounts", label: "All Fiverr Accounts", icon: Briefcase, permission: "accounts.view" },
   { href: "/messages", label: "All Messages", icon: MessageSquare, permission: "messages.view" },
   { href: "/emails", label: "All Emails", icon: Mail, superOnly: true },

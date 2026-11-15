@@ -243,6 +243,17 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+    const { data: accessRow, error: accessError } = await admin
+      .from("team_members")
+      .select("access_removed_at")
+      .eq("id", existingMemberId)
+      .maybeSingle();
+    if (!accessError && accessRow?.access_removed_at) {
+      return NextResponse.json(
+        { error: "Currently you don't have access to this website." },
+        { status: 403 }
+      );
+    }
     const memberNormalized = normalizeMemberName(memberCheck.full_name);
     if (fullName.toLowerCase() !== memberNormalized.toLowerCase()) {
       return NextResponse.json(
@@ -373,18 +384,41 @@ export async function GET() {
   const admin = createAdminClient();
   const reader = admin ?? supabase;
 
-  const { data: allMembers, error } = await reader
+  const listed = await reader
     .from("team_members")
-    .select("id, full_name, preferred_name, registration_key, user_id, status")
+    .select("id, full_name, preferred_name, registration_key, user_id, status, access_removed_at")
     .eq("status", "active")
     .order("full_name");
+
+  type JoinListRow = {
+    id: string;
+    full_name: string;
+    preferred_name: string | null;
+    registration_key: string | null;
+    user_id: string | null;
+    status: string;
+    access_removed_at?: string | null;
+  };
+
+  let allMembers: JoinListRow[] | null = listed.data as JoinListRow[] | null;
+  let error = listed.error;
+  if (error?.message.toLowerCase().includes("access_removed")) {
+    const fallback = await reader
+      .from("team_members")
+      .select("id, full_name, preferred_name, registration_key, user_id, status")
+      .eq("status", "active")
+      .order("full_name");
+    allMembers = fallback.data as JoinListRow[] | null;
+    error = fallback.error;
+  }
 
   if (error) {
     return NextResponse.json({ members: [], sponsors: [], error: error.message }, { status: 500 });
   }
 
-  const members = (allMembers ?? []).filter((m) => !m.user_id);
-  const sponsors = allMembers ?? [];
+  const visible = (allMembers ?? []).filter((member) => !member.access_removed_at);
+  const members = visible.filter((m) => !m.user_id);
+  const sponsors = visible;
 
   return NextResponse.json({ members, sponsors });
 }

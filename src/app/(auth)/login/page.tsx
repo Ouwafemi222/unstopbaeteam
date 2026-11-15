@@ -32,6 +32,7 @@ function LoginForm() {
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [showUnconfirmedAlert, setShowUnconfirmedAlert] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -40,6 +41,7 @@ function LoginForm() {
   const queryEmail = searchParams.get("email") ?? "";
   const emailConfirmed = searchParams.get("confirmed") === "1";
   const confirmationFailed = searchParams.get("error") === "confirmation_failed";
+  const accessRemoved = accessDenied || searchParams.get("access") === "removed";
 
   useEffect(() => {
     if (queryEmail) setEmail(queryEmail);
@@ -128,6 +130,15 @@ function LoginForm() {
       return;
     }
 
+    const access = await fetch("/api/access/check");
+    const accessBody = (await access.json().catch(() => null)) as { removed?: boolean } | null;
+    if (accessBody?.removed) {
+      await supabase.auth.signOut();
+      setAccessDenied(true);
+      setLoading(false);
+      return;
+    }
+
     toast.success("Welcome back!");
     router.refresh();
     window.location.href = "/dashboard";
@@ -154,6 +165,13 @@ function LoginForm() {
 
           <h2 className="text-2xl font-bold text-neutral-900 mb-2">Welcome back</h2>
           <p className="text-neutral-500 mb-8">Sign in to your account to continue</p>
+
+          {accessRemoved && (
+            <div className="mb-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              Currently you don&apos;t have access to this website.
+            </div>
+          )}
 
           {emailConfirmed && (
             <div className="mb-6 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
