@@ -64,7 +64,7 @@ export function AdminWelcomeHero({
   ];
 
   return (
-    <section className="relative overflow-hidden rounded-[1.75rem] border border-brand-green/20 shadow-lg shadow-brand-green/5">
+    <section className="slab-3d relative overflow-hidden rounded-[1.75rem] border border-brand-green/20">
       {/* Full-bleed brand atmosphere */}
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-brand-green-dark to-emerald-800" />
       <div className="pointer-events-none absolute -right-20 -top-24 h-80 w-80 rounded-full bg-brand-orange/25 blur-3xl" />

@@ -316,10 +316,8 @@ export function Sidebar({
         href={item.href}
         onClick={onClose}
         className={cn(
-          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-          isActive
-            ? "bg-[#7b1e3a] text-white shadow-sm shadow-[#7b1e3a]/25"
-            : "text-[#5c1228]/70 hover:bg-[#f6e8ec] hover:text-[#5c1228]",
+          "nav-chip flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+          isActive ? "nav-chip-active text-white" : "text-[#5c1228]/80 hover:text-[#5c1228]",
           collapsed && !mobile && "justify-center px-2"
         )}
         title={collapsed && !mobile ? item.label : undefined}
@@ -383,11 +381,11 @@ export function Sidebar({
               }
 
               return (
-                <div key={section.id} className="pt-2">
+                <div key={section.id} className="nav-fold pt-2">
                   <button
                     type="button"
                     onClick={() => toggleSection(section.id)}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left hover:bg-[#f6e8ec]/80 transition-colors"
+                    className="nav-fold-trigger flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left"
                     aria-expanded={open}
                   >
                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7b1e3a]/70">
@@ -395,16 +393,16 @@ export function Sidebar({
                     </span>
                     <ChevronDown
                       className={cn(
-                        "h-4 w-4 shrink-0 text-[#7b1e3a]/50 transition-transform duration-200",
+                        "h-4 w-4 shrink-0 text-[#7b1e3a]/50 transition-transform duration-300",
                         open && "rotate-180"
                       )}
                     />
                   </button>
-                  {open && (
-                    <div className="mt-0.5 space-y-0.5 pl-1 border-l-2 border-[#7b1e3a]/10 ml-3">
+                  <div className={cn("nav-fold-panel", open && "is-open")}>
+                    <div className="nav-fold-sheet space-y-1 p-1.5">
                       {section.items.map((item) => renderLink(item))}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
@@ -450,7 +448,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col border-r border-[#7b1e3a]/12 bg-white transition-all duration-300",
+        "sidebar-slab hidden lg:flex flex-col border-r border-[#7b1e3a]/12 bg-white transition-all duration-300",
         collapsed ? "w-[68px]" : "w-64"
       )}
     >

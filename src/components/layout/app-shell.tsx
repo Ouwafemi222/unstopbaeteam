@@ -13,6 +13,7 @@ import { DailyPopups } from "@/components/celebrations/daily-popups";
 import { IncentiveEntryDrop } from "@/components/incentives/incentive-entry-drop";
 import { FinePaymentRug } from "@/components/fines/fine-payment-rug";
 import type { Profile } from "@/types/database";
+import { cn } from "@/lib/utils";
 
 const BUCKET = "attachments";
 
@@ -67,7 +68,7 @@ export function AppShell({
   }, [profile?.avatar_url, supabase]);
 
   return (
-    <div className="flex h-screen bg-[#faf8f9]">
+    <div className={cn("flex h-screen bg-[#faf8f9]", isSuperAdmin && "shell-3d")}>
       <DailyPopups displayName={displayName} teamMemberId={teamMemberId ?? null} />
       <IncentiveEntryDrop teamMemberId={teamMemberId ?? null} />
       <FinePaymentRug />

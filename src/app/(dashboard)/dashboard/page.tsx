@@ -23,6 +23,7 @@ import { fetchExchangeRates } from "@/lib/currency/fetch-rates";
 import { presenceRowToGeoLocation } from "@/lib/geo/presence-to-location";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
 import type { MemberWeeklyEarning, TeamLiveEvent } from "@/types/database";
+import { Stage3D } from "@/components/layout/stage-3d";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
@@ -173,7 +174,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const initialLocation = presenceRow ? presenceRowToGeoLocation(presenceRow) : null;
   const initialLiveEvents = (liveEventsRaw ?? []) as TeamLiveEvent[];
 
-  return (
+  const dashboard = (
     <div className="space-y-6">
       <IncentiveBillboard teamMemberId={scope.teamMember?.id} />
 
@@ -230,7 +231,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           {stats.map((stat) => (
             <Card
               key={stat.label}
-              className="border-neutral-100/80 bg-gradient-to-b from-white to-neutral-50/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+              className="tile-3d border-neutral-100/80 bg-gradient-to-b from-white to-neutral-50/80"
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -249,7 +250,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       {(topMemberName || zeroMessageMembers.length > 0) && (
         <div className="grid md:grid-cols-2 gap-4">
           {topMemberName && (
-            <Card className="overflow-hidden border-brand-green/25 bg-gradient-to-br from-brand-green-light/40 via-white to-white shadow-sm">
+            <Card className="tile-3d overflow-hidden border-brand-green/25 bg-gradient-to-br from-brand-green-light/40 via-white to-white">
               <CardContent className="p-5 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green text-white shadow-md shadow-brand-green/30">
                   <TrendingUp className="h-7 w-7" />
@@ -265,7 +266,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </Card>
           )}
           {zeroMessageMembers.length > 0 && (
-            <Card className="overflow-hidden border-red-200 bg-gradient-to-br from-red-50 via-white to-white shadow-sm">
+            <Card className="tile-3d overflow-hidden border-red-200 bg-gradient-to-br from-red-50 via-white to-white">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-600">
@@ -303,7 +304,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         recentAccounts={(recentAccounts as never) ?? []}
       />
 
-      <Card className="overflow-hidden border-brand-orange/20 shadow-sm">
+      <Card className="tile-3d overflow-hidden border-brand-orange/20">
         <CardHeader className="bg-gradient-to-r from-brand-orange-light/50 to-white border-b border-brand-orange/10">
           <CardTitle className="text-base flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-brand-orange-dark" />
@@ -337,4 +338,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </Card>
     </div>
   );
+
+  if (scope.roleSlugs.includes("super_admin")) {
+    return <Stage3D>{dashboard}</Stage3D>;
+  }
+
+  return dashboard;
 }
