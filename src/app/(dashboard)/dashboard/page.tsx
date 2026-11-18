@@ -175,7 +175,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const initialLiveEvents = (liveEventsRaw ?? []) as TeamLiveEvent[];
 
   const dashboard = (
-    <div className="space-y-6">
+    <>
       <IncentiveBillboard teamMemberId={scope.teamMember?.id} />
 
       <AdminWelcomeHero
@@ -336,12 +336,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           )}
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 
   if (scope.roleSlugs.includes("super_admin")) {
     return <Stage3D>{dashboard}</Stage3D>;
   }
 
-  return dashboard;
+  return <div className="space-y-6">{dashboard}</div>;
 }

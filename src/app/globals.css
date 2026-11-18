@@ -483,19 +483,57 @@ body {
 }
 
 .stage-3d {
-  perspective: 1800px;
-  perspective-origin: 50% 12%;
+  perspective: 1400px;
+  perspective-origin: 50% 20%;
 }
 
-.dash-3d,
-.dash-3d > * {
+.roll-hint {
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7b1e3a;
+  box-shadow: inset 0 1px 0 #fff, 0 6px 0 rgba(123, 30, 58, 0.06);
+}
+
+.stack-list {
+  position: relative;
   transform-style: preserve-3d;
 }
 
-.dash-3d {
-  transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
-  transition: transform 0.45s ease;
-  transform-origin: center top;
+.roll-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.roll-360 {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 30;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(180deg, #8d2748 0%, #7b1e3a 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  cursor: grab;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 0 #4a1022,
+    0 8px 14px rgba(92, 18, 40, 0.28);
+  touch-action: none;
+}
+
+.roll-360:active {
+  cursor: grabbing;
+  transform: translateY(1px);
 }
 
 .slab-3d,
@@ -520,7 +558,6 @@ body {
   .nav-fold-trigger:hover,
   .nav-fold-sheet,
   .nav-fold-panel.is-open .nav-fold-sheet,
-  .dash-3d,
   .slab-3d,
   .tile-3d,
   .tile-3d:hover,
