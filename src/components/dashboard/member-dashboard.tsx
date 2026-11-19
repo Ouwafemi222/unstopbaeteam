@@ -42,6 +42,8 @@ import {
   Trophy,
 } from "lucide-react";
 import { getGreeting } from "@/lib/utils";
+import { Stage3D } from "@/components/layout/stage-3d";
+import { BlenderViewport } from "@/components/layout/blender-viewport";
 import type {
   FiverrAccount,
   Message,
@@ -157,7 +159,8 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
   const totalAccounts = accountList.length;
 
   return (
-    <div className="space-y-8">
+    <BlenderViewport>
+    <Stage3D enableStack={false} gap={32}>
       <Suspense fallback={null}>
         <MemberFineOnGroundBanner teamMemberId={profile.id} />
       </Suspense>
@@ -451,6 +454,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
           </CardContent>
         </Card>
       )}
-    </div>
+    </Stage3D>
+    </BlenderViewport>
   );
 }

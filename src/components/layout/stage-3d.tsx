@@ -4,17 +4,16 @@ import { Children, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 
 const PEEK = 54;
 const STEP = 14;
-const GAP = 24;
 
-function stackLayout(heights: number[], progress: number) {
+function stackLayout(heights: number[], progress: number, gap: number) {
   const count = heights.length;
   const tops: number[] = [];
   let cursor = 0;
   for (let index = 0; index < count; index += 1) {
     tops.push(cursor);
-    cursor += heights[index] + GAP;
+    cursor += heights[index] + gap;
   }
-  const expanded = Math.max(0, cursor - GAP);
+  const expanded = Math.max(0, cursor - gap);
   const front = heights[0] ?? 0;
   const stacked = front + (count > 1 ? PEEK + Math.max(0, count - 2) * STEP : 0);
   const translates = heights.map((height, index) => {
@@ -148,9 +147,17 @@ function RollCard({
   );
 }
 
-export function Stage3D({ children }: { children: React.ReactNode }) {
+export function Stage3D({
+  children,
+  enableStack = true,
+  gap = 24,
+}: {
+  children: React.ReactNode;
+  enableStack?: boolean;
+  gap?: number;
+}) {
   const items = Children.toArray(children).filter(Boolean);
-  const [progress, setProgress] = useState(1);
+  const [progress, setProgress] = useState(enableStack ? 1 : 0);
   const [heights, setHeights] = useState<number[]>(() => items.map(() => 0));
   const progressRef = useRef(progress);
   const listRef = useRef<HTMLDivElement>(null);
@@ -171,6 +178,7 @@ export function Stage3D({ children }: { children: React.ReactNode }) {
   }, [items.length]);
 
   useEffect(() => {
+    if (!enableStack) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) {
       setProgress(0);
@@ -221,23 +229,34 @@ export function Stage3D({ children }: { children: React.ReactNode }) {
       main.removeEventListener("touchstart", onTouchStart);
       main.removeEventListener("touchmove", onTouchMove);
     };
-  }, []);
+  }, [enableStack]);
 
   const ready = heights.length === items.length && heights.every((height) => height > 0);
-  const layout = stackLayout(ready ? heights : items.map(() => 0), ready ? progress : 0);
+  const layout = stackLayout(ready ? heights : items.map(() => 0), enableStack && ready ? progress : 0, gap);
   const stacked = progress > 0.72;
   const open = progress < 0.08;
 
   return (
     <div className="stage-3d">
       <p className="roll-hint">
-        {stacked
-          ? "Scroll down to open every card. Tap 360° and drag to roll a card all the way around."
-          : open
-            ? "Scroll up at the top and the cards tuck into each other. Tap 360° to roll any card."
-            : "Keep scrolling. Tap 360° to roll the card under your finger a full turn."}
+        {!enableStack
+          ? "Tap 360° and drag to roll any card a full turn."
+          : stacked
+            ? "Scroll down to open every card. Tap 360° and drag to roll a card all the way around."
+            : open
+              ? "Scroll up at the top and the cards tuck into each other. Tap 360° to roll any card."
+              : "Keep scrolling. Tap 360° to roll the card under your finger a full turn."}
       </p>
-      <div ref={listRef} className="stack-list" style={{ marginBottom: layout.marginBottom }}>
+      <div
+        ref={listRef}
+        className="stack-list"
+        style={{
+          marginBottom: enableStack ? layout.marginBottom : undefined,
+          display: "flex",
+          flexDirection: "column",
+          gap: enableStack ? undefined : gap,
+        }}
+      >
         {items.map((child, index) => (
           <RollCard
             key={index}

@@ -24,6 +24,7 @@ import { presenceRowToGeoLocation } from "@/lib/geo/presence-to-location";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
 import type { MemberWeeklyEarning, TeamLiveEvent } from "@/types/database";
 import { Stage3D } from "@/components/layout/stage-3d";
+import { BlenderViewport } from "@/components/layout/blender-viewport";
 
 interface DashboardPageProps {
   searchParams: Promise<{ filter?: string }>;
@@ -340,7 +341,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   );
 
   if (scope.roleSlugs.includes("super_admin")) {
-    return <Stage3D>{dashboard}</Stage3D>;
+    return (
+      <BlenderViewport>
+        <Stage3D>{dashboard}</Stage3D>
+      </BlenderViewport>
+    );
   }
 
   return <div className="space-y-6">{dashboard}</div>;
