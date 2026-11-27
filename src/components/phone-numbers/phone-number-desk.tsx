@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Copy, Phone, Search } from "lucide-react";
+import { ArrowLeft, Copy, Phone, Search, Signal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -10,10 +10,31 @@ type TextMessage = { sender: string; message: string; received: string };
 
 const INBOX_CHECK = "0x4AAAAAACgyuLaLScvBJq8u";
 
-function flag(code: string) {
-  const iso = (code === "uk" ? "gb" : code === "sw" ? "ch" : code).toUpperCase();
-  if (!/^[A-Z]{2}$/.test(iso)) return "☎";
-  return String.fromCodePoint(...[...iso].map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65));
+function flagIso(code: string) {
+  if (code === "uk") return "gb";
+  if (code === "sw") return "ch";
+  return code.toLowerCase();
+}
+
+function Flag({ code, className }: { code: string; className?: string }) {
+  const iso = flagIso(code);
+  if (!/^[a-z]{2}$/.test(iso)) return null;
+  return (
+    <img
+      src={`https://flagcdn.com/w160/${iso}.png`}
+      alt=""
+      className={className}
+    />
+  );
+}
+
+function OnlineMark() {
+  return (
+    <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-600">
+      <Signal className="h-4 w-4" />
+      Online
+    </span>
+  );
 }
 
 function pretty(number: string) {
@@ -239,8 +260,13 @@ export function PhoneNumberDesk() {
               <ArrowLeft className="h-4 w-4" />
               {country.name}
             </button>
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Number</p>
+            <Flag code={country.code} className="h-14 w-20 rounded-md object-cover shadow-sm" />
+            <div className="mt-3">
+              <OnlineMark />
+            </div>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">Number</p>
             <p className="mt-1 text-2xl font-bold tracking-tight text-neutral-900">{pretty(selected)}</p>
+            <p className="mt-1 text-sm text-neutral-500">{country.name}</p>
             <Button type="button" className="mt-4 w-full" onClick={() => copy(pretty(selected), "number")}>
               <Copy className="h-4 w-4" />
               {copied === "number" ? "Copied" : "Copy number"}
@@ -296,8 +322,9 @@ export function PhoneNumberDesk() {
               <ArrowLeft className="h-4 w-4" />
               All countries
             </button>
-            <h2 className="text-lg font-bold text-neutral-900">
-              {flag(country.code)} {country.name}
+            <h2 className="flex items-center gap-2 text-lg font-bold text-neutral-900">
+              <Flag code={country.code} className="h-6 w-9 rounded-sm object-cover shadow-sm" />
+              {country.name}
             </h2>
           </div>
           <label className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 focus-within:border-brand-green focus-within:ring-2 focus-within:ring-brand-green/30">
@@ -314,7 +341,7 @@ export function PhoneNumberDesk() {
           ) : numbers.length === 0 ? (
             <p className="text-sm text-neutral-500">No number matches that.</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {numbers.map((number) => (
                 <button
                   key={number}
@@ -323,11 +350,20 @@ export function PhoneNumberDesk() {
                     setSelected(number);
                     setMessages([]);
                   }}
-                  className="rounded-xl border border-neutral-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-green/40"
+                  className="flex min-h-[240px] flex-col rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-left shadow-sm transition hover:border-brand-green/40"
                 >
-                  <Phone className="mb-2 h-4 w-4 text-brand-green" />
-                  <p className="text-lg font-bold text-neutral-900">{pretty(number)}</p>
-                  <p className="text-xs text-neutral-500">{country.name}</p>
+                  <span className="flex items-center justify-between">
+                    <Phone className="h-5 w-5 text-neutral-400" />
+                    <OnlineMark />
+                  </span>
+                  <Flag
+                    code={country.code}
+                    className="mx-auto mt-5 h-16 w-24 rounded-md object-cover shadow-sm"
+                  />
+                  <span className="mt-5 text-center text-xl font-bold tracking-tight text-neutral-900">
+                    {pretty(number)}
+                  </span>
+                  <span className="mt-1 text-center text-sm text-neutral-500">{country.name}</span>
                 </button>
               ))}
             </div>
@@ -347,20 +383,21 @@ export function PhoneNumberDesk() {
           {loadingCountries ? (
             <p className="text-sm text-neutral-500">Loading countries…</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleCountries.map((item) => (
                 <button
                   key={item.code}
                   type="button"
                   onClick={() => setLocale(item.code)}
-                  className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-green/40"
+                  className="flex min-h-[112px] items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-left shadow-sm transition hover:border-brand-green/40"
                 >
-                  <span className="font-semibold text-neutral-900">
-                    <span className="mr-2">{flag(item.code)}</span>
-                    {item.name}
-                  </span>
-                  <span className="rounded-full bg-brand-green-light px-2.5 py-1 text-xs font-bold text-brand-green">
-                    {item.online.toLocaleString()}
+                  <Flag code={item.code} className="h-12 w-16 shrink-0 rounded-md object-cover shadow-sm" />
+                  <span className="min-w-0">
+                    <span className="block text-lg font-semibold text-neutral-900">{item.name}</span>
+                    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <OnlineMark />
+                      <span className="text-sm text-neutral-500">{item.online.toLocaleString()} numbers</span>
+                    </span>
                   </span>
                 </button>
               ))}
