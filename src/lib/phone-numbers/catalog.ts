@@ -85,6 +85,14 @@ export async function listCountries(): Promise<PhoneCountry[]> {
 
 export const NUMBERS_PAGE_SIZE = 12;
 
+export async function findOnlineNumber(number: string) {
+  const row = (await loadRows()).find(
+    (item) => item.status === "Online" && String(item.number) === number
+  );
+  if (!row?.number) return null;
+  return { number: String(row.number), added: String(row.added ?? "") };
+}
+
 export async function listNumbers(locale: string, query: string, page: number) {
   const needle = query.replace(/\D/g, "");
   const matches = (await loadRows())
@@ -95,7 +103,10 @@ export async function listNumbers(locale: string, query: string, page: number) {
   const safePage = Math.min(Math.max(1, Math.floor(page) || 1), pages);
   const start = (safePage - 1) * NUMBERS_PAGE_SIZE;
   return {
-    numbers: filtered.slice(start, start + NUMBERS_PAGE_SIZE).map((row) => String(row.number)),
+    numbers: filtered.slice(start, start + NUMBERS_PAGE_SIZE).map((row) => ({
+      number: String(row.number),
+      added: String(row.added ?? ""),
+    })),
     page: safePage,
     pages,
     total: filtered.length,

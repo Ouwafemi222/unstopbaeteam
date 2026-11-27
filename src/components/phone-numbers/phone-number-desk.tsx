@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 type Country = { code: string; name: string; online: number };
+type ListedNumber = { number: string; usedBy: string | null };
 type TextMessage = { sender: string; message: string; received: string };
 
 const INBOX_CHECK = "0x4AAAAAACgyuLaLScvBJq8u";
@@ -80,7 +81,7 @@ export function PhoneNumberDesk() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [countryQuery, setCountryQuery] = useState("");
   const [locale, setLocale] = useState<string | null>(null);
-  const [numbers, setNumbers] = useState<string[]>([]);
+  const [numbers, setNumbers] = useState<ListedNumber[]>([]);
   const [numberQuery, setNumberQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -168,7 +169,7 @@ export function PhoneNumberDesk() {
       if (numberQuery.trim()) params.set("q", numberQuery.trim());
       fetch(`/api/phone-numbers?${params}`)
         .then((response) => response.json())
-        .then((body: { numbers?: string[]; page?: number; pages?: number; error?: string }) => {
+        .then((body: { numbers?: ListedNumber[]; page?: number; pages?: number; error?: string }) => {
           if (cancelled) return;
           if (body.error) toast.error(body.error);
           setNumbers(body.numbers ?? []);
@@ -242,6 +243,27 @@ export function PhoneNumberDesk() {
 
   const country = countries.find((item) => item.code === locale) ?? null;
   const latestCode = messages.map((item) => codeIn(item.message)).find(Boolean) ?? "";
+  const selectedUse = numbers.find((item) => item.number === selected)?.usedBy ?? null;
+
+  function takeNumber(number: string) {
+    setSelected(number);
+    setMessages([]);
+    fetch("/api/phone-numbers/used", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ number }),
+    })
+      .then((response) => response.json())
+      .then((body: { usedBy?: string }) => {
+        if (!body.usedBy) return;
+        setNumbers((current) =>
+          current.map((item) => (item.number === number ? { ...item, usedBy: body.usedBy ?? null } : item))
+        );
+      })
+      .catch(() => {
+        // The card still opens. The name shows on the next load once the list is ready.
+      });
+  }
 
   async function copy(value: string, kind: "number" | "code") {
     await navigator.clipboard.writeText(value);
@@ -283,6 +305,9 @@ export function PhoneNumberDesk() {
             <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">Number</p>
             <p className="mt-1 text-2xl font-bold tracking-tight text-neutral-900">{pretty(selected)}</p>
             <p className="mt-1 text-sm text-neutral-500">{country.name}</p>
+            {selectedUse ? (
+              <p className="mt-2 text-sm font-semibold text-brand-green">Used by @{selectedUse}</p>
+            ) : null}
             <Button type="button" className="mt-4 w-full" onClick={() => copy(pretty(selected), "number")}>
               <Copy className="h-4 w-4" />
               {copied === "number" ? "Copied" : "Copy number"}
@@ -363,14 +388,11 @@ export function PhoneNumberDesk() {
             <p className="text-sm text-neutral-500">No number matches that.</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {numbers.map((number) => (
+              {numbers.map((item) => (
                 <button
-                  key={number}
+                  key={item.number}
                   type="button"
-                  onClick={() => {
-                    setSelected(number);
-                    setMessages([]);
-                  }}
+                  onClick={() => takeNumber(item.number)}
                   className="flex min-h-[240px] flex-col rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-left shadow-sm transition hover:border-brand-green/40"
                 >
                   <span className="flex items-center justify-between">
@@ -382,9 +404,14 @@ export function PhoneNumberDesk() {
                     className="mx-auto mt-5 h-16 w-24 rounded-md object-cover shadow-sm"
                   />
                   <span className="mt-5 text-center text-xl font-bold tracking-tight text-neutral-900">
-                    {pretty(number)}
+                    {pretty(item.number)}
                   </span>
                   <span className="mt-1 text-center text-sm text-neutral-500">{country.name}</span>
+                  {item.usedBy ? (
+                    <span className="mt-2 text-center text-sm font-semibold text-brand-green">
+                      Used by @{item.usedBy}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
