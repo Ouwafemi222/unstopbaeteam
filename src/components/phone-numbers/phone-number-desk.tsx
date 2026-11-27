@@ -38,8 +38,17 @@ function OnlineMark() {
   );
 }
 
-function pretty(number: string) {
-  return `+${number}`;
+function phoneDigits(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") return String(value).replace(/\D/g, "");
+  if (value && typeof value === "object" && "number" in value) {
+    return phoneDigits((value as { number: unknown }).number);
+  }
+  return "";
+}
+
+function pretty(value: unknown) {
+  const digits = phoneDigits(value);
+  return digits ? `+${digits}` : "";
 }
 
 function pageWindow(current: number, total: number) {
@@ -388,11 +397,13 @@ export function PhoneNumberDesk() {
             <p className="text-sm text-neutral-500">No number matches that.</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {numbers.map((item) => (
+              {numbers.map((item) => {
+                const digits = phoneDigits(item.number) || phoneDigits(item);
+                return (
                 <button
-                  key={item.number}
+                  key={digits}
                   type="button"
-                  onClick={() => takeNumber(item.number)}
+                  onClick={() => takeNumber(digits)}
                   className="flex min-h-[240px] flex-col rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-left shadow-sm transition hover:border-brand-green/40"
                 >
                   <span className="flex items-center justify-between">
@@ -404,7 +415,7 @@ export function PhoneNumberDesk() {
                     className="mx-auto mt-5 h-16 w-24 rounded-md object-cover shadow-sm"
                   />
                   <span className="mt-5 text-center text-xl font-bold tracking-tight text-neutral-900">
-                    {pretty(item.number)}
+                    {pretty(digits)}
                   </span>
                   <span className="mt-1 text-center text-sm text-neutral-500">{country.name}</span>
                   {item.usedBy ? (
@@ -413,7 +424,8 @@ export function PhoneNumberDesk() {
                     </span>
                   ) : null}
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
           {pages > 1 ? (

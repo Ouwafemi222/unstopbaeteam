@@ -104,7 +104,7 @@ export async function listNumbers(locale: string, query: string, page: number) {
   const start = (safePage - 1) * NUMBERS_PAGE_SIZE;
   return {
     numbers: filtered.slice(start, start + NUMBERS_PAGE_SIZE).map((row) => ({
-      number: String(row.number),
+      number: String(row.number).replace(/\D/g, ""),
       added: String(row.added ?? ""),
     })),
     page: safePage,
