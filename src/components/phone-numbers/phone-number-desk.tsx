@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Phone, Search, Signal } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Phone, RotateCw, Search, Signal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 type Country = { code: string; name: string; online: number };
 type ListedNumber = { number: string; usedBy: string | null };
-type TextMessage = { sender: string; message: string; received: string };
+type TextMessage = { sender: string; message: string; at: number };
 
 const INBOX_CHECK = "0x4AAAAAACgyuLaLScvBJq8u";
+const CHECK_EVERY = 10;
 
 function flagIso(code: string) {
   if (code === "uk") return "gb";
@@ -49,6 +50,26 @@ function phoneDigits(value: unknown): string {
 function pretty(value: unknown) {
   const digits = phoneDigits(value);
   return digits ? `+${digits}` : "";
+}
+
+function ago(at: number, now: number) {
+  const seconds = Math.max(0, Math.round((now - at) / 1000));
+  if (seconds < 60) return `${seconds} s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function writePlace(country: string | null, number: string | null) {
+  const url = new URL(window.location.href);
+  if (country) url.searchParams.set("country", country);
+  else url.searchParams.delete("country");
+  if (number) url.searchParams.set("number", number);
+  else url.searchParams.delete("number");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 }
 
 function pageWindow(current: number, total: number) {
@@ -99,9 +120,20 @@ export function PhoneNumberDesk() {
   const [loadingCountries, setLoadingCountries] = useState(true);
   const [loadingNumbers, setLoadingNumbers] = useState(false);
   const [copied, setCopied] = useState<"number" | "code" | null>(null);
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [secondsLeft, setSecondsLeft] = useState(CHECK_EVERY);
   const tokenRef = useRef<string | null>(null);
   const widgetId = useRef<string | null>(null);
   const markedCode = useRef("");
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const country = url.searchParams.get("country");
+    const number = phoneDigits(url.searchParams.get("number") || "");
+    if (country) setLocale(country);
+    if (number) setSelected(number);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -238,12 +270,22 @@ export function PhoneNumberDesk() {
       } catch {
         // Keep the texts already on screen and try again on the next check.
       } finally {
+        if (!cancelled) setCheckedAt(Date.now());
         running = false;
       }
     };
 
     void pull();
-    const timer = window.setInterval(() => void pull(), 8000);
+    setSecondsLeft(CHECK_EVERY);
+    let left = CHECK_EVERY;
+    const timer = window.setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        left = CHECK_EVERY;
+        void pull();
+      }
+      if (!cancelled) setSecondsLeft(left);
+    }, 1000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -256,6 +298,11 @@ export function PhoneNumberDesk() {
     return countries.filter((country) => country.name.toLowerCase().includes(query));
   }, [countries, countryQuery]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const country = countries.find((item) => item.code === locale) ?? null;
   const latestCode = messages.map((item) => codeIn(item.message)).find(Boolean) ?? "";
   const selectedUse = numbers.find((item) => item.number === selected)?.usedBy ?? null;
@@ -263,6 +310,12 @@ export function PhoneNumberDesk() {
   function takeNumber(number: string) {
     setSelected(number);
     setMessages([]);
+    writePlace(locale, number);
+  }
+
+  function refreshPage() {
+    writePlace(locale, selected);
+    window.location.reload();
   }
 
   function rememberUse(number: string, code: string) {
@@ -316,6 +369,7 @@ export function PhoneNumberDesk() {
               onClick={() => {
                 setSelected(null);
                 setMessages([]);
+                writePlace(locale, null);
               }}
               className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:underline"
             >
@@ -349,27 +403,50 @@ export function PhoneNumberDesk() {
             ) : null}
           </div>
           <div className="rounded-xl border border-brand-green/20 bg-white shadow-sm">
-            <div className="border-b border-brand-green/10 px-4 py-3">
-              <p className="text-sm font-bold text-neutral-900">Texts</p>
-              <p className="text-xs text-neutral-500">This page checks for a new text every few seconds.</p>
+            <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-bold text-neutral-900">History</p>
+                <p className="text-xs text-neutral-500">What this number has been used for.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="flex h-10 min-w-10 items-center justify-center rounded-full bg-brand-green px-2 text-sm font-bold text-white"
+                  title="Checks again for a new code"
+                >
+                  {secondsLeft}s
+                </span>
+                <Button type="button" variant="outline" size="sm" onClick={refreshPage}>
+                  <RotateCw className="h-4 w-4" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between bg-neutral-50 px-4 py-3 text-lg font-semibold text-neutral-900">
+              <span>Message</span>
+              <span>From</span>
             </div>
             {messages.length === 0 ? (
-              <p className="px-4 py-10 text-sm text-neutral-500">
-                Waiting for a text. Paste the number into Fiverr, then the code shows here.
+              <p className="border-b border-neutral-100 px-4 py-4 text-sm text-neutral-600">
+                Waiting on incoming messages...
               </p>
             ) : (
               <ul>
                 {messages.map((item, index) => (
-                  <li key={`${item.received}-${index}`} className="border-b border-brand-green/10 px-4 py-3 last:border-0">
-                    <div className="flex items-center justify-between gap-3 text-xs text-neutral-400">
-                      <span className="font-semibold text-brand-green">{item.sender || "Text"}</span>
-                      <span>{item.received}</span>
+                  <li key={`${item.at}-${index}`} className="border-b border-neutral-100 px-4 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-sm text-neutral-400">{item.at ? ago(item.at, now) : ""}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-800">{item.message}</p>
+                      </div>
+                      <p className="shrink-0 text-sm font-medium text-neutral-900">{item.sender}</p>
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-900">{item.message}</p>
                   </li>
                 ))}
               </ul>
             )}
+            <p className="px-4 py-3 text-xs text-neutral-400">
+              {checkedAt ? `Checked ${ago(checkedAt, now)}` : "Checking..."}
+            </p>
           </div>
         </section>
       ) : locale && country ? (
@@ -383,6 +460,7 @@ export function PhoneNumberDesk() {
                 setNumberQuery("");
                 setPage(1);
                 setPages(1);
+                writePlace(null, null);
               }}
               className="inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:underline"
             >
@@ -505,6 +583,7 @@ export function PhoneNumberDesk() {
                     setPages(1);
                     setNumberQuery("");
                     setLocale(item.code);
+                    writePlace(item.code, null);
                   }}
                   className="flex min-h-[112px] items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-left shadow-sm transition hover:border-brand-green/40"
                 >
