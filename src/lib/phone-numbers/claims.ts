@@ -8,6 +8,7 @@ type ClaimRow = {
   member_name: string;
   catalog_added: string;
   used_at: string;
+  code?: string | null;
   user_id?: string;
 };
 
@@ -32,7 +33,7 @@ export async function attachUses(supabase: SupabaseClient, rows: ListedNumber[])
   const db = claimsDb(supabase);
   const { data, error } = await db
     .from("phone_number_claims")
-    .select("number, member_name, catalog_added, used_at")
+    .select("number, member_name, catalog_added, used_at, code")
     .in(
       "number",
       rows.map((row) => row.number)
@@ -43,9 +44,9 @@ export async function attachUses(supabase: SupabaseClient, rows: ListedNumber[])
   const stale: string[] = [];
   const listed = rows.map((row) => {
     const claim = claims.get(row.number);
-    if (!claim) return { number: row.number, usedBy: null };
-    if (!isFresh(claim, row.added)) {
-      stale.push(row.number);
+    const code = String(claim?.code || "").replace(/\D/g, "");
+    if (!claim || !isFresh(claim, row.added) || !/^\d{4,8}$/.test(code)) {
+      if (claim) stale.push(row.number);
       return { number: row.number, usedBy: null };
     }
     return { number: row.number, usedBy: claim.member_name };
@@ -63,7 +64,8 @@ export async function markNumberUsed(
   number: string,
   added: string,
   memberName: string,
-  teamMemberId: string | null
+  teamMemberId: string | null,
+  code: string
 ) {
   const db = claimsDb(supabase);
   const { data } = await db
@@ -82,6 +84,7 @@ export async function markNumberUsed(
     user_id: userId,
     member_name: memberName,
     catalog_added: added,
+    code,
     used_at: new Date().toISOString(),
   };
   const write = existing

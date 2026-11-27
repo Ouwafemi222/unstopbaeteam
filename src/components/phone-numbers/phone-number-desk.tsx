@@ -101,6 +101,7 @@ export function PhoneNumberDesk() {
   const [copied, setCopied] = useState<"number" | "code" | null>(null);
   const tokenRef = useRef<string | null>(null);
   const widgetId = useRef<string | null>(null);
+  const markedCode = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -228,7 +229,12 @@ export function PhoneNumberDesk() {
           headers,
           cache: "no-store",
         }).then((response) => response.json())) as { messages?: TextMessage[]; ok?: boolean };
-        if (!cancelled && body.ok) setMessages(body.messages ?? []);
+        if (!cancelled && body.ok) {
+          const texts = body.messages ?? [];
+          setMessages(texts);
+          const code = texts.map((item) => codeIn(item.message)).find(Boolean) ?? "";
+          if (code) void rememberUse(selected, code);
+        }
       } catch {
         // Keep the texts already on screen and try again on the next check.
       } finally {
@@ -257,20 +263,29 @@ export function PhoneNumberDesk() {
   function takeNumber(number: string) {
     setSelected(number);
     setMessages([]);
+  }
+
+  function rememberUse(number: string, code: string) {
+    const key = `${number}:${code}`;
+    if (markedCode.current === key) return;
+    markedCode.current = key;
     fetch("/api/phone-numbers/used", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ number }),
+      body: JSON.stringify({ number, code }),
     })
       .then((response) => response.json())
       .then((body: { usedBy?: string }) => {
-        if (!body.usedBy) return;
+        if (!body.usedBy) {
+          markedCode.current = "";
+          return;
+        }
         setNumbers((current) =>
           current.map((item) => (item.number === number ? { ...item, usedBy: body.usedBy ?? null } : item))
         );
       })
       .catch(() => {
-        // The card still opens. The name shows on the next load once the list is ready.
+        markedCode.current = "";
       });
   }
 

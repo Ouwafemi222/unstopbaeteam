@@ -12,10 +12,14 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Sign in first" }, { status: 401 });
 
-  const body = (await request.json().catch(() => null)) as { number?: string } | null;
+  const body = (await request.json().catch(() => null)) as { number?: string; code?: string } | null;
   const number = String(body?.number || "").replace(/\D/g, "");
+  const code = String(body?.code || "").replace(/\D/g, "");
   if (number.length < 6 || number.length > 15) {
     return NextResponse.json({ error: "Pick a number" }, { status: 400 });
+  }
+  if (!/^\d{4,8}$/.test(code)) {
+    return NextResponse.json({ error: "Wait for a code" }, { status: 400 });
   }
 
   const listed = await findOnlineNumber(number);
@@ -32,7 +36,15 @@ export async function POST(request: Request) {
 
   const memberName = member.preferred_name?.trim() || member.full_name;
   try {
-    const usedBy = await markNumberUsed(supabase, user.id, number, listed.added, memberName, member.id);
+    const usedBy = await markNumberUsed(
+      supabase,
+      user.id,
+      number,
+      listed.added,
+      memberName,
+      member.id,
+      code
+    );
     return NextResponse.json({ usedBy });
   } catch {
     return NextResponse.json({ error: "The used list is not ready yet" }, { status: 503 });
