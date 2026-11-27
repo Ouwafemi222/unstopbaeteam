@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Ban, Pencil, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AccountStatusBadge } from "@/components/shared/status-badges";
 import {
@@ -126,7 +125,11 @@ export function MemberAccountsBrowser({
                 const proxy = proxyLine(acc);
                 return (
                   <tr key={acc.id} className="border-b hover:bg-neutral-50">
-                    <td className="p-3 font-medium text-neutral-900">{acc.username}</td>
+                    <td className="p-3 font-medium text-neutral-900">
+                      <Link href={`${basePath}/${acc.id}/edit`} className="text-[#7b1e3a] hover:underline">
+                        {acc.username}
+                      </Link>
+                    </td>
                     <td className="p-3">{acc.written_service || acc.service?.name || "—"}</td>
                     <td className="p-3">{acc.email ?? "—"}</td>
                     <td className="p-3">{acc.phone ?? "—"}</td>
@@ -147,10 +150,11 @@ export function MemberAccountsBrowser({
                     <td className="p-3">{formatDate(acc.opening_date)}</td>
                     <td className="p-3">
                       <div className="flex flex-wrap items-center gap-1">
-                        <Link href={`${basePath}/${acc.id}/edit`}>
-                          <Button variant="ghost" size="sm">
-                            <Pencil className="h-4 w-4" /> Edit
-                          </Button>
+                        <Link
+                          href={`${basePath}/${acc.id}/edit`}
+                          className="inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-semibold text-[#7b1e3a] hover:bg-[#f6e8ec]"
+                        >
+                          <Pencil className="h-4 w-4" /> Edit
                         </Link>
                         {allowBlock && (
                           <BlockAccountButton accountId={acc.id} username={acc.username} />
@@ -201,7 +205,15 @@ export function MemberAccountsBrowser({
                       </td>
                       <td className="p-3 text-neutral-500">{formatDate(acc.archived_at)}</td>
                       <td className="p-3">
-                        <RestoreAccountButton accountId={acc.id} username={acc.username} />
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Link
+                            href={`${basePath}/${acc.id}/edit`}
+                            className="inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-semibold text-[#7b1e3a] hover:bg-[#f6e8ec]"
+                          >
+                            <Pencil className="h-4 w-4" /> Edit
+                          </Link>
+                          <RestoreAccountButton accountId={acc.id} username={acc.username} />
+                        </div>
                       </td>
                     </tr>
                   );

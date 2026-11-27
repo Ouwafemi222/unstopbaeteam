@@ -51,15 +51,17 @@ export function CurrencyRatesWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount + prefetch only
   }, []);
 
-  const ngn = rates?.rates.NGN;
   const usd = rates?.rates.USD;
+  const eur = rates?.rates.EUR;
+  const poundToDollar = usd ?? null;
+  const euroToDollar = usd && eur ? usd / eur : null;
 
   if (variant === "compact") {
     if (loading) return <span className="text-xs text-neutral-400 animate-pulse">Loading rates…</span>;
-    if (error || !ngn) return null;
+    if (error || poundToDollar == null) return null;
     return (
       <span className="text-xs font-medium text-neutral-600">
-        £1 = ₦{ngn.toLocaleString("en-NG", { maximumFractionDigits: 0 })}
+        £1 = ${poundToDollar.toFixed(2)}
       </span>
     );
   }
@@ -81,9 +83,8 @@ export function CurrencyRatesWidget({
           <span className="text-neutral-400 text-xs">Rates unavailable</span>
         ) : (
           <div className="flex flex-wrap gap-4">
-            <RatePill from="£1 GBP" to={`₦${ngn?.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`} color="green" />
-            <RatePill from="$1 USD" to={`₦${((ngn ?? 0) / (usd ?? 1)).toLocaleString("en-NG", { maximumFractionDigits: 0 })}`} color="blue" />
-            <RatePill from="£1 GBP" to={`$${usd?.toFixed(2)}`} color="amber" />
+            <RatePill from="£1 GBP" to={poundToDollar != null ? `$${poundToDollar.toFixed(2)}` : "—"} color="green" />
+            <RatePill from="€1 EUR" to={euroToDollar != null ? `$${euroToDollar.toFixed(2)}` : "—"} color="blue" />
           </div>
         )}
         <button
@@ -139,23 +140,16 @@ export function CurrencyRatesWidget({
           <RateRow
             flag="🇬🇧"
             from="1 GBP"
-            to={`₦${ngn?.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`}
-            label="British Pound → Naira"
+            to={poundToDollar != null ? `$${poundToDollar.toFixed(2)}` : "—"}
+            label="British Pound → US Dollar"
             color="emerald"
           />
           <RateRow
-            flag="🇺🇸"
-            from="1 USD"
-            to={`₦${((ngn ?? 0) / (usd ?? 1)).toLocaleString("en-NG", { maximumFractionDigits: 0 })}`}
-            label="US Dollar → Naira"
+            flag="🇪🇺"
+            from="1 EUR"
+            to={euroToDollar != null ? `$${euroToDollar.toFixed(2)}` : "—"}
+            label="Euro → US Dollar"
             color="blue"
-          />
-          <RateRow
-            flag="🇬🇧"
-            from="1 GBP"
-            to={`$${usd?.toFixed(2)}`}
-            label="British Pound → USD"
-            color="amber"
           />
         </div>
       )}

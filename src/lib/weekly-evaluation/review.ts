@@ -305,6 +305,7 @@ async function loadRecordedByMember(
       .from("fiverr_accounts")
       .select("id, team_member_id, username, created_at")
       .in("team_member_id", memberIds)
+      .is("opening_date", null)
       .is("archived_at", null)
       .neq("status", "reserved")
       .gte("created_at", startIso)

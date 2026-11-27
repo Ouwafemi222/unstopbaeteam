@@ -28,7 +28,6 @@ import {
   EARNING_CURRENCIES,
   FIVERR_SERVICE_FEE_PERCENT,
   formatMoney,
-  formatNgn,
   type EarningCurrency,
   type PaymentSource,
 } from "@/lib/money/earnings";
@@ -174,7 +173,6 @@ export function MemberWeeklyEarningsPanel({
   const totals = useMemo(
     () => ({
       income: entries.reduce((sum, e) => sum + Number(e.amount), 0),
-      incomeNgn: entries.reduce((sum, e) => sum + Number(e.amount_ngn ?? 0), 0),
       fees: entries.reduce((sum, e) => sum + Number(e.fee_amount ?? 0), 0),
       prospects: entries.reduce((sum, e) => sum + Number(e.prospects_count ?? 0), 0),
       officeProspects: entries.reduce((sum, e) => sum + Number(e.office_prospects_count ?? 0), 0),
@@ -393,8 +391,8 @@ export function MemberWeeklyEarningsPanel({
       <p className="text-sm text-neutral-500 leading-relaxed">
         Each week, log what you <strong>actually did and earned</strong> toward your locked monthly
         goals for {formatYearMonthLabel(yearMonth)}. Choose{" "}
-        <strong>Fiverr</strong> (we auto-remove the {FIVERR_SERVICE_FEE_PERCENT}% service fee) or{" "}
-        <strong>Outside payment</strong> (pick currency — we convert to Naira). Then click{" "}
+        <strong>Fiverr</strong> (we auto-remove the {FIVERR_SERVICE_FEE_PERCENT}% service fee and keep the rest in dollars) or{" "}
+        <strong>Outside payment</strong> (saved in full, in the currency you pick). Then click{" "}
         <strong>Save &amp; lock week</strong>.
       </p>
 
@@ -432,13 +430,7 @@ export function MemberWeeklyEarningsPanel({
             pct={progressPct(totals.income, goals.incomeGoal)}
             highlight
             sub={
-              totals.incomeNgn > 0
-                ? `≈ ${formatNgn(totals.incomeNgn)}${
-                    totals.fees > 0 ? ` · fees ${formatMoney(totals.fees)}` : ""
-                  }`
-                : totals.fees > 0
-                  ? `Fiverr fees deducted: ${formatMoney(totals.fees)}`
-                  : undefined
+              totals.fees > 0 ? `Fiverr fees deducted: ${formatMoney(totals.fees)}` : undefined
             }
           />
         )}
@@ -605,7 +597,7 @@ export function MemberWeeklyEarningsPanel({
                               }
                               className="h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm"
                             >
-                              {EARNING_CURRENCIES.map((c) => (
+                              {EARNING_CURRENCIES.filter((c) => c !== "NGN").map((c) => (
                                 <option key={c} value={c}>
                                   {c}
                                 </option>
@@ -622,7 +614,7 @@ export function MemberWeeklyEarningsPanel({
                           hint={
                             d.paymentSource === "fiverr"
                               ? `${FIVERR_SERVICE_FEE_PERCENT}% service fee removed automatically`
-                              : "We'll convert this to Naira using live rates"
+                              : "Saved in full. Shown in dollars. No Fiverr fee is removed."
                           }
                         >
                           <Input
@@ -655,28 +647,12 @@ export function MemberWeeklyEarningsPanel({
                               </p>
                               <p className="text-neutral-900 font-semibold">
                                 You keep {formatMoney(preview.net)}
-                                {preview.ngn != null ? (
-                                  <span className="text-neutral-500 font-normal">
-                                    {" "}
-                                    ≈ {formatNgn(preview.ngn)}
-                                  </span>
-                                ) : null}
                               </p>
                             </>
                           )}
                           {preview.source === "outside" && (
                             <p className="text-neutral-900 font-semibold">
                               {formatMoney(preview.net, preview.currency)}
-                              {preview.ngn != null ? (
-                                <span className="text-neutral-500 font-normal">
-                                  {" "}
-                                  ≈ {formatNgn(preview.ngn)}
-                                </span>
-                              ) : (
-                                <span className="text-amber-600 font-normal text-xs ml-2">
-                                  (Naira rate loading…)
-                                </span>
-                              )}
                             </p>
                           )}
                         </div>
@@ -687,7 +663,6 @@ export function MemberWeeklyEarningsPanel({
                           Saved net: {formatMoney(Number(row.amount), row.currency)}
                           {row.fee_amount > 0 &&
                             ` · fee ${formatMoney(Number(row.fee_amount), row.currency)}`}
-                          {row.amount_ngn != null && ` · ${formatNgn(Number(row.amount_ngn))}`}
                           {row.payment_source === "outside" ? " · outside" : " · Fiverr"}
                         </div>
                       )}

@@ -277,7 +277,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
                   Monthly Goal
                 </p>
                 <p className="text-3xl font-extrabold text-neutral-900 mt-1">
-                  {latestPlan ? `₦${Number(latestPlan.income_goal ?? 0).toLocaleString()}` : "—"}
+                  {latestPlan ? `$${Number(latestPlan.income_goal ?? 0).toLocaleString()}` : "—"}
                 </p>
                 <p className="text-xs text-neutral-400 mt-0.5">this month</p>
               </div>

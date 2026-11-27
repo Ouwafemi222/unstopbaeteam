@@ -425,13 +425,37 @@ export function AccountForm({
         );
       }
 
-      const { error } = await supabase.from("fiverr_accounts").update({
+      const changes = {
         ...payload,
         verification_screenshot_paths: screenshotPaths,
-      }).eq("id", account.id);
-      if (error) { toast.error(error.message); setLoading(false); return; }
+      };
+      if (isSelfService) {
+        const response = await fetch(`/api/accounts/${account.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(changes),
+        });
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          toast.error(body?.error ?? "Could not update this account");
+          setLoading(false);
+          return;
+        }
+      } else {
+        const { data: updated, error } = await supabase
+          .from("fiverr_accounts")
+          .update(changes)
+          .eq("id", account.id)
+          .select("id");
+        if (error || !updated?.length) {
+          toast.error(error?.message ?? "Could not update this account");
+          setLoading(false);
+          return;
+        }
+      }
       toast.success("Account updated");
       router.push(returnTo ?? `/accounts/${account.id}`);
+      router.refresh();
     }
     setLoading(false);
   }
@@ -659,9 +683,8 @@ export function AccountForm({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="rate_currency">Currency</Label>
-                  <Select id="rate_currency" name="rate_currency" defaultValue={v.rate_currency}>
+                  <Select id="rate_currency" name="rate_currency" defaultValue={v.rate_currency || "USD"}>
                     <option value="USD">USD</option>
-                    <option value="NGN">NGN</option>
                     <option value="GBP">GBP</option>
                     <option value="EUR">EUR</option>
                   </Select>

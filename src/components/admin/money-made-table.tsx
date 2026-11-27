@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatMoney, formatNgn } from "@/lib/money/earnings";
+import { formatMoney } from "@/lib/money/earnings";
 import type { MemberWeeklyEarning } from "@/types/database";
 
 export interface MoneyMemberRow {
@@ -31,10 +31,10 @@ export function MoneyMadeTable({ rows }: { rows: MoneyMemberRow[] }) {
         <thead>
           <tr className="border-b text-left text-neutral-500 bg-neutral-50">
             <th className="p-3 font-medium">Member</th>
-            <th className="p-3 font-medium text-right">Net (₦)</th>
+            <th className="p-3 font-medium text-right">Net (USD)</th>
             <th className="p-3 font-medium text-right">Fiverr net</th>
             <th className="p-3 font-medium text-right">Fees removed</th>
-            <th className="p-3 font-medium text-right">Outside (₦)</th>
+            <th className="p-3 font-medium text-right">Outside (USD)</th>
             <th className="p-3 font-medium text-right">Weeks</th>
             <th className="p-3 font-medium">Breakdown</th>
           </tr>
@@ -59,7 +59,7 @@ export function MoneyMadeTable({ rows }: { rows: MoneyMemberRow[] }) {
                 )}
               </td>
               <td className="p-3 text-right font-semibold tabular-nums text-neutral-900">
-                {formatNgn(r.netNgn)}
+                {formatMoney(r.netNgn)}
               </td>
               <td className="p-3 text-right tabular-nums text-neutral-700">
                 {r.fiverrNet > 0 ? formatMoney(r.fiverrNet) : "—"}
@@ -68,7 +68,7 @@ export function MoneyMadeTable({ rows }: { rows: MoneyMemberRow[] }) {
                 {r.fees > 0 ? `−${formatMoney(r.fees)}` : "—"}
               </td>
               <td className="p-3 text-right tabular-nums text-neutral-700">
-                {r.outsideNgn > 0 ? formatNgn(r.outsideNgn) : "—"}
+                {r.outsideNgn > 0 ? formatMoney(r.outsideNgn) : "—"}
               </td>
               <td className="p-3 text-right tabular-nums">{r.weeksWithMoney}</td>
               <td className="p-3 text-xs text-neutral-500 max-w-[240px]">
@@ -80,8 +80,10 @@ export function MoneyMadeTable({ rows }: { rows: MoneyMemberRow[] }) {
                       .filter((e) => Number(e.amount) > 0)
                       .map((e) => (
                         <li key={e.id}>
-                          W{e.week_number}: {formatMoney(Number(e.amount), e.currency)}
-                          {e.amount_ngn != null ? ` (${formatNgn(Number(e.amount_ngn))})` : ""}
+                          W{e.week_number}:{" "}
+                          {e.currency === "NGN"
+                            ? "saved in dollars above"
+                            : formatMoney(Number(e.amount), e.currency || "USD")}
                           {e.payment_source === "outside" ? " · outside" : " · Fiverr"}
                           {Number(e.fee_amount) > 0
                             ? ` · −${formatMoney(Number(e.fee_amount), e.currency)} fee`

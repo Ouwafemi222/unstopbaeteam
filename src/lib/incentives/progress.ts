@@ -37,6 +37,35 @@ export async function fetchAll<T>(
   }
 }
 
+/** Turn a saved amount into dollars. The bar never shows Naira. */
+function dollars(
+  amount: number | null | undefined,
+  currency: string | null | undefined,
+  rates: Record<string, number> | null
+) {
+  const value = Number(amount ?? 0);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const code = (currency || "USD").toUpperCase();
+  if (code === "USD") return value;
+  if (!rates?.[code] || !rates.USD) return 0;
+  const usd = (value / rates[code]) * rates.USD;
+  return Number.isFinite(usd) ? Math.round(usd * 100) / 100 : 0;
+}
+
+async function loadRateTable(): Promise<Record<string, number> | null> {
+  try {
+    if (typeof window === "undefined") {
+      const { fetchExchangeRates } = await import("@/lib/currency/fetch-rates");
+      return (await fetchExchangeRates())?.rates ?? null;
+    }
+    const response = await fetch("/api/currency/rates");
+    const body = (await response.json()) as { rates?: Record<string, number> };
+    return body.rates ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function monthBounds(yearMonth: string) {
   const [year, month] = yearMonth.split("-").map(Number);
   const last = new Date(year, month, 0).getDate();
@@ -62,6 +91,7 @@ export function shiftMonth(yearMonth: string, delta: number) {
 
 export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Promise<MonthPack> {
   const bounds = monthBounds(yearMonth);
+  const rates = await loadRateTable();
   const createdFrom = lagosDayStartIso(bounds.from);
   const createdTo = lagosDayEndIso(bounds.to);
 
@@ -77,21 +107,20 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
       ),
       fetchAll<{
         team_member_id: string;
-        amount_ngn: number | null;
         amount: number | null;
-        gross_amount: number | null;
         currency: string | null;
+        payment_source: string | null;
       }>((from, to) =>
         db
           .from("member_weekly_earnings")
-          .select("team_member_id, amount_ngn, amount, gross_amount, currency")
+          .select("team_member_id, amount, currency, payment_source")
           .eq("year_month", yearMonth)
           .range(from, to)
       ),
-      fetchAll<{ team_member_id: string; order_amount: number | null }>((from, to) =>
+      fetchAll<{ team_member_id: string; order_amount: number | null; currency: string | null }>((from, to) =>
         db
           .from("orders_received")
-          .select("team_member_id, order_amount")
+          .select("team_member_id, order_amount, currency")
           .gte("received_date", bounds.from)
           .lte("received_date", bounds.to)
           .range(from, to)
@@ -110,6 +139,7 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
         db
           .from("fiverr_accounts")
           .select("id, team_member_id")
+          .is("opening_date", null)
           .gte("created_at", createdFrom)
           .lte("created_at", createdTo)
           .is("archived_at", null)
@@ -150,14 +180,10 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
   for (const row of prospects) add(office, row.team_member_id, Number(row.office_prospects_count ?? 0));
   const weeklyEarn: Record<string, number> = {};
   for (const row of earnings) {
-    const ngn = Number(row.amount_ngn ?? 0);
-    const net = Number(row.amount ?? 0);
-    const gross = Number(row.gross_amount ?? 0);
-    const value = ngn > 0 ? ngn : net > 0 ? net : gross;
-    add(weeklyEarn, row.team_member_id, value);
+    add(weeklyEarn, row.team_member_id, dollars(row.amount, row.currency, rates));
   }
   const orderEarn: Record<string, number> = {};
-  for (const row of orders) add(orderEarn, row.team_member_id, Number(row.order_amount ?? 0));
+  for (const row of orders) add(orderEarn, row.team_member_id, dollars(row.order_amount, row.currency, rates));
   const earn: Record<string, number> = {};
   for (const id of new Set([...Object.keys(weeklyEarn), ...Object.keys(orderEarn)])) {
     const weekly = weeklyEarn[id] ?? 0;

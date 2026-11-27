@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { DateInput, TimeInput } from "@/components/shared/date-input";
 import { OrderCelebration } from "@/components/orders/order-celebration";
 import { publishLiveEvent } from "@/lib/live/publish-live-event";
+import { applyFiverrFee, FIVERR_SERVICE_FEE_PERCENT } from "@/lib/money/earnings";
 import { toast } from "sonner";
 import type { FiverrAccount, TeamMember } from "@/types/database";
 
@@ -42,6 +43,8 @@ export function OrderForm({
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [accounts, setAccounts] = useState<FiverrAccount[]>([]);
   const [selectedMember, setSelectedMember] = useState(lockedTeamMemberId ?? "");
+  const [platform, setPlatform] = useState<"fiverr" | "outside">("fiverr");
+  const [amountText, setAmountText] = useState("");
   const [celebrate, setCelebrate] = useState<{
     name: string;
     gig: string | null;
@@ -94,15 +97,18 @@ export function OrderForm({
       ? lockedTeamMemberId
       : (form.get("team_member_id") as string)) as string;
 
-    const amountRaw = (form.get("order_amount") as string)?.trim();
-    const amount = amountRaw ? parseFloat(amountRaw) : null;
-    if (amountRaw && (!Number.isFinite(amount) || (amount ?? 0) < 0)) {
+    const amountRaw = amountText.trim();
+    const entered = amountRaw ? parseFloat(amountRaw) : null;
+    if (amountRaw && (!Number.isFinite(entered) || (entered ?? 0) < 0)) {
       toast.error("Enter a valid order amount");
       setLoading(false);
       return;
     }
 
-    const currency = (form.get("currency") as string) || "USD";
+    const source = (form.get("payment_source") as string) === "outside" ? "outside" : "fiverr";
+    const currency = source === "fiverr" ? "USD" : (form.get("currency") as string) || "USD";
+    const fee = source === "fiverr" && entered != null ? applyFiverrFee(entered) : null;
+    const amount = fee ? fee.net : entered;
     const gigName = ((form.get("gig_name") as string) || "").trim() || null;
     const payload = {
       team_member_id: teamMemberId,
@@ -113,11 +119,20 @@ export function OrderForm({
       buyer_name: ((form.get("buyer_name") as string) || "").trim() || null,
       order_amount: amount,
       currency,
+      payment_source: source,
+      gross_amount: entered,
+      fee_amount: fee?.feeAmount ?? 0,
+      fee_percent: fee?.feePercent ?? 0,
       notes: ((form.get("notes") as string) || "").trim() || null,
       recorded_by: user?.id ?? null,
     };
 
-    const { error } = await supabase.from("orders_received").insert(payload);
+    let { error } = await supabase.from("orders_received").insert(payload);
+    if (error && /payment_source|gross_amount|fee_amount|fee_percent/i.test(error.message)) {
+      const { payment_source: _source, gross_amount: _gross, fee_amount: _fee, fee_percent: _percent, ...basic } = payload;
+      const retry = await supabase.from("orders_received").insert(basic);
+      error = retry.error;
+    }
     if (error) {
       toast.error(error.message);
       setLoading(false);
@@ -230,9 +245,44 @@ export function OrderForm({
                 <Input id="buyer_name" name="buyer_name" placeholder="Optional" />
               </div>
             </div>
+            <div className="space-y-3">
+              <Label>Where the order was paid</Label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPlatform("fiverr")}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                    platform === "fiverr"
+                      ? "border-[#7b1e3a] bg-[#7b1e3a] text-white"
+                      : "border-neutral-200 bg-white text-neutral-600"
+                  }`}
+                >
+                  Fiverr
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlatform("outside")}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                    platform === "outside"
+                      ? "border-[#7b1e3a] bg-[#7b1e3a] text-white"
+                      : "border-neutral-200 bg-white text-neutral-600"
+                  }`}
+                >
+                  Outside payment
+                </button>
+              </div>
+              <input type="hidden" name="payment_source" value={platform} />
+              <p className="text-xs text-neutral-500">
+                {platform === "fiverr"
+                  ? `Fiverr keeps ${FIVERR_SERVICE_FEE_PERCENT}%. The amount saved is what you keep, in dollars.`
+                  : "Outside payments are saved in full. No Fiverr fee is removed."}
+              </p>
+            </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="order_amount">Order amount</Label>
+                <Label htmlFor="order_amount">
+                  {platform === "fiverr" ? "Gross order amount (USD)" : "Amount received"}
+                </Label>
                 <Input
                   id="order_amount"
                   name="order_amount"
@@ -240,17 +290,31 @@ export function OrderForm({
                   min="0"
                   step="0.01"
                   placeholder="0.00"
+                  value={amountText}
+                  onChange={(event) => setAmountText(event.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select id="currency" name="currency" defaultValue="USD">
-                  <option value="USD">USD</option>
-                  <option value="NGN">NGN</option>
-                  <option value="GBP">GBP</option>
-                  <option value="EUR">EUR</option>
-                </Select>
-              </div>
+              {platform === "outside" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Currency</Label>
+                  <Select id="currency" name="currency" defaultValue="USD">
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                    <option value="EUR">EUR</option>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Saved in dollars</Label>
+                  <p className="flex h-10 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm font-semibold text-neutral-900">
+                    {(() => {
+                      const gross = parseFloat(amountText);
+                      if (!Number.isFinite(gross) || gross <= 0) return "$0.00";
+                      return formatMoney(applyFiverrFee(gross).net, "USD");
+                    })()}
+                  </p>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>

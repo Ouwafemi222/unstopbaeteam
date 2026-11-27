@@ -8,7 +8,7 @@ import type { GeoLocation } from "@/app/api/geo/location/route";
 
 const CURRENCIES = [
   { code: "GBP", symbol: "£", flag: "🇬🇧", label: "British Pound" },
-  { code: "NGN", symbol: "₦", flag: "🇳🇬", label: "Nigerian Naira" },
+  { code: "EUR", symbol: "€", flag: "🇪🇺", label: "Euro" },
   { code: "USD", symbol: "$", flag: "🇺🇸", label: "US Dollar" },
 ];
 
@@ -17,7 +17,7 @@ function mapCurrencyCode(code: string): string {
   if (code === "GBP") return "GBP";
   if (code === "NGN") return "NGN";
   if (code === "USD") return "USD";
-  return "NGN"; // default to NGN for unsupported currencies
+  return "USD";
 }
 
 export function CurrencyConverter() {
@@ -25,7 +25,7 @@ export function CurrencyConverter() {
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("1");
   const [from, setFrom] = useState("GBP");
-  const [to, setTo] = useState("NGN");
+  const [to, setTo] = useState("USD");
   const [locationLabel, setLocationLabel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,14 +43,8 @@ export function CurrencyConverter() {
         const code =
           geo.currency?.currency_code ||
           (geo.country_code === "NG" ? "NGN" : geo.country_code === "GB" ? "GBP" : "USD");
-        const detected = mapCurrencyCode(code);
-        if (detected === "GBP") {
-          setFrom("NGN");
-          setTo("GBP");
-        } else {
-          setFrom("GBP");
-          setTo(detected);
-        }
+        setFrom("GBP");
+        setTo("USD");
         setLocationLabel(`${geo.flag ? geo.flag + " " : ""}${geo.city || geo.country}`);
       })
       .catch(() => {});
@@ -163,21 +157,21 @@ export function CurrencyConverter() {
   );
 }
 
-/** Inline helper: shows "= ₦XX,XXX" next to a GBP amount */
+/** Inline helper: shows a pound amount in dollars. */
 export function GbpToNgn({ gbp, className }: { gbp: number; className?: string }) {
-  const [ngn, setNgn] = useState<number | null>(null);
+  const [usd, setUsd] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/currency/rates")
       .then((r) => r.json())
-      .then((data: ExchangeRates) => setNgn(gbp * data.rates.NGN))
+      .then((data: ExchangeRates) => setUsd(gbp * data.rates.USD))
       .catch(() => {});
   }, [gbp]);
 
-  if (!ngn) return null;
+  if (!usd) return null;
   return (
     <span className={className ?? "text-xs text-neutral-400"}>
-      ≈ ₦{ngn.toLocaleString("en-NG", { maximumFractionDigits: 0 })}
+      ≈ ${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
     </span>
   );
 }

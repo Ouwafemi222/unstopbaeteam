@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { isSuperAdmin } from "@/lib/auth/permissions";
 import { currentYearMonth, formatYearMonthLabel } from "@/lib/utils/dates";
-import { convertWithGbpBaseRates, formatMoney, formatNgn } from "@/lib/money/earnings";
+import { convertWithGbpBaseRates, formatMoney } from "@/lib/money/earnings";
 import { MoneyMonthPicker } from "@/components/admin/money-month-picker";
 import {
   MoneyMadeTable,
@@ -44,17 +44,17 @@ async function fetchRates(): Promise<ExchangeRates | null> {
   }
 }
 
-function resolveNgn(
+function resolveUsd(
   e: MemberWeeklyEarning,
   rates: Record<string, number> | null
 ): number {
-  if (e.amount_ngn != null && Number(e.amount_ngn) > 0) return Number(e.amount_ngn);
   const net = Number(e.amount) || 0;
   if (net <= 0) return 0;
-  if (e.currency === "NGN") return net;
+  const currency = (e.currency || "USD").toUpperCase();
+  if (currency === "USD") return net;
   if (!rates) return 0;
-  const ngn = convertWithGbpBaseRates(net, e.currency || "USD", "NGN", rates);
-  return Number.isFinite(ngn) ? ngn : 0;
+  const usd = convertWithGbpBaseRates(net, currency, "USD", rates);
+  return Number.isFinite(usd) ? usd : 0;
 }
 
 export default async function MoneyMadePage({ searchParams }: Props) {
@@ -99,23 +99,23 @@ export default async function MoneyMadePage({ searchParams }: Props) {
 
   const rows: MoneyMemberRow[] = (members ?? []).map((m) => {
     const entries = byMember.get(m.id) ?? [];
-    let netNgn = 0;
+    let netUsd = 0;
     let fees = 0;
     let fiverrNet = 0;
-    let outsideNgn = 0;
+    let outsideUsd = 0;
     let weeksWithMoney = 0;
 
     for (const e of entries) {
       const net = Number(e.amount) || 0;
       if (net <= 0) continue;
       weeksWithMoney += 1;
-      const ngn = resolveNgn(e, rates);
-      netNgn += ngn;
+      const usd = resolveUsd(e, rates);
+      netUsd += usd;
       fees += Number(e.fee_amount) || 0;
       if (e.payment_source === "outside") {
-        outsideNgn += ngn;
+        outsideUsd += usd;
       } else {
-        fiverrNet += net;
+        fiverrNet += usd;
       }
     }
 
@@ -124,14 +124,14 @@ export default async function MoneyMadePage({ searchParams }: Props) {
       fullName: m.full_name,
       preferredName: m.preferred_name,
       isYou: myMemberId === m.id,
-      netNgn,
+      netNgn: netUsd,
       grossUsdLike: entries.reduce(
         (s, e) => s + Number(e.gross_amount ?? e.amount ?? 0),
         0
       ),
       fees,
       fiverrNet,
-      outsideNgn,
+      outsideNgn: outsideUsd,
       weeksWithMoney,
       entries,
     };
@@ -163,8 +163,7 @@ export default async function MoneyMadePage({ searchParams }: Props) {
             <span className="font-medium text-neutral-700">
               {formatYearMonthLabel(yearMonth)}
             </span>
-            , including you. Fiverr amounts are after the automatic service fee; outside
-            payments are converted to Naira.
+            , including you. Amounts are in dollars. Fiverr amounts are after the automatic service fee. Outside payments are converted to dollars.
           </p>
         </div>
         <MoneyMonthPicker value={yearMonth} />
@@ -174,8 +173,8 @@ export default async function MoneyMadePage({ searchParams }: Props) {
         <SummaryCard
           icon={<TrendingUp className="h-4 w-4 text-emerald-600" />}
           iconBg="bg-emerald-100"
-          label="Team total (₦)"
-          value={formatNgn(teamTotalNgn)}
+          label="Team total"
+          value={formatMoney(teamTotalNgn)}
         />
         <SummaryCard
           icon={<Users className="h-4 w-4 text-sky-600" />}
@@ -192,8 +191,8 @@ export default async function MoneyMadePage({ searchParams }: Props) {
         <SummaryCard
           icon={<Globe2 className="h-4 w-4 text-violet-600" />}
           iconBg="bg-violet-100"
-          label="Outside payments (₦)"
-          value={formatNgn(teamOutside)}
+          label="Outside payments"
+          value={formatMoney(teamOutside)}
         />
       </div>
 
@@ -204,7 +203,7 @@ export default async function MoneyMadePage({ searchParams }: Props) {
               Your earnings this month
             </p>
             <p className="text-2xl font-extrabold text-neutral-900 mt-0.5 tabular-nums">
-              {formatNgn(youRow.netNgn)}
+              {formatMoney(youRow.netNgn)}
             </p>
             <p className="text-xs text-neutral-500 mt-1">
               {youRow.preferredName || youRow.fullName}

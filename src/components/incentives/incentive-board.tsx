@@ -117,7 +117,39 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
 
   useEffect(() => {
     const db = supabase as SupabaseClient;
-    const needed = [...new Set(Object.values(sectionMonth))].filter(
+    let alive = true;
+
+    async function refreshOpenMonths() {
+      const months = [...new Set([nowMonth, ...Object.values(sectionMonth)])];
+      const next: Record<string, MonthPack> = {};
+      for (const month of months) {
+        try {
+          next[month] = readOnly ? (await fetchProgress(month)).pack : await loadMonthPack(db, month);
+        } catch {
+          // Keep the bars already on screen if a refresh misses.
+        }
+      }
+      if (alive) setPacks((current) => ({ ...current, ...next }));
+    }
+
+    function onShow() {
+      if (document.visibilityState === "visible") void refreshOpenMonths();
+    }
+
+    document.addEventListener("visibilitychange", onShow);
+    window.addEventListener("focus", onShow);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onShow);
+      window.removeEventListener("focus", onShow);
+    };
+  }, [supabase, nowMonth, sectionMonth, readOnly]);
+
+  useEffect(() => {
+    const db = supabase as SupabaseClient;
+    const needed = [
+      ...new Set(Object.values(sectionMonth).flatMap((month) => [month, shiftMonth(month, -1)])),
+    ].filter(
       (month) => !packs[month] && !inflight.has(month)
     );
     if (needed.length === 0) return;
@@ -261,17 +293,21 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                 onChange={(event) =>
                   setPrizes((current) => ({ ...current, [slot.slot]: event.target.value }))
                 }
-                placeholder="Prize, e.g. ₦20,000"
+                placeholder="Prize, e.g. $200"
                 aria-label={`Prize for ${slot.label}`}
               />
               <div>
                 <p className="font-semibold text-neutral-900">{slot.label}</p>
                 <p className="text-xs text-neutral-500">
-                  {slot.slot === "five_stars"
-                    ? "Counted from the 5-star screenshots members save"
-                    : slot.source === "auto"
-                      ? "Counted from what members record this month"
-                      : "You type each member’s score below"}
+                  {slot.slot === "top_accounts"
+                    ? "Opening date decides the month. This month and last month are counted apart."
+                    : slot.slot === "top_earner"
+                      ? "Dollars members keep. Fiverr’s 20% is already removed. Outside payments stay as recorded."
+                    : slot.slot === "five_stars"
+                      ? "Counted from the 5-star screenshots members save"
+                      : slot.source === "auto"
+                        ? "Counted from what members record in the month you pick"
+                        : "You type each member’s score below"}
                 </p>
               </div>
             </div>
@@ -412,9 +448,15 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                           />
                         ) : (
                           <p className="whitespace-nowrap text-right text-xs tabular-nums text-neutral-500">
-                            {slot.unit === "₦"
-                              ? `₦${Math.round(row.score).toLocaleString()}`
-                              : `${row.score} ${slot.unit}`}
+                            {slot.unit === "$"
+                              ? `$${row.score.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                              : slot.slot === "top_accounts"
+                                ? `${row.score} this month · ${
+                                    standings(slot.slot, slot.source, shiftMonth(chosenMonth, -1)).find(
+                                      (item) => item.memberId === row.memberId
+                                    )?.score ?? 0
+                                  } last month`
+                                : `${row.score} ${slot.unit}`}
                           </p>
                         )}
                       </li>

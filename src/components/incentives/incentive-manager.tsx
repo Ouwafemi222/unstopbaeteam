@@ -94,7 +94,7 @@ export function IncentiveManager() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="title">Incentive</Label>
-          <Input id="title" name="title" required placeholder="e.g. ₦50,000 for the most accounts this week" />
+          <Input id="title" name="title" required placeholder="e.g. $200 for the most accounts this month" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="detail">How they qualify</Label>
