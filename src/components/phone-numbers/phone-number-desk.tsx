@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Copy, Phone, Search, Signal } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Phone, Search, Signal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -41,6 +41,18 @@ function pretty(number: string) {
   return `+${number}`;
 }
 
+function pageWindow(current: number, total: number) {
+  const size = 10;
+  if (total <= size) return Array.from({ length: total }, (_, index) => index + 1);
+  let start = Math.max(1, current - 4);
+  let end = start + size - 1;
+  if (end > total) {
+    end = total;
+    start = end - size + 1;
+  }
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
 function codeIn(message: string) {
   return message.match(/\b\d{4,8}\b/)?.[0] ?? "";
 }
@@ -70,6 +82,8 @@ export function PhoneNumberDesk() {
   const [locale, setLocale] = useState<string | null>(null);
   const [numbers, setNumbers] = useState<string[]>([]);
   const [numberQuery, setNumberQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
   const [messages, setMessages] = useState<TextMessage[]>([]);
   const [loadingCountries, setLoadingCountries] = useState(true);
@@ -150,14 +164,16 @@ export function PhoneNumberDesk() {
     let cancelled = false;
     setLoadingNumbers(true);
     const handle = window.setTimeout(() => {
-      const params = new URLSearchParams({ locale });
+      const params = new URLSearchParams({ locale, page: String(page) });
       if (numberQuery.trim()) params.set("q", numberQuery.trim());
       fetch(`/api/phone-numbers?${params}`)
         .then((response) => response.json())
-        .then((body: { numbers?: string[]; error?: string }) => {
+        .then((body: { numbers?: string[]; page?: number; pages?: number; error?: string }) => {
           if (cancelled) return;
           if (body.error) toast.error(body.error);
           setNumbers(body.numbers ?? []);
+          setPages(body.pages ?? 1);
+          if (body.page && body.page !== page) setPage(body.page);
         })
         .catch(() => {
           if (!cancelled) toast.error("Those numbers did not load");
@@ -170,7 +186,7 @@ export function PhoneNumberDesk() {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [locale, numberQuery]);
+  }, [locale, numberQuery, page]);
 
   useEffect(() => {
     if (!selected) return;
@@ -316,6 +332,8 @@ export function PhoneNumberDesk() {
                 setLocale(null);
                 setNumbers([]);
                 setNumberQuery("");
+                setPage(1);
+                setPages(1);
               }}
               className="inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:underline"
             >
@@ -331,7 +349,10 @@ export function PhoneNumberDesk() {
             <Search className="h-4 w-4 text-neutral-400" />
             <input
               value={numberQuery}
-              onChange={(event) => setNumberQuery(event.target.value)}
+              onChange={(event) => {
+                setNumberQuery(event.target.value);
+                setPage(1);
+              }}
               placeholder="Search the last digits"
               className="w-full bg-transparent text-sm outline-none"
             />
@@ -368,6 +389,43 @@ export function PhoneNumberDesk() {
               ))}
             </div>
           )}
+          {pages > 1 ? (
+            <nav className="flex flex-wrap items-center justify-center gap-2 pt-2" aria-label="Number pages">
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              {pageWindow(page, pages).map((number) => (
+                <button
+                  key={number}
+                  type="button"
+                  onClick={() => setPage(number)}
+                  className={`relative min-w-8 px-1.5 py-1 text-sm ${
+                    number === page ? "font-semibold text-neutral-900" : "text-neutral-500"
+                  }`}
+                >
+                  {number}
+                  {number === page ? (
+                    <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-neutral-800" />
+                  ) : null}
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={page >= pages}
+                onClick={() => setPage((current) => Math.min(pages, current + 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </nav>
+          ) : null}
         </section>
       ) : (
         <section className="space-y-4">
@@ -388,7 +446,12 @@ export function PhoneNumberDesk() {
                 <button
                   key={item.code}
                   type="button"
-                  onClick={() => setLocale(item.code)}
+                  onClick={() => {
+                    setPage(1);
+                    setPages(1);
+                    setNumberQuery("");
+                    setLocale(item.code);
+                  }}
                   className="flex min-h-[112px] items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-left shadow-sm transition hover:border-brand-green/40"
                 >
                   <Flag code={item.code} className="h-12 w-16 shrink-0 rounded-md object-cover shadow-sm" />

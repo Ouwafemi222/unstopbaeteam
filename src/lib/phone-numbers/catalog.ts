@@ -83,13 +83,21 @@ export async function listCountries(): Promise<PhoneCountry[]> {
     .sort((a, b) => b.online - a.online || a.name.localeCompare(b.name));
 }
 
-export async function listNumbers(locale: string, query: string) {
+export const NUMBERS_PAGE_SIZE = 12;
+
+export async function listNumbers(locale: string, query: string, page: number) {
   const needle = query.replace(/\D/g, "");
   const matches = (await loadRows())
     .filter((row) => row.status === "Online" && row.locale === locale && row.number)
     .sort((a, b) => Number(b.added ?? 0) - Number(a.added ?? 0));
-  const filtered = needle
-    ? matches.filter((row) => String(row.number).includes(needle))
-    : matches.slice(0, 60);
-  return filtered.slice(0, 80).map((row) => String(row.number));
+  const filtered = needle ? matches.filter((row) => String(row.number).includes(needle)) : matches;
+  const pages = Math.max(1, Math.ceil(filtered.length / NUMBERS_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, Math.floor(page) || 1), pages);
+  const start = (safePage - 1) * NUMBERS_PAGE_SIZE;
+  return {
+    numbers: filtered.slice(start, start + NUMBERS_PAGE_SIZE).map((row) => String(row.number)),
+    page: safePage,
+    pages,
+    total: filtered.length,
+  };
 }

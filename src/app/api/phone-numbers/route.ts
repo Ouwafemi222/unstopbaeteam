@@ -18,8 +18,9 @@ export async function GET(request: Request) {
       const countries = await listCountries();
       return NextResponse.json({ countries });
     }
-    const numbers = await listNumbers(locale, url.searchParams.get("q") || "");
-    return NextResponse.json({ numbers });
+    const page = Number(url.searchParams.get("page") || "1");
+    const result = await listNumbers(locale, url.searchParams.get("q") || "", page);
+    return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "The number list did not load";
     return NextResponse.json({ error: message }, { status: 502 });
