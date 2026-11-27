@@ -571,61 +571,69 @@ body {
 
 .blender-viewport.is-on .blender-stage {
   position: relative;
-  height: calc(100vh - 150px);
-  overflow: auto;
+  height: calc(100dvh - 10.5rem);
+  min-height: 520px;
+  overflow: hidden;
   border-radius: 22px;
   border: 1px solid rgba(123, 30, 58, 0.35);
   background:
-    radial-gradient(circle at 50% 30%, #4a2a34, #1a1014 72%);
+    radial-gradient(circle at 50% 46%, #3d272f 0%, #120c0f 72%);
+  perspective: 1800px;
+  perspective-origin: 50% 50%;
+  touch-action: none;
+  cursor: grab;
 }
 
-.blender-viewport.is-on .blender-camera {
-  perspective: 1600px;
-  perspective-origin: 50% 35%;
-  min-height: 100%;
+.blender-viewport.is-on .blender-stage:active {
+  cursor: grabbing;
 }
 
-.blender-viewport.is-on .blender-scene {
-  transform-style: preserve-3d;
-  transform-origin: center top;
-  position: relative;
-  padding: 28px 18px 80px;
-}
-
-.blender-floor {
+.blender-viewport.is-on .blender-rig {
   position: absolute;
-  left: -30%;
-  right: -30%;
-  top: 24px;
-  height: 1400px;
-  transform: rotateX(68deg);
-  transform-origin: center top;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
-  background-size: 52px 52px;
-  background-color: rgba(255, 255, 255, 0.03);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transform-origin: center center;
+  opacity: 0;
 }
 
-.blender-content {
-  position: relative;
+.blender-viewport.is-on.is-ready .blender-rig {
+  opacity: 1;
+}
+
+.blender-viewport.is-on .blender-spin {
+  width: 100%;
+  transform-origin: center center;
+  transform-style: preserve-3d;
+}
+
+.blender-viewport.is-on .blender-board {
+  width: 100%;
+  padding: 18px 16px 28px;
+}
+
+.blender-viewport.is-on .stage-3d {
+  perspective: none;
+}
+
+.blender-viewport.is-on .slab-3d,
+.blender-viewport.is-on .tile-3d,
+.blender-viewport.is-on .tile-3d:hover,
+.blender-viewport.is-on .slab-3d:hover {
+  transform: none;
 }
 
 .blender-gizmo {
-  position: sticky;
-  left: calc(100% - 92px);
+  position: absolute;
+  right: 16px;
   bottom: 16px;
-  float: right;
   width: 76px;
   height: 76px;
-  margin: 12px;
   border-radius: 999px;
   background: rgba(26, 16, 20, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
-  cursor: grab;
-  touch-action: none;
+  pointer-events: none;
   z-index: 40;
 }
 

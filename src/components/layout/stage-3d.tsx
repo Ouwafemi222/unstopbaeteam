@@ -1,6 +1,7 @@
 "use client";
 
 import { Children, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useBlenderActive } from "@/components/layout/blender-viewport";
 
 const PEEK = 54;
 const STEP = 14;
@@ -156,6 +157,8 @@ export function Stage3D({
   enableStack?: boolean;
   gap?: number;
 }) {
+  const blender = useBlenderActive();
+  const stacking = enableStack && !blender;
   const items = Children.toArray(children).filter(Boolean);
   const [progress, setProgress] = useState(enableStack ? 1 : 0);
   const [heights, setHeights] = useState<number[]>(() => items.map(() => 0));
@@ -179,6 +182,11 @@ export function Stage3D({
 
   useEffect(() => {
     if (!enableStack) return;
+    setProgress(blender ? 0 : 1);
+  }, [blender, enableStack]);
+
+  useEffect(() => {
+    if (!stacking) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) {
       setProgress(0);
@@ -229,32 +237,34 @@ export function Stage3D({
       main.removeEventListener("touchstart", onTouchStart);
       main.removeEventListener("touchmove", onTouchMove);
     };
-  }, [enableStack]);
+  }, [stacking]);
 
   const ready = heights.length === items.length && heights.every((height) => height > 0);
-  const layout = stackLayout(ready ? heights : items.map(() => 0), enableStack && ready ? progress : 0, gap);
+  const layout = stackLayout(ready ? heights : items.map(() => 0), stacking && ready ? progress : 0, gap);
   const stacked = progress > 0.72;
   const open = progress < 0.08;
 
   return (
     <div className="stage-3d">
-      <p className="roll-hint">
-        {!enableStack
-          ? "Tap 360° and drag to roll any card a full turn."
-          : stacked
-            ? "Scroll down to open every card. Tap 360° and drag to roll a card all the way around."
-            : open
-              ? "Scroll up at the top and the cards tuck into each other. Tap 360° to roll any card."
-              : "Keep scrolling. Tap 360° to roll the card under your finger a full turn."}
-      </p>
+      {blender ? null : (
+        <p className="roll-hint">
+          {!enableStack
+            ? "Tap 360° and drag to roll any card a full turn."
+            : stacked
+              ? "Scroll down to open every card. Tap 360° and drag to roll a card all the way around."
+              : open
+                ? "Scroll up at the top and the cards tuck into each other. Tap 360° to roll any card."
+                : "Keep scrolling. Tap 360° to roll the card under your finger a full turn."}
+        </p>
+      )}
       <div
         ref={listRef}
         className="stack-list"
         style={{
-          marginBottom: enableStack ? layout.marginBottom : undefined,
+          marginBottom: stacking ? layout.marginBottom : undefined,
           display: "flex",
           flexDirection: "column",
-          gap: enableStack ? undefined : gap,
+          gap: stacking ? undefined : gap,
         }}
       >
         {items.map((child, index) => (
