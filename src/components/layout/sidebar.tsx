@@ -39,6 +39,7 @@ import {
   Mail,
   Gift,
   Star,
+  Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -103,6 +104,7 @@ function personalWorkspaceItems(teamMemberId: string): NavItem[] {
   const items: NavItem[] = [
     { href: "/team-blueprint", label: "Team Blueprint", icon: BookOpen },
     weeklyEvaluationNav,
+    { href: "/phone-numbers", label: "Phone number", icon: Phone },
     { href: "/my-accounts", label: "My Fiverr Accounts", icon: Briefcase },
     { href: "/my-messages", label: "My Messages", icon: MessageSquare },
     { href: "/my-emails", label: "My Emails", icon: Mail },
