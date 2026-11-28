@@ -29,7 +29,12 @@ export async function getSponsoredMembers(
   const ids = members.map((m) => m.id);
 
   const [{ data: accounts }, { data: messages }] = await Promise.all([
-    supabase.from("fiverr_accounts").select("team_member_id").in("team_member_id", ids).is("archived_at", null),
+    supabase
+      .from("fiverr_accounts")
+      .select("team_member_id")
+      .in("team_member_id", ids)
+      .is("archived_at", null)
+      .neq("status", "reserved"),
     supabase.from("messages").select("team_member_id").in("team_member_id", ids),
   ]);
 

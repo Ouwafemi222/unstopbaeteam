@@ -100,8 +100,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .order("created_at", { ascending: false })
       .limit(20),
     supabase.from("team_members").select("*", { count: "exact", head: true }).eq("status", "active"),
-    supabase.from("fiverr_accounts").select("*", { count: "exact", head: true }).is("archived_at", null),
+    supabase.from("fiverr_accounts").select("*", { count: "exact", head: true }).is("archived_at", null).neq("status", "reserved"),
     supabase.from("fiverr_accounts").select("*", { count: "exact", head: true })
+      .is("archived_at", null)
+      .neq("status", "reserved")
       .gte("opening_date", dateRange.from).lte("opening_date", dateRange.to),
     supabase.from("messages").select("*", { count: "exact", head: true })
       .gte("received_date", dateRange.from).lte("received_date", dateRange.to),
@@ -109,11 +111,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .from("fiverr_accounts")
       .select("*", { count: "exact", head: true })
       .is("archived_at", null)
+      .neq("status", "reserved")
       .gte("created_at", todayStartIso),
     supabase
       .from("fiverr_accounts")
       .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name), country:countries(name, flag_emoji)")
       .is("archived_at", null)
+      .neq("status", "reserved")
       .gte("created_at", todayStartIso)
       .order("created_at", { ascending: false })
       .limit(30),
@@ -121,6 +125,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .from("fiverr_accounts")
       .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name), country:countries(name, flag_emoji)")
       .is("archived_at", null)
+      .neq("status", "reserved")
       .order("created_at", { ascending: false })
       .limit(12),
     supabase.from("messages")
@@ -129,7 +134,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     supabase.from("team_members").select("id, full_name").eq("status", "active"),
     supabase.from("messages").select("team_member_id, service_id, received_date")
       .gte("received_date", dateRange.from).lte("received_date", dateRange.to),
-    supabase.from("fiverr_accounts").select("country_id, team_member_id").is("archived_at", null),
+    supabase.from("fiverr_accounts").select("country_id, team_member_id").is("archived_at", null).neq("status", "reserved"),
     supabase.from("countries").select("id, name, flag_emoji"),
     supabase
       .from("member_weekly_earnings")

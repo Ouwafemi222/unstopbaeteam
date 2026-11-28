@@ -64,7 +64,8 @@ export function AdminFineOnGroundCard() {
         supabase
           .from("fiverr_accounts")
           .select("id, team_member_id, username, display_name")
-          .is("archived_at", null),
+          .is("archived_at", null)
+          .neq("status", "reserved"),
       ]);
       setMembers((m as MemberRow[]) ?? []);
       setAccounts((a as AccountRow[]) ?? []);

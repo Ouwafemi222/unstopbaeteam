@@ -57,8 +57,7 @@ export default async function ReservedAccountsPage({ searchParams }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Reserved Accounts</h1>
         <p className="text-neutral-500 mt-1">
-          Review deactivation requests and manage the reserved Fiverr account pool. Approving a
-          request moves accounts here — they are not deactivated.
+          Accounts for unavailable members stay here, and only here, until you restore them.
         </p>
       </div>
 

@@ -118,6 +118,7 @@ export function MessageForm({
       .select("*")
       .eq("team_member_id", selectedMember)
       .is("archived_at", null)
+      .neq("status", "reserved")
       .then(({ data }) => setAccounts(data ?? []));
   }, [selectedMember, supabase]);
 

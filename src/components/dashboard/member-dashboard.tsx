@@ -90,7 +90,7 @@ export async function MemberDashboard({ member, sponsorName, isSuperAdmin }: Mem
       .order("created_at", { ascending: false }),
     supabase
       .from("messages")
-      .select("*, service:services(name), fiverr_account:fiverr_accounts(username)")
+      .select("*, service:services(name), fiverr_account:fiverr_accounts(username, status)")
       .eq("team_member_id", member.id)
       .order("received_date", { ascending: false }),
     supabase

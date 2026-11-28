@@ -38,6 +38,7 @@ export function MemberVerificationPanel({ teamMemberId }: MemberVerificationPane
       .select("*")
       .eq("team_member_id", teamMemberId)
       .is("archived_at", null)
+      .neq("status", "reserved")
       .order("created_at", { ascending: false });
 
     if (error) toast.error(error.message);

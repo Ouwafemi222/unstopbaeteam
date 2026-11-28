@@ -55,7 +55,22 @@ export function GlobalSearch({ className, large }: GlobalSearchProps) {
       console.error("global_search error:", error.message);
       setResults([]);
     } else {
-      setResults(data ?? []);
+      const rows = (data ?? []) as SearchResult[];
+      const accountIds = rows
+        .filter((row) => row.result_type === "fiverr_account")
+        .map((row) => row.result_id);
+      let parked = new Set<string>();
+      if (accountIds.length > 0) {
+        const { data: hidden } = await supabase
+          .from("fiverr_accounts")
+          .select("id")
+          .in("id", accountIds)
+          .eq("status", "reserved");
+        parked = new Set((hidden ?? []).map((row) => row.id));
+      }
+      setResults(
+        rows.filter((row) => row.result_type !== "fiverr_account" || !parked.has(row.result_id))
+      );
     }
     setLoading(false);
   }, [supabase]);

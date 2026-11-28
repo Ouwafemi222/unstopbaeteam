@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn, formatDate, getMessageServiceLabel } from "@/lib/utils";
+import { shownAccountName } from "@/lib/accounts/hold";
 import { getDateRange, MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 import type { DateFilter } from "@/types/database";
 
@@ -51,7 +52,7 @@ export default async function MessageActivityPage({ params, searchParams }: Prop
   ] = await Promise.all([
     supabase
       .from("messages")
-      .select("*, service:services(name), fiverr_account:fiverr_accounts(username)")
+      .select("*, service:services(name), fiverr_account:fiverr_accounts(username, status)")
       .eq("team_member_id", memberId)
       .gte("received_date", range.from)
       .lte("received_date", range.to)
@@ -173,7 +174,7 @@ export default async function MessageActivityPage({ params, searchParams }: Prop
                 <tr key={msg.id} className="border-b hover:bg-neutral-50">
                   <td className="p-3">{formatDate(msg.received_date)}</td>
                   <td className="p-3">
-                    {(msg.fiverr_account as { username: string } | null)?.username ?? "—"}
+                    {shownAccountName(msg.fiverr_account as { username?: string; status?: string } | null) || "—"}
                   </td>
                   <td className="p-3 font-medium text-neutral-900">
                     {getMessageServiceLabel(msg)}

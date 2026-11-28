@@ -25,7 +25,7 @@ export default async function MemberEditAccountPage({ params }: Props) {
     supabase.from("fiverr_accounts").select("*").eq("id", accountId).single(),
   ]);
 
-  if (!member || !account) notFound();
+  if (!member || !account || account.status === "reserved") notFound();
 
   if (account.team_member_id !== member.id) {
     redirect("/dashboard");

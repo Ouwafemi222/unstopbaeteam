@@ -60,9 +60,9 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
   ] = await Promise.all([
     supabase.from("fiverr_accounts")
       .select("*, country:countries(name, flag_emoji)")
-      .eq("team_member_id", id).is("archived_at", null).order("created_at", { ascending: false }),
+      .eq("team_member_id", id).is("archived_at", null).neq("status", "reserved").order("created_at", { ascending: false }),
     supabase.from("messages")
-      .select("*, service:services(name), fiverr_account:fiverr_accounts(username)")
+      .select("*, service:services(name), fiverr_account:fiverr_accounts(username, status)")
       .eq("team_member_id", id).order("received_date", { ascending: false }),
     supabase.from("messages").select("*", { count: "exact", head: true })
       .eq("team_member_id", id).gte("received_date", thisMonth.from).lte("received_date", thisMonth.to),

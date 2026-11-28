@@ -22,7 +22,7 @@ export default async function PerformancePage({ searchParams }: Props) {
 
   const [{ data: members }, { data: accounts }, { data: messages }, { data: services }] = await Promise.all([
     supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
-    supabase.from("fiverr_accounts").select("team_member_id").is("archived_at", null),
+    supabase.from("fiverr_accounts").select("team_member_id").is("archived_at", null).neq("status", "reserved"),
     supabase.from("messages").select("team_member_id, service_id, received_date"),
     supabase.from("services").select("id, name"),
   ]);

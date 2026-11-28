@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSuperAdmin } from "@/lib/auth/permissions";
+import { releaseReservedAccount } from "@/lib/accounts/hold";
 
 /** Super admin restores a reserved Fiverr account back to active. */
 export async function POST(request: Request) {
@@ -28,14 +29,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   }
 
-  const { error } = await admin
-    .from("fiverr_accounts")
-    .update({ status: "active", archived_at: null })
-    .eq("id", accountId)
-    .eq("status", "reserved");
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await releaseReservedAccount(admin, accountId);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not restore the account" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ ok: true });

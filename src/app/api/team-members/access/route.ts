@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserScope } from "@/lib/auth/scope";
+import { parkMemberAccounts, releaseMemberAccounts } from "@/lib/accounts/hold";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,6 +67,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A super admin account cannot be removed" }, { status: 400 });
   }
 
+  const allowedIds = allowed.map((row) => row.id);
+  let parked = 0;
+  let released = 0;
+  try {
+    if (action === "remove") parked = await parkMemberAccounts(db, allowedIds);
+    else released = await releaseMemberAccounts(db, allowedIds);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not move the accounts" },
+      { status: 500 }
+    );
+  }
+
   const now = new Date().toISOString();
   const { error: updateError } = await db
     .from("team_members")
@@ -74,12 +88,15 @@ export async function POST(request: Request) {
         ? { access_removed_at: now, access_removed_by: scope.user.id }
         : { access_removed_at: null, access_removed_by: null }
     )
-    .in(
-      "id",
-      allowed.map((row) => row.id)
-    );
+    .in("id", allowedIds);
 
   if (updateError) {
+    try {
+      if (action === "remove") await releaseMemberAccounts(db, allowedIds);
+      else await parkMemberAccounts(db, allowedIds);
+    } catch {
+      // Keep the original save error in the response.
+    }
     return NextResponse.json(
       {
         error: updateError.message.toLowerCase().includes("access_removed")
@@ -98,5 +115,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     updated: allowed.length,
     skipped,
+    parked,
+    released,
   });
 }

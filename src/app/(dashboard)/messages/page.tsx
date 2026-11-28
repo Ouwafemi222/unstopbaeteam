@@ -8,6 +8,7 @@ import { formatDate, getMessageServiceLabel } from "@/lib/utils";
 import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 import { getMemberImageUrl } from "@/lib/storage/member-uploads";
 import { MessageOcrReadout } from "@/components/messages/message-ocr-readout";
+import { shownAccountName } from "@/lib/accounts/hold";
 import type { Message } from "@/types/database";
 
 export default async function MessagesPage() {
@@ -15,7 +16,7 @@ export default async function MessagesPage() {
 
   const { data: messages } = await supabase
     .from("messages")
-    .select("*, team_member:team_members(full_name), service:services(name), fiverr_account:fiverr_accounts(username)")
+    .select("*, team_member:team_members(full_name), service:services(name), fiverr_account:fiverr_accounts(username, status)")
     .order("received_date", { ascending: false })
     .limit(100);
 
@@ -87,7 +88,7 @@ export default async function MessagesPage() {
                     />
                   </td>
                   <td className="p-3 font-medium">{(msg.team_member as { full_name: string })?.full_name}</td>
-                  <td className="p-3">{(msg.fiverr_account as { username: string })?.username ?? "—"}</td>
+                  <td className="p-3">{shownAccountName(msg.fiverr_account as { username?: string; status?: string } | null) || "—"}</td>
                   <td className="p-3">{getMessageServiceLabel(msg)}</td>
                   <td className="p-3"><Badge variant="neutral">{MESSAGE_STATUS_LABELS[msg.status]}</Badge></td>
                   <td className="p-3">

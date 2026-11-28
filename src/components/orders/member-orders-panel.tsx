@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { RelativeTime } from "@/components/shared/relative-time";
 import { formatDate } from "@/lib/utils";
+import { shownAccountName } from "@/lib/accounts/hold";
 import type { OrderReceived } from "@/types/database";
 
 function formatMoney(amount: number, currency: string) {
@@ -37,7 +38,7 @@ export function MemberOrdersPanel({
     setLoading(true);
     const { data, error } = await supabase
       .from("orders_received")
-      .select("*, fiverr_account:fiverr_accounts(id, username)")
+      .select("*, fiverr_account:fiverr_accounts(id, username, status)")
       .eq("team_member_id", teamMemberId)
       .order("received_date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -99,7 +100,7 @@ export function MemberOrdersPanel({
             </p>
             <p className="text-sm text-neutral-500 mt-0.5">
               {formatDate(o.received_date)}
-              {o.fiverr_account?.username ? ` · @${o.fiverr_account.username}` : ""}
+              {shownAccountName(o.fiverr_account) ? ` · @${shownAccountName(o.fiverr_account)}` : ""}
               {o.buyer_name ? ` · ${o.buyer_name}` : ""}
             </p>
             {o.notes && <p className="text-xs text-neutral-400 mt-1">{o.notes}</p>}

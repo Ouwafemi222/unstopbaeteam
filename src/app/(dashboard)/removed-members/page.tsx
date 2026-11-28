@@ -23,7 +23,8 @@ export default async function RemovedMembersPage() {
   const { data: accountCounts } = await supabase
     .from("fiverr_accounts")
     .select("team_member_id")
-    .is("archived_at", null);
+    .is("archived_at", null)
+    .neq("status", "reserved");
   const { data: messageCounts } = await supabase.from("messages").select("team_member_id");
 
   const accountsPerMember = new Map<string, number>();
@@ -54,7 +55,7 @@ export default async function RemovedMembersPage() {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Account removed</h1>
         <p className="mt-1 text-neutral-500">
-          {roster.length} people cannot sign in. Reactivate them when they should have access again.
+          {roster.length} people cannot sign in. Their Fiverr accounts stay in Reserved until you reactivate them.
         </p>
       </div>
 

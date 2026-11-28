@@ -8,6 +8,7 @@ import { formatDate, getMessageServiceLabel } from "@/lib/utils";
 import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 import { getMemberImageUrl } from "@/lib/storage/member-uploads";
 import { MessageOcrReadout } from "@/components/messages/message-ocr-readout";
+import { shownAccountName } from "@/lib/accounts/hold";
 import type { Message } from "@/types/database";
 
 interface MemberMessagesPanelProps {
@@ -32,7 +33,7 @@ export async function MemberMessagesPanel({
   if (!initialMessages) {
     const { data: messages } = await supabase
       .from("messages")
-      .select("*, service:services(name), fiverr_account:fiverr_accounts(username)")
+      .select("*, service:services(name), fiverr_account:fiverr_accounts(username, status)")
       .eq("team_member_id", memberId)
       .order("received_date", { ascending: false });
     list = (messages ?? []) as Message[];
@@ -123,7 +124,7 @@ export async function MemberMessagesPanel({
                     />
                   </td>
                   <td className="p-3">
-                    {(msg.fiverr_account as { username: string } | null)?.username ?? "—"}
+                    {shownAccountName(msg.fiverr_account as { username?: string; status?: string } | null) || "—"}
                   </td>
                   <td className="p-3 font-medium text-neutral-900">{getMessageServiceLabel(msg)}</td>
                   <td className="p-3">

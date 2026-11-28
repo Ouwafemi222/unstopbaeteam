@@ -46,12 +46,14 @@ export async function PATCH(
   const supabase = await createClient();
   const { data: account, error: loadError } = await supabase
     .from("fiverr_accounts")
-    .select("id, team_member_id")
+    .select("id, team_member_id, status")
     .eq("id", id)
     .maybeSingle();
 
   if (loadError) return NextResponse.json({ error: loadError.message }, { status: 500 });
-  if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });
+  if (!account || account.status === "reserved") {
+    return NextResponse.json({ error: "Account not found" }, { status: 404 });
+  }
 
   const owns = scope.teamMember?.id === account.team_member_id;
   const canEditAny = scope.roleSlugs.includes("super_admin") || scope.permissions.includes("accounts.edit");

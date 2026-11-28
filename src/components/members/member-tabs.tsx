@@ -11,6 +11,7 @@ import { formatDate, formatDateTime, getMessageServiceLabel } from "@/lib/utils"
 import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 import { MemberActivityFeed } from "@/components/members/member-activity-feed";
 import type { MemberActivityItem } from "@/lib/members/activity-feed";
+import { shownAccountName } from "@/lib/accounts/hold";
 import type { TeamMember, FiverrAccount, Message } from "@/types/database";
 
 const tabs = [
@@ -268,7 +269,7 @@ export function MemberTabs({
                 {messages.map((msg) => (
                   <tr key={msg.id} className="border-b hover:bg-neutral-50">
                     <td className="p-3">{formatDate(msg.received_date)}</td>
-                    <td className="p-3">{(msg.fiverr_account as { username: string })?.username ?? "—"}</td>
+                    <td className="p-3">{shownAccountName(msg.fiverr_account as { username?: string; status?: string } | null) || "—"}</td>
                     <td className="p-3">{getMessageServiceLabel(msg)}</td>
                     <td className="p-3"><Badge variant="neutral">{MESSAGE_STATUS_LABELS[msg.status]}</Badge></td>
                     {canManageMessages && !readOnly && (

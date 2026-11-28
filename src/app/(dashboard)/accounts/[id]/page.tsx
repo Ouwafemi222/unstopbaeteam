@@ -22,7 +22,7 @@ export default async function AccountDetailPage({ params }: Props) {
     .eq("id", id)
     .single();
 
-  if (!account) notFound();
+  if (!account || account.status === "reserved") notFound();
 
   const [{ data: notes }, { data: messages }, { data: activity }] = await Promise.all([
     supabase.from("account_notes").select("*, profile:profiles(full_name)").eq("account_id", id).order("created_at", { ascending: false }),

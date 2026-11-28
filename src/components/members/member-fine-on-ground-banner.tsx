@@ -10,6 +10,7 @@ import {
   obligationLabel,
   obligationPhrase,
 } from "@/lib/members/fine-on-ground";
+import { shownAccountName } from "@/lib/accounts/hold";
 import type { FineOnGroundEntry } from "@/types/database";
 
 interface MemberFineOnGroundBannerProps {
@@ -26,7 +27,7 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
     setLoading(true);
     const { data } = await supabase
       .from("fine_on_ground_entries")
-      .select("*, fiverr_account:fiverr_accounts(id, username)")
+      .select("*, fiverr_account:fiverr_accounts(id, username, status)")
       .eq("team_member_id", teamMemberId)
       .eq("is_active", true)
       .is("seen_at", null)
@@ -70,7 +71,9 @@ export function MemberFineOnGroundBanner({ teamMemberId }: MemberFineOnGroundBan
   const accountNames = [
     ...new Set(
       entries
-        .map((e) => (e.fiverr_account as { username?: string } | null)?.username)
+        .map((e) =>
+          shownAccountName(e.fiverr_account as { username?: string; status?: string } | null)
+        )
         .filter((u): u is string => Boolean(u))
     ),
   ];

@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     const { data: accounts } = await supabase
       .from("fiverr_accounts")
       .select("*, team_member:team_members(full_name), country:countries(name)")
-      .is("archived_at", null);
+      .is("archived_at", null)
+      .neq("status", "reserved");
 
     csv = "Member,Username,Email,Country,Status,Opening Date\n";
     accounts?.forEach((a) => {

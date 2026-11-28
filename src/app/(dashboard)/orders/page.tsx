@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserScope } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
+import { shownAccountName } from "@/lib/accounts/hold";
 import { OrderForm } from "@/components/orders/order-form";
 
 function formatMoney(amount: number, currency: string) {
@@ -34,7 +35,7 @@ export default async function OrdersAdminPage({
   const { data: orders } = await supabase
     .from("orders_received")
     .select(
-      "*, team_member:team_members(id, full_name), fiverr_account:fiverr_accounts(id, username)"
+      "*, team_member:team_members(id, full_name), fiverr_account:fiverr_accounts(id, username, status)"
     )
     .order("received_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -94,8 +95,8 @@ export default async function OrdersAdminPage({
                     </td>
                     <td className="p-3">{o.gig_name ?? "—"}</td>
                     <td className="p-3 text-neutral-500">
-                      {(o.fiverr_account as { username?: string } | null)?.username
-                        ? `@${(o.fiverr_account as { username: string }).username}`
+                      {shownAccountName(o.fiverr_account as { username?: string; status?: string } | null)
+                        ? `@${shownAccountName(o.fiverr_account as { username?: string; status?: string })}`
                         : "—"}
                     </td>
                     <td className="p-3 font-semibold text-brand-orange">

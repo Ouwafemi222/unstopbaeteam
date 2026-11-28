@@ -39,7 +39,8 @@ export default async function TeamMembersPage() {
   const { data: accountCounts } = await supabase
     .from("fiverr_accounts")
     .select("team_member_id")
-    .is("archived_at", null);
+    .is("archived_at", null)
+    .neq("status", "reserved");
 
   const { data: messageCounts } = await supabase.from("messages").select("team_member_id");
 

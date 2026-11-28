@@ -16,7 +16,7 @@ export default async function EditAccountPage({ params }: Props) {
     .eq("id", id)
     .single();
 
-  if (!account) notFound();
+  if (!account || account.status === "reserved") notFound();
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

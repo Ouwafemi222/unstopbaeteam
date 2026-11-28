@@ -132,6 +132,7 @@ export async function PersonalDashboard({
         .select("*, country:countries(name, flag_emoji)")
         .eq("team_member_id", member.id)
         .is("archived_at", null)
+        .neq("status", "reserved")
         .order("opening_date", { ascending: false }),
       supabase
         .from("messages")
@@ -190,7 +191,7 @@ export async function PersonalDashboard({
     if (earnings === undefined) earnings = (earnRes.data as MemberWeeklyEarning[]) ?? [];
   }
 
-  const accountList = accounts ?? [];
+  const accountList = (accounts ?? []).filter((account) => account.status !== "reserved");
   const messageList = messages ?? [];
   const activeAccounts =
     accountList.filter((a) => a.status === "active" || a.status === "verified").length;

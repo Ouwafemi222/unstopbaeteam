@@ -21,7 +21,7 @@ export default async function MyAccountsEditPage({ params }: Props) {
     .eq("id", id)
     .single();
 
-  if (!account) notFound();
+  if (!account || account.status === "reserved") notFound();
   if (account.team_member_id !== scope.teamMember.id) redirect("/my-accounts");
 
   return (

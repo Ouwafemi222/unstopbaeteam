@@ -73,6 +73,7 @@ export function DailyPopups({
             .from("fiverr_accounts")
             .select("id", { count: "exact", head: true })
             .eq("team_member_id", teamMemberId)
+            .neq("status", "reserved")
             .gte("created_at", sinceIso),
         ]);
         if (!messages.error && !accounts.error) {

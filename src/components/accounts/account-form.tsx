@@ -283,12 +283,16 @@ export function AccountForm({
     }
     const { data } = await supabase
       .from("fiverr_accounts")
-      .select("username, email, phone, verification_code")
+      .select("username, email, phone, verification_code, status")
       .eq(field, value)
       .is("archived_at", null)
       .limit(1);
     if (data && data.length > 0) {
       const hit = data[0];
+      if (hit.status === "reserved") {
+        setDuplicateWarning("That detail is already on file.");
+        return;
+      }
       const label =
         field === "verification_code"
           ? `code ${hit.verification_code}`

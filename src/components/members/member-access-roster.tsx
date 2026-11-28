@@ -56,17 +56,31 @@ export function MemberAccessRoster({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, memberIds }),
     });
-    const body = (await response.json()) as { error?: string; updated?: number; skipped?: string[] };
+    const body = (await response.json()) as {
+      error?: string;
+      updated?: number;
+      skipped?: string[];
+      parked?: number;
+      released?: number;
+    };
     setBusy(false);
     if (!response.ok) {
       toast.error(body.error ?? "Could not update access");
       return;
     }
     const skipped = body.skipped?.length ? ` Left in place: ${body.skipped.join(", ")}.` : "";
+    const parked =
+      action === "remove" && (body.parked ?? 0) > 0
+        ? ` ${body.parked} Fiverr account${body.parked === 1 ? "" : "s"} moved to Reserved.`
+        : "";
+    const released =
+      action === "restore" && (body.released ?? 0) > 0
+        ? ` ${body.released} Fiverr account${body.released === 1 ? "" : "s"} back on the site.`
+        : "";
     toast.success(
       action === "remove"
-        ? `${body.updated ?? memberIds.length} moved to Account removed.${skipped}`
-        : `${body.updated ?? memberIds.length} can sign in again.${skipped}`
+        ? `${body.updated ?? memberIds.length} moved to Account removed.${parked}${skipped}`
+        : `${body.updated ?? memberIds.length} can sign in again.${released}${skipped}`
     );
     setSelected([]);
     router.refresh();
