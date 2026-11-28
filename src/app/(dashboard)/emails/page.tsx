@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
+import { memberIsRemoved } from "@/lib/members/visibility";
 import type { EmailRecord } from "@/types/database";
 
 export default async function AllEmailsPage() {
@@ -16,11 +17,13 @@ export default async function AllEmailsPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("email_records")
-    .select("*, team_member:team_members(full_name)")
+    .select("*, team_member:team_members(full_name, access_removed_at)")
     .order("received_date", { ascending: false })
     .limit(200);
 
-  const records = (data ?? []) as EmailRecord[];
+  const records = ((data ?? []) as EmailRecord[]).filter(
+    (record) => !memberIsRemoved(record.team_member as { access_removed_at?: string | null } | null)
+  );
 
   return (
     <div className="space-y-6">

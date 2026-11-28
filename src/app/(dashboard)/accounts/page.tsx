@@ -14,7 +14,7 @@ export default async function AccountsPage() {
       .is("archived_at", null)
       .neq("status", "reserved")
       .order("created_at", { ascending: false }),
-    supabase.from("team_members").select("id, full_name").eq("status", "active").order("full_name"),
+    supabase.from("team_members").select("id, full_name").eq("status", "active").is("access_removed_at", null).order("full_name"),
     supabase.from("countries").select("*").eq("is_active", true).order("name"),
     supabase.from("services").select("*").eq("is_active", true).order("name"),
   ]);

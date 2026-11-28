@@ -60,6 +60,7 @@ export function AdminFineOnGroundCard() {
           .from("team_members")
           .select("id, full_name, preferred_name, user_id")
           .eq("status", "active")
+          .is("access_removed_at", null)
           .order("full_name"),
         supabase
           .from("fiverr_accounts")

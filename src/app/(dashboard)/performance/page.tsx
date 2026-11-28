@@ -21,7 +21,7 @@ export default async function PerformancePage({ searchParams }: Props) {
   const prevMonth = month === 1 ? `${year - 1}-12-01` : `${year}-${String(month - 1).padStart(2, "0")}-01`;
 
   const [{ data: members }, { data: accounts }, { data: messages }, { data: services }] = await Promise.all([
-    supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
+    supabase.from("team_members").select("*").eq("status", "active").is("access_removed_at", null).order("full_name"),
     supabase.from("fiverr_accounts").select("team_member_id").is("archived_at", null).neq("status", "reserved"),
     supabase.from("messages").select("team_member_id, service_id, received_date"),
     supabase.from("services").select("id, name"),

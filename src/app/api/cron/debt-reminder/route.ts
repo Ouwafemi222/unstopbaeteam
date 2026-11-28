@@ -92,7 +92,8 @@ export async function GET(request: Request) {
     .from("team_members")
     .select("id, full_name, preferred_name, user_id, email, status")
     .in("id", memberIds)
-    .eq("status", "active");
+    .eq("status", "active")
+    .is("access_removed_at", null);
 
   const since = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString();
   const { data: recent } = await admin

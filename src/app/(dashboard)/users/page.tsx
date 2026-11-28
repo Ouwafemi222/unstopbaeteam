@@ -14,7 +14,7 @@ export default async function UsersPage() {
     supabase.from("profiles").select("*").order("full_name"),
     supabase.from("roles").select("*").order("name"),
     supabase.from("user_roles").select("*, role:roles(name, slug)"),
-    supabase.from("team_members").select("id, full_name, email, user_id, role_in_team").order("full_name"),
+    supabase.from("team_members").select("id, full_name, email, user_id, role_in_team").is("access_removed_at", null).order("full_name"),
   ]);
 
   return (

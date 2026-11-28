@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate, getMessageServiceLabel } from "@/lib/utils";
 import { messageMatchesService } from "@/lib/services/message-match";
+import { memberIsRemoved } from "@/lib/members/visibility";
 import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 
 interface Props {
@@ -35,16 +36,20 @@ export default async function ServiceDetailPage({ params }: Props) {
 
   const { data: messages } = await supabase
     .from("messages")
-    .select("id, team_member_id, service_id, gig_name, received_date, status, team_member:team_members(id, full_name)")
+    .select("id, team_member_id, service_id, gig_name, received_date, status, team_member:team_members(id, full_name, access_removed_at)")
     .order("received_date", { ascending: false });
 
   const related = (messages ?? []).filter((m) => messageMatchesService(m, service));
 
   function getMember(msg: (typeof related)[number]) {
     const tm = msg.team_member;
-    if (!tm) return null;
-    if (Array.isArray(tm)) return (tm[0] as { id: string; full_name: string } | undefined) ?? null;
-    return tm as { id: string; full_name: string };
+    const member = !tm
+      ? null
+      : Array.isArray(tm)
+        ? ((tm[0] as { id: string; full_name: string; access_removed_at?: string | null } | undefined) ?? null)
+        : (tm as { id: string; full_name: string; access_removed_at?: string | null });
+    if (!member || memberIsRemoved(member)) return null;
+    return member;
   }
 
   const byMember = new Map<string, MemberGroup>();
@@ -80,6 +85,7 @@ export default async function ServiceDetailPage({ params }: Props) {
   }
 
   const members = [...byMember.values()].sort((a, b) => b.messageCount - a.messageCount);
+  const visibleMessageCount = members.reduce((sum, member) => sum + member.messageCount, 0);
 
   return (
     <div className="space-y-6">
@@ -98,7 +104,7 @@ export default async function ServiceDetailPage({ params }: Props) {
               <p className="text-neutral-500 mt-1">{service.description}</p>
             )}
             <p className="text-sm text-neutral-400 mt-2">
-              {related.length} message{related.length === 1 ? "" : "s"} across{" "}
+              {visibleMessageCount} message{visibleMessageCount === 1 ? "" : "s"} across{" "}
               {members.length} team member{members.length === 1 ? "" : "s"}
             </p>
           </div>

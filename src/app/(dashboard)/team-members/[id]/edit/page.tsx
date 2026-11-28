@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getUserScope } from "@/lib/auth/scope";
 import { TeamMemberForm } from "@/components/members/team-member-form";
 
 interface Props {
@@ -8,10 +9,13 @@ interface Props {
 
 export default async function EditTeamMemberPage({ params }: Props) {
   const { id } = await params;
+  const scope = await getUserScope();
+  if (!scope) redirect("/login");
   const supabase = await createClient();
 
   const { data: member } = await supabase.from("team_members").select("*").eq("id", id).single();
   if (!member) notFound();
+  if (member.access_removed_at && !scope.roleSlugs.includes("super_admin")) notFound();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

@@ -9,6 +9,7 @@ import { MESSAGE_STATUS_LABELS } from "@/lib/utils/dates";
 import { getMemberImageUrl } from "@/lib/storage/member-uploads";
 import { MessageOcrReadout } from "@/components/messages/message-ocr-readout";
 import { shownAccountName } from "@/lib/accounts/hold";
+import { memberIsRemoved } from "@/lib/members/visibility";
 import type { Message } from "@/types/database";
 
 export default async function MessagesPage() {
@@ -16,12 +17,16 @@ export default async function MessagesPage() {
 
   const { data: messages } = await supabase
     .from("messages")
-    .select("*, team_member:team_members(full_name), service:services(name), fiverr_account:fiverr_accounts(username, status)")
+    .select("*, team_member:team_members(full_name, access_removed_at), service:services(name), fiverr_account:fiverr_accounts(username, status)")
     .order("received_date", { ascending: false })
     .limit(100);
 
+  const visibleMessages = ((messages ?? []) as Message[]).filter(
+    (msg) => !memberIsRemoved(msg.team_member as { access_removed_at?: string | null } | null)
+  );
+
   const withEvidence = await Promise.all(
-    ((messages ?? []) as Message[]).map(async (msg) => ({
+    visibleMessages.map(async (msg) => ({
       msg,
       url: msg.screenshot_path ? await getMemberImageUrl(supabase, msg.screenshot_path) : null,
     }))

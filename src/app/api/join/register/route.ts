@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
     .select("id, full_name, status")
     .eq("id", sponsorId)
     .eq("status", "active")
+    .is("access_removed_at", null)
     .single();
 
   if (!sponsorCheck) {

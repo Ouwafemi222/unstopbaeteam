@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import type { Incentive, TeamMember } from "@/types/database";
 
-type IncentiveRow = Incentive & { team_member?: { full_name: string } | null };
+type IncentiveRow = Incentive & {
+  team_member?: { full_name: string; access_removed_at?: string | null } | null;
+};
 
 export function IncentiveManager() {
   const [items, setItems] = useState<IncentiveRow[]>([]);
@@ -24,10 +26,10 @@ export function IncentiveManager() {
     const [{ data: rows }, { data: people }] = await Promise.all([
       supabase
         .from("incentives")
-        .select("*, team_member:team_members(full_name)")
+        .select("*, team_member:team_members(full_name, access_removed_at)")
         .is("slot", null)
         .order("created_at", { ascending: false }),
-      supabase.from("team_members").select("id, full_name").eq("status", "active").order("full_name"),
+      supabase.from("team_members").select("id, full_name").eq("status", "active").is("access_removed_at", null).order("full_name"),
     ]);
     setItems((rows ?? []) as IncentiveRow[]);
     setMembers((people ?? []) as TeamMember[]);
@@ -133,7 +135,11 @@ export function IncentiveManager() {
                 <p className="font-semibold text-neutral-900">{item.title}</p>
                 {item.detail && <p className="mt-1 text-sm text-neutral-500">{item.detail}</p>}
                 <p className="mt-1 text-xs text-neutral-400">
-                  {item.team_member?.full_name ? `Only ${item.team_member.full_name}` : "Whole team"}
+                  {item.team_member?.access_removed_at
+                    ? "Hidden while that member is off the team"
+                    : item.team_member?.full_name
+                      ? `Only ${item.team_member.full_name}`
+                      : "Whole team"}
                   {item.is_active ? " · On the billboard" : " · Hidden"}
                 </p>
               </div>

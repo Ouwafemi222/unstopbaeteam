@@ -34,6 +34,7 @@ export default async function TeamMemberDetailPage({ params, searchParams }: Pro
     .single();
 
   if (!member) notFound();
+  if (member.access_removed_at && !scope.roleSlugs.includes("super_admin")) notFound();
 
   const viewAccess = canViewMemberProfile(scope.teamMember?.id, member, scope.isAdmin);
   if (!viewAccess) redirect("/dashboard");

@@ -31,6 +31,7 @@ export async function GET(request: Request) {
           .from("team_members")
           .select("id, full_name")
           .eq("status", "active")
+          .is("access_removed_at", null)
           .order("full_name")
           .range(from, to)
       ),

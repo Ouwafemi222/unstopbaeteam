@@ -21,11 +21,12 @@ export default async function MemberNewAccountPage({ params }: Props) {
   const supabase = await createClient();
   const { data: member } = await supabase
     .from("team_members")
-    .select("id, full_name")
+    .select("id, full_name, access_removed_at")
     .eq("id", id)
     .single();
 
   if (!member) notFound();
+  if (member.access_removed_at && !scope.roleSlugs.includes("super_admin")) notFound();
 
   return (
     <RecordPageShell

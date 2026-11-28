@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadRemovedMemberIds } from "@/lib/members/visibility";
 
 const CLAIM_MS = 24 * 60 * 60 * 1000;
 
@@ -10,6 +11,7 @@ type ClaimRow = {
   used_at: string;
   code?: string | null;
   user_id?: string;
+  team_member_id?: string | null;
 };
 
 export type ListedNumber = {
@@ -33,7 +35,7 @@ export async function attachUses(supabase: SupabaseClient, rows: ListedNumber[])
   const db = claimsDb(supabase);
   const { data, error } = await db
     .from("phone_number_claims")
-    .select("number, member_name, catalog_added, used_at, code")
+    .select("number, member_name, catalog_added, used_at, code, team_member_id")
     .in(
       "number",
       rows.map((row) => row.number)
@@ -41,12 +43,16 @@ export async function attachUses(supabase: SupabaseClient, rows: ListedNumber[])
   if (error || !data) return plain;
 
   const claims = new Map((data as ClaimRow[]).map((claim) => [claim.number, claim]));
+  const removed = await loadRemovedMemberIds(db);
   const stale: string[] = [];
   const listed = rows.map((row) => {
     const claim = claims.get(row.number);
     const code = String(claim?.code || "").replace(/\D/g, "");
     if (!claim || !isFresh(claim, row.added) || !/^\d{4,8}$/.test(code)) {
       if (claim) stale.push(row.number);
+      return { number: row.number, usedBy: null };
+    }
+    if (claim.team_member_id && removed.has(claim.team_member_id)) {
       return { number: row.number, usedBy: null };
     }
     return { number: row.number, usedBy: claim.member_name };

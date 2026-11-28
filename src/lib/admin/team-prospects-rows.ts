@@ -25,6 +25,7 @@ export async function fetchTeamProspectsMemberRows(
       .from("team_members")
       .select("id, full_name, preferred_name, status")
       .eq("status", "active")
+      .is("access_removed_at", null)
       .order("full_name"),
     supabase
       .from("member_prospect_entries")

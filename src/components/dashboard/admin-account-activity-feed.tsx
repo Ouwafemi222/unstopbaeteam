@@ -14,7 +14,7 @@ export interface AccountActivityItem {
   status: AccountStatus | string;
   created_at: string;
   opening_date?: string | null;
-  team_member?: { full_name: string; id?: string } | null;
+  team_member?: { full_name: string; id?: string; access_removed_at?: string | null } | null;
   country?: { name: string; flag_emoji: string } | null;
 }
 
@@ -27,6 +27,9 @@ export function AdminAccountActivityFeed({
   todayAccounts,
   recentAccounts,
 }: AdminAccountActivityFeedProps) {
+  const visibleToday = todayAccounts.filter((account) => !account.team_member?.access_removed_at);
+  const visibleRecent = recentAccounts.filter((account) => !account.team_member?.access_removed_at);
+
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       {/* Today's accounts */}
@@ -35,9 +38,9 @@ export function AdminAccountActivityFeed({
           <CardTitle className="text-base flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-brand-green" />
             Accounts added today
-            {todayAccounts.length > 0 && (
+            {visibleToday.length > 0 && (
               <Badge variant="success" className="ml-1">
-                {todayAccounts.length}
+                {visibleToday.length}
               </Badge>
             )}
           </CardTitle>
@@ -46,13 +49,13 @@ export function AdminAccountActivityFeed({
           </p>
         </CardHeader>
         <CardContent>
-          {todayAccounts.length === 0 ? (
+          {visibleToday.length === 0 ? (
             <p className="text-sm text-neutral-500 py-4">
               Nobody has added a Fiverr account on the website today yet.
             </p>
           ) : (
             <ul className="space-y-3">
-              {todayAccounts.map((acc) => {
+              {visibleToday.map((acc) => {
                 const name = (acc.team_member as { full_name?: string } | null)?.full_name ?? "A member";
                 return (
                   <li
@@ -95,7 +98,7 @@ export function AdminAccountActivityFeed({
           </p>
         </CardHeader>
         <CardContent>
-          {recentAccounts.length === 0 ? (
+          {visibleRecent.length === 0 ? (
             <p className="text-sm text-neutral-500">No accounts yet.</p>
           ) : (
             <div className="responsive-table">
@@ -108,7 +111,7 @@ export function AdminAccountActivityFeed({
                   </tr>
                 </thead>
                 <tbody>
-                  {recentAccounts.map((acc) => {
+                  {visibleRecent.map((acc) => {
                     const name =
                       (acc.team_member as { full_name?: string } | null)?.full_name ?? "A member";
                     return (

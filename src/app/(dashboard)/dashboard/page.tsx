@@ -22,6 +22,7 @@ import { LocationCard } from "@/components/shared/location-card";
 import { fetchExchangeRates } from "@/lib/currency/fetch-rates";
 import { presenceRowToGeoLocation } from "@/lib/geo/presence-to-location";
 import { hasWeekActivity } from "@/lib/members/progress-metrics";
+import { liveEventIsPublic, loadRemovedMemberIds, memberIsRemoved } from "@/lib/members/visibility";
 import type { MemberWeeklyEarning, TeamLiveEvent } from "@/types/database";
 import { Stage3D } from "@/components/layout/stage-3d";
 import { BlenderViewport } from "@/components/layout/blender-viewport";
@@ -81,7 +82,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     { count: totalMembers },
     { count: totalAccounts },
     { count: accountsThisMonth },
-    { count: messagesThisMonth },
     { count: accountsAddedToday },
     { data: todayAccounts },
     { data: recentAccounts },
@@ -96,17 +96,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     presencePromise,
     supabase
       .from("team_live_events")
-      .select("id, kind, actor_name, summary, href, created_by, created_at")
+      .select("id, kind, actor_name, summary, href, team_member_id, created_by, created_at")
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase.from("team_members").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("team_members").select("*", { count: "exact", head: true }).eq("status", "active").is("access_removed_at", null),
     supabase.from("fiverr_accounts").select("*", { count: "exact", head: true }).is("archived_at", null).neq("status", "reserved"),
     supabase.from("fiverr_accounts").select("*", { count: "exact", head: true })
       .is("archived_at", null)
       .neq("status", "reserved")
       .gte("opening_date", dateRange.from).lte("opening_date", dateRange.to),
-    supabase.from("messages").select("*", { count: "exact", head: true })
-      .gte("received_date", dateRange.from).lte("received_date", dateRange.to),
     supabase
       .from("fiverr_accounts")
       .select("*", { count: "exact", head: true })
@@ -115,7 +113,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .gte("created_at", todayStartIso),
     supabase
       .from("fiverr_accounts")
-      .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name), country:countries(name, flag_emoji)")
+      .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name, access_removed_at), country:countries(name, flag_emoji)")
       .is("archived_at", null)
       .neq("status", "reserved")
       .gte("created_at", todayStartIso)
@@ -123,15 +121,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .limit(30),
     supabase
       .from("fiverr_accounts")
-      .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name), country:countries(name, flag_emoji)")
+      .select("id, username, status, created_at, opening_date, team_member:team_members(id, full_name, access_removed_at), country:countries(name, flag_emoji)")
       .is("archived_at", null)
       .neq("status", "reserved")
       .order("created_at", { ascending: false })
       .limit(12),
     supabase.from("messages")
-      .select("*, team_member:team_members(full_name), service:services(name), fiverr_account:fiverr_accounts(username)")
+      .select("*, team_member:team_members(full_name, access_removed_at), service:services(name), fiverr_account:fiverr_accounts(username)")
       .order("received_date", { ascending: false }).limit(5),
-    supabase.from("team_members").select("id, full_name").eq("status", "active"),
+    supabase.from("team_members").select("id, full_name").eq("status", "active").is("access_removed_at", null),
     supabase.from("messages").select("team_member_id, service_id, received_date")
       .gte("received_date", dateRange.from).lte("received_date", dateRange.to),
     supabase.from("fiverr_accounts").select("country_id, team_member_id").is("archived_at", null).neq("status", "reserved"),
@@ -142,8 +140,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq("year_month", yearMonth),
   ]);
 
+  const activeMemberIds = new Set((members ?? []).map((member) => member.id));
+  const publicMessages = (messages ?? []).filter((message) => activeMemberIds.has(message.team_member_id));
+  const removedIds = await loadRemovedMemberIds(supabase);
+
   const memberMessageCounts = new Map<string, number>();
-  messages?.forEach((m) => {
+  publicMessages.forEach((m) => {
     memberMessageCounts.set(m.team_member_id, (memberMessageCounts.get(m.team_member_id) || 0) + 1);
   });
 
@@ -160,7 +162,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const weeklyList = (weeklyEarnings ?? []) as MemberWeeklyEarning[];
   const membersWithWeekly = new Set(
-    weeklyList.filter(hasWeekActivity).map((e) => e.team_member_id)
+    weeklyList
+      .filter((entry) => hasWeekActivity(entry) && activeMemberIds.has(entry.team_member_id))
+      .map((e) => e.team_member_id)
   );
   const weeklySubmitted = membersWithWeekly.size;
   const weeklyMissing = Math.max(0, (members?.length ?? 0) - weeklySubmitted);
@@ -170,7 +174,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     { label: "Total Fiverr Accounts", value: totalAccounts ?? 0, icon: Briefcase, color: "text-brand-orange" },
     { label: "Accounts Added Today", value: accountsAddedToday ?? 0, icon: Briefcase, color: "text-emerald-600" },
     { label: "Accounts Opened (period)", value: accountsThisMonth ?? 0, icon: TrendingUp, color: "text-blue-600" },
-    { label: "Messages This Period", value: messagesThisMonth ?? 0, icon: MessageSquare, color: "text-violet-600" },
+    { label: "Messages This Period", value: publicMessages.length, icon: MessageSquare, color: "text-violet-600" },
     { label: "Members With Messages", value: membersWithMessages, icon: Users, color: "text-emerald-600" },
     { label: "Zero Messages", value: membersWithZero, icon: AlertTriangle, color: "text-red-500" },
   ];
@@ -178,7 +182,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const zeroMessageMembers = members?.filter((m) => !memberMessageCounts.has(m.id)) ?? [];
 
   const initialLocation = presenceRow ? presenceRowToGeoLocation(presenceRow) : null;
-  const initialLiveEvents = (liveEventsRaw ?? []) as TeamLiveEvent[];
+  const initialLiveEvents = ((liveEventsRaw ?? []) as TeamLiveEvent[]).filter((event) =>
+    liveEventIsPublic(event, removedIds)
+  );
+  const visibleRecentMessages = (recentMessages ?? []).filter(
+    (msg) => !memberIsRemoved(msg.team_member as { access_removed_at?: string | null } | null)
+  );
 
   const dashboard = (
     <>
@@ -192,7 +201,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         totals={{
           members: totalMembers ?? 0,
           accounts: totalAccounts ?? 0,
-          messagesThisPeriod: messagesThisMonth ?? 0,
+          messagesThisPeriod: publicMessages.length,
           accountsToday: accountsAddedToday ?? 0,
           weeklySubmitted,
           weeklyMissing,
@@ -299,7 +308,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       )}
 
       <DashboardChartsLazy
-        messages={messages ?? []}
+        messages={publicMessages}
         members={members ?? []}
         countries={countries ?? []}
         countryCounts={Object.fromEntries(countryCounts)}
@@ -318,11 +327,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {recentMessages?.length === 0 ? (
+          {visibleRecentMessages.length === 0 ? (
             <p className="text-sm text-neutral-500 p-5">No messages recorded yet.</p>
           ) : (
             <ul className="divide-y divide-neutral-100">
-              {recentMessages?.map((msg) => (
+              {visibleRecentMessages.map((msg) => (
                 <li
                   key={msg.id}
                   className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 hover:bg-brand-orange-light/20 transition-colors"

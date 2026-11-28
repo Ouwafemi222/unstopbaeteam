@@ -70,7 +70,7 @@ export function MessageForm({
       const [{ data: m }, serviceRows] = await Promise.all([
         isSelfService
           ? Promise.resolve({ data: null })
-          : supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
+          : supabase.from("team_members").select("*").eq("status", "active").is("access_removed_at", null).order("full_name"),
         loadActiveServices(supabase),
       ]);
       if (m) setMembers(m ?? []);

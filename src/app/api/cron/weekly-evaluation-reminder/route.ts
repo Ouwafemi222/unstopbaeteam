@@ -66,6 +66,7 @@ export async function GET(request: Request) {
     .from("team_members")
     .select("id, full_name, preferred_name, user_id, email")
     .eq("status", "active")
+    .is("access_removed_at", null)
     .not("user_id", "is", null);
 
   if (membersError) {

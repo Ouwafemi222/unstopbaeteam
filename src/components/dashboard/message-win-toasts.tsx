@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { playMessageNotificationSound, setStoredNotificationSound, isNotificationSoundId } from "@/lib/audio/message-notification-sound";
 import type { TeamLiveEvent } from "@/types/database";
+import { liveEventIsPublic, loadRemovedMemberIds, memberIdIsRemoved } from "@/lib/members/visibility";
 
 const ROTATE_MS = 40_000;
 const RECENT_LIMIT = 25;
@@ -138,7 +139,11 @@ export function MessageWinToasts() {
 
       if (cancelled) return;
 
-      const rows = ((data as TeamLiveEvent[]) ?? []).filter((r) => r?.id);
+      const removed = await loadRemovedMemberIds(supabase);
+      if (cancelled) return;
+      const rows = ((data as TeamLiveEvent[]) ?? []).filter(
+        (r) => r?.id && liveEventIsPublic(r, removed)
+      );
       queueRef.current = rows;
       rows.forEach((r) => seenIds.current.add(r.id));
 
@@ -160,12 +165,15 @@ export function MessageWinToasts() {
           const row = payload.new as TeamLiveEvent;
           if (!row?.id || row.kind !== "message") return;
           if (seenIds.current.has(row.id)) return;
-          seenIds.current.add(row.id);
-          queueRef.current = [row, ...queueRef.current.filter((e) => e.id !== row.id)].slice(
-            0,
-            RECENT_LIMIT
-          );
-          showToast(row);
+          void memberIdIsRemoved(supabase, row.team_member_id).then((removed) => {
+            if (removed || seenIds.current.has(row.id)) return;
+            seenIds.current.add(row.id);
+            queueRef.current = [row, ...queueRef.current.filter((e) => e.id !== row.id)].slice(
+              0,
+              RECENT_LIMIT
+            );
+            showToast(row);
+          });
         }
       )
       .subscribe();

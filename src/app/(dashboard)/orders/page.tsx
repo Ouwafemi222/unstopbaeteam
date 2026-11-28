@@ -6,6 +6,7 @@ import { getUserScope } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { shownAccountName } from "@/lib/accounts/hold";
+import { memberIsRemoved } from "@/lib/members/visibility";
 import { OrderForm } from "@/components/orders/order-form";
 
 function formatMoney(amount: number, currency: string) {
@@ -35,11 +36,15 @@ export default async function OrdersAdminPage({
   const { data: orders } = await supabase
     .from("orders_received")
     .select(
-      "*, team_member:team_members(id, full_name), fiverr_account:fiverr_accounts(id, username, status)"
+      "*, team_member:team_members(id, full_name, access_removed_at), fiverr_account:fiverr_accounts(id, username, status)"
     )
     .order("received_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(80);
+
+  const visibleOrders = (orders ?? []).filter(
+    (order) => !memberIsRemoved(order.team_member as { access_removed_at?: string | null } | null)
+  );
 
   return (
     <div className="space-y-6">
@@ -81,14 +86,14 @@ export default async function OrdersAdminPage({
               </tr>
             </thead>
             <tbody>
-              {(orders ?? []).length === 0 ? (
+              {visibleOrders.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-neutral-500">
                     No orders recorded yet.
                   </td>
                 </tr>
               ) : (
-                (orders ?? []).map((o) => (
+                visibleOrders.map((o) => (
                   <tr key={o.id} className="border-b hover:bg-neutral-50">
                     <td className="p-3 font-medium">
                       {(o.team_member as { full_name?: string } | null)?.full_name ?? "—"}

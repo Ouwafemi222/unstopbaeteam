@@ -14,6 +14,7 @@ import {
   type OrderGiftJob,
 } from "@/lib/orders/order-gift-queue";
 import type { TeamLiveEvent } from "@/types/database";
+import { liveEventIsPublic, loadRemovedMemberIds, memberIdIsRemoved } from "@/lib/members/visibility";
 
 interface OrderCelebrationProps {
   open: boolean;
@@ -215,15 +216,20 @@ export function OrderGiftBroadcast() {
     async function boot() {
       const { data } = await supabase
         .from("team_live_events")
-        .select("id, kind, actor_name, summary, created_at")
+        .select("id, kind, actor_name, summary, team_member_id, created_at")
         .eq("kind", "order")
         .order("created_at", { ascending: false })
         .limit(15);
 
       if (cancelled) return;
 
+      const removed = await loadRemovedMemberIds(supabase);
+      if (cancelled) return;
+
       const now = Date.now();
-      for (const row of (data as TeamLiveEvent[]) ?? []) {
+      for (const row of ((data as TeamLiveEvent[]) ?? []).filter((event) =>
+        liveEventIsPublic(event, removed)
+      )) {
         const age = now - new Date(row.created_at).getTime();
         if (age <= ORDER_GIFT_ELIGIBLE_MS) {
           enqueueOrderGift({
@@ -248,13 +254,16 @@ export function OrderGiftBroadcast() {
         (payload) => {
           const row = payload.new as TeamLiveEvent;
           if (!row?.id || row.kind !== "order") return;
-          enqueueOrderGift({
-            id: row.id,
-            actorName: row.actor_name,
-            createdAt: row.created_at,
+          void memberIdIsRemoved(supabase, row.team_member_id).then((removed) => {
+            if (removed) return;
+            enqueueOrderGift({
+              id: row.id,
+              actorName: row.actor_name,
+              createdAt: row.created_at,
+            });
+            tryShowNext();
+            armWaitTimer();
           });
-          tryShowNext();
-          armWaitTimer();
         }
       )
       .subscribe();

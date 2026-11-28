@@ -414,6 +414,7 @@ async function buildReviews(
         .from("team_members")
         .select("id, full_name, preferred_name")
         .eq("status", "active")
+        .is("access_removed_at", null)
         .order("full_name"),
       supabase
         .from("weekly_evaluation_submissions")

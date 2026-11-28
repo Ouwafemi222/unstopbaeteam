@@ -109,6 +109,7 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
               .from("team_members")
               .select("id, full_name")
               .eq("status", "active")
+              .is("access_removed_at", null)
               .order("full_name")
               .range(from, to)
           ),
@@ -468,7 +469,9 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
               : leader
                 ? ` · ${leader.name} is ahead`
                 : "";
-          const starEvidence = pack?.stars ?? [];
+          const starEvidence = (pack?.stars ?? []).filter((review) =>
+            members.some((member) => member.id === review.team_member_id)
+          );
           return (
             <article key={slot.slot} className="rounded-2xl border border-neutral-200 bg-white p-4">
               <div className="flex flex-wrap items-end justify-between gap-3">

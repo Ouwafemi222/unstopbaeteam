@@ -18,6 +18,7 @@ export async function getSponsoredMembers(
     .from("team_members")
     .select("id, full_name, preferred_name, status, email")
     .eq("sponsor_id", sponsorTeamMemberId)
+    .is("access_removed_at", null)
     .order("full_name");
 
   if (error) {

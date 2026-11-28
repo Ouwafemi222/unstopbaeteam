@@ -9,6 +9,7 @@ import { RelativeTime } from "@/components/shared/relative-time";
 import { OrderGiftBroadcast } from "@/components/orders/order-celebration";
 import type { TeamLiveEvent } from "@/types/database";
 import { cn } from "@/lib/utils";
+import { liveEventIsPublic, loadRemovedMemberIds, memberIdIsRemoved } from "@/lib/members/visibility";
 
 const MAX_VISIBLE = 10;
 const DEFAULT_HOLD_MS = 14_000;
@@ -80,7 +81,7 @@ export function LiveTeamPulse({
       if (initialEvents === undefined) {
         const { data } = await supabase
           .from("team_live_events")
-          .select("id, kind, actor_name, summary, href, created_by, created_at")
+          .select("id, kind, actor_name, summary, href, team_member_id, created_by, created_at")
           .order("created_at", { ascending: false })
           .limit(20);
         if (cancelled) return;
@@ -88,6 +89,9 @@ export function LiveTeamPulse({
       } else if (cancelled) {
         return;
       }
+      const removed = await loadRemovedMemberIds(supabase);
+      if (cancelled) return;
+      rows = rows.filter((row) => liveEventIsPublic(row, removed));
       const now = Date.now();
       const visible: TeamLiveEvent[] = [];
 
@@ -118,7 +122,10 @@ export function LiveTeamPulse({
         (payload) => {
           const row = payload.new as TeamLiveEvent;
           if (!row?.id) return;
-          pushEvent(row, { toast: true, autoExit: true });
+          void memberIdIsRemoved(supabase, row.team_member_id).then((removed) => {
+            if (removed) return;
+            pushEvent(row, { toast: true, autoExit: true });
+          });
         }
       )
       .subscribe();

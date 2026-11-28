@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getUserScope } from "@/lib/auth/scope";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn, formatDate, getMessageServiceLabel } from "@/lib/utils";
@@ -32,15 +33,19 @@ export default async function MessageActivityPage({ params, searchParams }: Prop
   const period: Period = isPeriod(periodParam) ? periodParam : "this_week";
   const range = getDateRange(period as DateFilter);
 
+  const scope = await getUserScope();
+  if (!scope) redirect("/login");
+
   const supabase = await createClient();
 
   const { data: member } = await supabase
     .from("team_members")
-    .select("id, full_name, preferred_name")
+    .select("id, full_name, preferred_name, access_removed_at")
     .eq("id", memberId)
     .maybeSingle();
 
   if (!member) notFound();
+  if (member.access_removed_at && !scope.roleSlugs.includes("super_admin")) notFound();
 
   const displayName = member.preferred_name || member.full_name;
 

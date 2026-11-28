@@ -38,6 +38,7 @@ export function EmailRecordForm({
       .from("team_members")
       .select("*")
       .eq("status", "active")
+      .is("access_removed_at", null)
       .order("full_name")
       .then(({ data }) => setMembers((data as TeamMember[]) ?? []));
   }, [supabase, isSelfService]);

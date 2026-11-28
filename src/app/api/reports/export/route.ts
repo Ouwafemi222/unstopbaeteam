@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   let filename = `report-${type}-${year}-${month}.csv`;
 
   if (type === "monthly_messages" || type === "zero_message") {
-    const { data: members } = await supabase.from("team_members").select("*").eq("status", "active");
+    const { data: members } = await supabase.from("team_members").select("*").eq("status", "active").is("access_removed_at", null);
     const { data: messages } = await supabase.from("messages").select("team_member_id, received_date");
 
     csv = "Member,Messages This Month,Status\n";

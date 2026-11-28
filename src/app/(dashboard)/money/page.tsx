@@ -79,6 +79,7 @@ export default async function MoneyMadePage({ searchParams }: Props) {
     supabase
       .from("team_members")
       .select("id, full_name, preferred_name, status, user_id")
+      .is("access_removed_at", null)
       .order("full_name"),
     supabase
       .from("member_weekly_earnings")

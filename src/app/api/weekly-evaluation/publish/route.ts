@@ -102,6 +102,7 @@ export async function POST(request: Request) {
     .from("team_members")
     .select("user_id, full_name, preferred_name")
     .eq("status", "active")
+    .is("access_removed_at", null)
     .not("user_id", "is", null);
 
   const notifications = (members ?? [])

@@ -39,7 +39,8 @@ export async function fetchTeamMembersWithActiveFines(
     .from("team_members")
     .select("id, full_name, preferred_name, status")
     .in("id", memberIds)
-    .eq("status", "active");
+    .eq("status", "active")
+    .is("access_removed_at", null);
 
   const rows: TeamMemberFineRosterRow[] = (members ?? []).map((m) => ({
     teamMemberId: m.id,

@@ -68,8 +68,24 @@ export function GlobalSearch({ className, large }: GlobalSearchProps) {
           .eq("status", "reserved");
         parked = new Set((hidden ?? []).map((row) => row.id));
       }
+      const memberIds = rows
+        .filter((row) => row.result_type === "team_member")
+        .map((row) => row.result_id);
+      let removed = new Set<string>();
+      if (memberIds.length > 0) {
+        const { data: hiddenPeople } = await supabase
+          .from("team_members")
+          .select("id")
+          .in("id", memberIds)
+          .not("access_removed_at", "is", null);
+        removed = new Set((hiddenPeople ?? []).map((row) => row.id));
+      }
       setResults(
-        rows.filter((row) => row.result_type !== "fiverr_account" || !parked.has(row.result_id))
+        rows.filter((row) => {
+          if (row.result_type === "fiverr_account" && parked.has(row.result_id)) return false;
+          if (row.result_type === "team_member" && removed.has(row.result_id)) return false;
+          return true;
+        })
       );
     }
     setLoading(false);

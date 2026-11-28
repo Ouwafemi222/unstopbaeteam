@@ -115,7 +115,7 @@ export function AccountForm({
       const [{ data: m }, { data: c }, serviceRows] = await Promise.all([
         isSelfService
           ? Promise.resolve({ data: null })
-          : supabase.from("team_members").select("*").eq("status", "active").order("full_name"),
+          : supabase.from("team_members").select("*").eq("status", "active").is("access_removed_at", null).order("full_name"),
         supabase.from("countries").select("*").eq("is_active", true).order("name"),
         loadActiveServices(supabase),
       ]);

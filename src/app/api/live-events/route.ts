@@ -47,6 +47,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, published: false, reason: "no_service_role" });
   }
 
+  if (teamMemberId) {
+    const { data: member } = await admin
+      .from("team_members")
+      .select("access_removed_at")
+      .eq("id", teamMemberId)
+      .maybeSingle();
+    if (member?.access_removed_at) {
+      return NextResponse.json({ ok: true, published: false });
+    }
+  }
+
   const { data, error } = await admin
     .from("team_live_events")
     .insert({
