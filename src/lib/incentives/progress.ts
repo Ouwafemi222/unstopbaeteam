@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { lagosDayEndIso, lagosDayStartIso } from "@/lib/weekly-evaluation/week";
 import { getMemberImageUrl } from "@/lib/storage/member-uploads";
-import { INCENTIVE_SLOTS } from "@/lib/incentives/catalog";
+import { INCENTIVE_SLOTS, placeFromScore, reasonsFromNote, type PickPlace } from "@/lib/incentives/catalog";
 
 export interface ProgressMember {
   id: string;
@@ -19,6 +19,8 @@ export interface StarEvidence {
 
 export interface ManualPick {
   picked: boolean;
+  place: PickPlace;
+  reasons: string[];
   note: string;
 }
 
@@ -242,11 +244,14 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
   }
   for (const row of scores) {
     if (!manual[row.slot]) manual[row.slot] = {};
-    const picked = Number(row.score ?? 0) > 0;
-    if (!picked) continue;
+    const score = Number(row.score ?? 0);
+    if (score <= 0) continue;
+    const note = (row.note ?? "").trim();
     manual[row.slot][row.team_member_id] = {
       picked: true,
-      note: (row.note ?? "").trim(),
+      place: placeFromScore(score),
+      reasons: reasonsFromNote(note),
+      note,
     };
   }
 

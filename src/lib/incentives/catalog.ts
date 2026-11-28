@@ -13,17 +13,47 @@ export const INCENTIVE_SLOTS = [
 export type IncentiveSlot = (typeof INCENTIVE_SLOTS)[number]["slot"];
 export type IncentiveSource = (typeof INCENTIVE_SLOTS)[number]["source"];
 
-const AREA_PROMPTS: Record<string, string> = {
-  most_improved: "Which area did this person improve?",
-  well_behaved: "Where did you see this?",
-  most_learned: "What did this person learn?",
-  well_dressed: "What stood out?",
-};
+export const PICK_REASONS = [
+  "Knowledge",
+  "Book reading",
+  "Daily activities",
+  "Consistency",
+  "Disciplined",
+  "Does not complain",
+  "Complies",
+  "Treats the team well",
+  "Works with the team",
+] as const;
+
+export type PickPlace = 1 | 2 | 3;
 
 export function incentiveSlotMeta(slot: string) {
   return INCENTIVE_SLOTS.find((item) => item.slot === slot) ?? null;
 }
 
-export function incentiveAreaPrompt(slot: string) {
-  return AREA_PROMPTS[slot] ?? "What did you see?";
+export function placeScore(place: PickPlace) {
+  if (place === 1) return 3;
+  if (place === 2) return 2;
+  return 1;
+}
+
+export function placeLabel(place: PickPlace) {
+  if (place === 1) return "1st";
+  if (place === 2) return "2nd";
+  return "3rd";
+}
+
+export function placeFromScore(score: number): PickPlace {
+  if (score >= 3) return 1;
+  if (score === 2) return 2;
+  return 3;
+}
+
+export function reasonsFromNote(note: string) {
+  const parts = note
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const known = parts.filter((part) => (PICK_REASONS as readonly string[]).includes(part));
+  return known.length > 0 ? known : parts;
 }

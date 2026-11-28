@@ -6,10 +6,15 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { currentYearMonth } from "@/lib/utils/dates";
-import { INCENTIVE_SLOTS, incentiveAreaPrompt, type IncentiveSlot } from "@/lib/incentives/catalog";
+import {
+  INCENTIVE_SLOTS,
+  PICK_REASONS,
+  placeLabel,
+  placeScore,
+  type IncentiveSlot,
+  type PickPlace,
+} from "@/lib/incentives/catalog";
 import { EvidencePreview } from "@/components/shared/evidence-preview";
 import {
   fetchAll,
@@ -28,16 +33,19 @@ interface Standing {
   name: string;
   score: number;
   note: string;
+  reasons: string[];
+  place: PickPlace | null;
   picked: boolean;
 }
 
-interface AreaDraft {
+interface PlaceDraft {
   slot: IncentiveSlot;
   label: string;
   memberId: string;
   memberName: string;
   yearMonth: string;
-  note: string;
+  place: PickPlace | null;
+  reasons: string[];
 }
 
 async function fetchProgress(month: string) {
@@ -71,8 +79,8 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingPrizes, setSavingPrizes] = useState(false);
-  const [draft, setDraft] = useState<AreaDraft | null>(null);
-  const [savingArea, setSavingArea] = useState(false);
+  const [draft, setDraft] = useState<PlaceDraft | null>(null);
+  const [savingPlace, setSavingPlace] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const inflight = useMemo(() => new Set<string>(), []);
 
@@ -202,12 +210,14 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
           return {
             memberId: member.id,
             name: member.full_name,
-            score: pick?.picked ? 1 : 0,
+            score: pick ? placeScore(pick.place) : 0,
             note: pick?.note ?? "",
+            reasons: pick?.reasons ?? [],
+            place: pick?.place ?? null,
             picked: Boolean(pick?.picked),
           };
         })
-        .sort((a, b) => Number(b.picked) - Number(a.picked) || a.name.localeCompare(b.name));
+        .sort((a, b) => (a.place ?? 9) - (b.place ?? 9) || a.name.localeCompare(b.name));
     }
     const scores = pack?.auto[slot] ?? {};
     return members
@@ -216,6 +226,8 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
         name: member.full_name,
         score: scores[member.id] ?? 0,
         note: "",
+        reasons: [],
+        place: null,
         picked: (scores[member.id] ?? 0) > 0,
       }))
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
@@ -273,35 +285,77 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
     });
   }
 
-  async function saveArea() {
-    if (!draft) return;
-    const note = draft.note.trim();
-    if (!note) {
-      toast.error("Write the area first.");
+  function toggleReason(reason: string) {
+    setDraft((current) => {
+      if (!current) return current;
+      const reasons = current.reasons.includes(reason)
+        ? current.reasons.filter((item) => item !== reason)
+        : [...current.reasons, reason];
+      return { ...current, reasons };
+    });
+  }
+
+  async function savePlace() {
+    if (!draft?.place) return;
+    const reasons = draft.reasons.filter((reason) => (PICK_REASONS as readonly string[]).includes(reason));
+    if (reasons.length === 0) {
+      toast.error("Tick why this person is in that place.");
       return;
     }
-    setSavingArea(true);
+    const place = draft.place;
+    const note = reasons.join("|");
+    const score = placeScore(place);
+    setSavingPlace(true);
+    const holders = Object.entries(packs[draft.yearMonth]?.manual[draft.slot] ?? {}).filter(
+      ([memberId, pick]) => memberId !== draft.memberId && pick.place === place
+    );
+    for (const [memberId] of holders) {
+      const { error } = await supabase
+        .from("incentive_scores")
+        .delete()
+        .eq("slot", draft.slot)
+        .eq("team_member_id", memberId)
+        .eq("year_month", draft.yearMonth);
+      if (error) {
+        setSavingPlace(false);
+        toast.error(error.message);
+        return;
+      }
+    }
     const { error } = await supabase.from("incentive_scores").upsert(
       {
         slot: draft.slot,
         team_member_id: draft.memberId,
         year_month: draft.yearMonth,
-        score: 1,
+        score,
         note,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "slot,team_member_id,year_month" }
     );
-    setSavingArea(false);
+    setSavingPlace(false);
     if (error) {
       toast.error(
         /note/i.test(error.message)
-          ? "The area note is not ready yet. Run the incentive area SQL, then tick again."
+          ? "The place note is not ready yet. Run the incentive area SQL, then tick again."
           : error.message
       );
       return;
     }
-    writePick(draft.yearMonth, draft.slot, draft.memberId, { picked: true, note });
+    setPacks((current) => {
+      const monthPack = current[draft.yearMonth];
+      if (!monthPack) return current;
+      const slotPicks = { ...(monthPack.manual[draft.slot] ?? {}) };
+      for (const [memberId] of holders) delete slotPicks[memberId];
+      slotPicks[draft.memberId] = { picked: true, place, reasons, note };
+      return {
+        ...current,
+        [draft.yearMonth]: {
+          ...monthPack,
+          manual: { ...monthPack.manual, [draft.slot]: slotPicks },
+        },
+      };
+    });
     setDraft(null);
   }
 
@@ -379,7 +433,7 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                       ? "Counted from the 5-star screenshots members save"
                       : slot.source === "auto"
                         ? "Counted from what members record in the month you pick"
-                        : "Tick a member, then write the area. You can edit that note later."}
+                        : "Tick a member, choose 1st, 2nd, or 3rd, then tick why."}
                 </p>
               </div>
             </div>
@@ -405,13 +459,12 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
           const picks = rows.filter((row) => row.picked);
           const leader = rows.find((row) => row.score > 0);
           const top = leader?.score ?? 0;
+          const leaderPick = picks.find((row) => row.place === 1) ?? picks[0];
           const summary =
             slot.source === "manual"
-              ? picks.length === 1
-                ? ` · ${picks[0].name}`
-                : picks.length > 1
-                  ? ` · ${picks.length} picked`
-                  : ""
+              ? leaderPick?.place
+                ? ` · ${placeLabel(leaderPick.place)} ${leaderPick.name}`
+                : ""
               : leader
                 ? ` · ${leader.name} is ahead`
                 : "";
@@ -475,7 +528,7 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
               {pack && top === 0 ? (
                 <p className="mt-3 text-sm text-neutral-500">
                   {slot.source === "manual"
-                    ? `No one picked in ${monthLabel(chosenMonth)} yet.`
+                    ? `No places chosen in ${monthLabel(chosenMonth)} yet.`
                     : slot.slot === "five_stars"
                       ? `No 5-star screenshots saved in ${monthLabel(chosenMonth)} yet.`
                       : `No score recorded in ${monthLabel(chosenMonth)} yet.`}
@@ -487,59 +540,72 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                   {(slot.source === "manual" && readOnly ? rows.filter((row) => row.picked) : rows).map((row) => {
                     if (slot.source === "manual") {
                       return (
-                        <li key={row.memberId} className="flex items-start gap-3 rounded-lg px-1 py-1.5">
-                          {readOnly ? (
-                            <span className="mt-1 h-4 w-4 shrink-0 rounded-sm bg-[#7b1e3a]" aria-hidden />
-                          ) : (
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-4 w-4 shrink-0 accent-[#7b1e3a]"
-                              checked={row.picked}
-                              aria-label={`Pick ${row.name} for ${slot.label}`}
-                              onChange={(event) => {
-                                if (event.target.checked) {
+                        <li key={row.memberId} className="rounded-lg px-1 py-1.5">
+                          <div className="flex items-start gap-3">
+                            {readOnly ? (
+                              <span className="mt-1 h-4 w-4 shrink-0 rounded-sm bg-[#7b1e3a]" aria-hidden />
+                            ) : (
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 shrink-0 accent-[#7b1e3a]"
+                                checked={row.picked}
+                                aria-label={`Pick ${row.name} for ${slot.label}`}
+                                onChange={(event) => {
+                                  if (event.target.checked) {
+                                    setDraft({
+                                      slot: slot.slot,
+                                      label: slot.label,
+                                      memberId: row.memberId,
+                                      memberName: row.name,
+                                      yearMonth: chosenMonth,
+                                      place: null,
+                                      reasons: [],
+                                    });
+                                    return;
+                                  }
+                                  void clearPick(slot.slot, row.memberId, chosenMonth);
+                                }}
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm ${row.picked ? "font-semibold text-[#7b1e3a]" : "text-neutral-700"}`}>
+                                {row.place ? `${placeLabel(row.place)} · ` : ""}
+                                {row.name}
+                              </p>
+                              {row.reasons.length > 0 ? (
+                                <p className="mt-0.5 text-sm text-neutral-600">{row.reasons.join(" · ")}</p>
+                              ) : null}
+                            </div>
+                            {!readOnly && row.picked ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
                                   setDraft({
                                     slot: slot.slot,
                                     label: slot.label,
                                     memberId: row.memberId,
                                     memberName: row.name,
                                     yearMonth: chosenMonth,
-                                    note: "",
-                                  });
-                                  return;
+                                    place: row.place,
+                                    reasons: row.reasons.filter((reason) =>
+                                      (PICK_REASONS as readonly string[]).includes(reason)
+                                    ),
+                                  })
                                 }
-                                void clearPick(slot.slot, row.memberId, chosenMonth);
-                              }}
-                            />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-sm ${row.picked ? "font-semibold text-[#7b1e3a]" : "text-neutral-700"}`}>
-                              {row.name}
-                            </p>
-                            {row.picked ? (
-                              <p className="mt-0.5 text-sm text-neutral-600">
-                                {row.note || "Add the area you saw."}
-                              </p>
+                              >
+                                Edit
+                              </Button>
                             ) : null}
                           </div>
-                          {!readOnly && row.picked ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setDraft({
-                                  slot: slot.slot,
-                                  label: slot.label,
-                                  memberId: row.memberId,
-                                  memberName: row.name,
-                                  yearMonth: chosenMonth,
-                                  note: row.note,
-                                })
-                              }
-                            >
-                              Edit
-                            </Button>
+                          {row.place ? (
+                            <div className="ml-7 mt-2 h-2.5 overflow-hidden rounded-full bg-neutral-100">
+                              <div
+                                className="h-full rounded-full bg-[#7b1e3a]"
+                                style={{ width: row.place === 1 ? "100%" : row.place === 2 ? "66%" : "33%" }}
+                              />
+                            </div>
                           ) : null}
                         </li>
                       );
@@ -606,50 +672,64 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
           onClick={() => {
-            if (!savingArea) setDraft(null);
+            if (!savingPlace) setDraft(null);
           }}
         >
           <form
             role="dialog"
             aria-modal="true"
-            aria-labelledby="area-title"
-            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+            aria-labelledby="place-title"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
-              if (event.key === "Escape" && !savingArea) setDraft(null);
+              if (event.key === "Escape" && !savingPlace) setDraft(null);
             }}
             onSubmit={(event) => {
               event.preventDefault();
-              void saveArea();
+              void savePlace();
             }}
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-[#7b1e3a]">{draft.label}</p>
-            <h3 id="area-title" className="mt-1 text-lg font-semibold text-neutral-900">
-              {incentiveAreaPrompt(draft.slot)}
+            <h3 id="place-title" className="mt-1 text-lg font-semibold text-neutral-900">
+              Where does {draft.memberName} stand?
             </h3>
-            <p className="mt-1 text-sm text-neutral-500">
-              {draft.memberName} · {monthLabel(draft.yearMonth)}
-            </p>
-            <Label htmlFor="area-note" className="mt-4 block">
-              Area
-            </Label>
-            <Textarea
-              id="area-note"
-              value={draft.note}
-              autoFocus
-              rows={4}
-              placeholder="The place you saw them improve"
-              className="mt-1.5"
-              onChange={(event) =>
-                setDraft((current) => (current ? { ...current, note: event.target.value } : current))
-              }
-            />
+            <p className="mt-1 text-sm text-neutral-500">{monthLabel(draft.yearMonth)}</p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {([1, 2, 3] as PickPlace[]).map((place) => (
+                <button
+                  key={place}
+                  type="button"
+                  className={`rounded-xl border px-3 py-3 text-sm font-semibold ${
+                    draft.place === place
+                      ? "border-[#7b1e3a] bg-[#f6e8ec] text-[#7b1e3a]"
+                      : "border-neutral-200 text-neutral-700"
+                  }`}
+                  onClick={() => setDraft((current) => (current ? { ...current, place } : current))}
+                >
+                  {placeLabel(place)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-4 text-sm font-medium text-neutral-800">Why</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {PICK_REASONS.map((reason) => (
+                <label key={reason} className="flex items-center gap-2 text-sm text-neutral-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[#7b1e3a]"
+                    checked={draft.reasons.includes(reason)}
+                    onChange={() => toggleReason(reason)}
+                  />
+                  {reason}
+                </label>
+              ))}
+            </div>
             <div className="mt-4 flex justify-end gap-2">
-              <Button type="button" variant="outline" disabled={savingArea} onClick={() => setDraft(null)}>
+              <Button type="button" variant="outline" disabled={savingPlace} onClick={() => setDraft(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={savingArea || draft.note.trim().length === 0}>
-                {savingArea ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              <Button type="submit" disabled={savingPlace || !draft.place || draft.reasons.length === 0}>
+                {savingPlace ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Save
               </Button>
             </div>
