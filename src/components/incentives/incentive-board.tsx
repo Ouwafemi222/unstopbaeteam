@@ -434,7 +434,7 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                       ? "Counted from the 5-star screenshots members save"
                       : slot.source === "auto"
                         ? "Counted from what members record in the month you pick"
-                        : "Tick a member, choose 1st, 2nd, or 3rd, then tick why."}
+                        : "Tick a member, choose 1st, 2nd, or 3rd, then tick the characteristics that put them there."}
                 </p>
               </div>
             </div>
@@ -576,7 +576,16 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                                 {row.name}
                               </p>
                               {row.reasons.length > 0 ? (
-                                <p className="mt-0.5 text-sm text-neutral-600">{row.reasons.join(" · ")}</p>
+                                <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                                  {row.reasons.map((reason) => (
+                                    <li
+                                      key={reason}
+                                      className="rounded-full bg-[#f6e8ec] px-2 py-0.5 text-xs font-medium text-[#7b1e3a]"
+                                    >
+                                      {reason}
+                                    </li>
+                                  ))}
+                                </ul>
                               ) : null}
                             </div>
                             {!readOnly && row.picked ? (
@@ -714,6 +723,9 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
               ))}
             </div>
             <p className="mt-4 text-sm font-medium text-neutral-800">Why</p>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Tick the characteristics that put them in this place. They show on the card.
+            </p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {PICK_REASONS.map((reason) => (
                 <label key={reason} className="flex items-center gap-2 text-sm text-neutral-700">
