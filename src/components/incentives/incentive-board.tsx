@@ -6,14 +6,17 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { currentYearMonth } from "@/lib/utils/dates";
-import { INCENTIVE_SLOTS, type IncentiveSlot } from "@/lib/incentives/catalog";
+import { INCENTIVE_SLOTS, incentiveAreaPrompt, type IncentiveSlot } from "@/lib/incentives/catalog";
 import { EvidencePreview } from "@/components/shared/evidence-preview";
 import {
   fetchAll,
   loadMonthPack,
   monthLabel,
   shiftMonth,
+  type ManualPick,
   type MonthPack,
   type ProgressMember,
 } from "@/lib/incentives/progress";
@@ -24,6 +27,17 @@ interface Standing {
   memberId: string;
   name: string;
   score: number;
+  note: string;
+  picked: boolean;
+}
+
+interface AreaDraft {
+  slot: IncentiveSlot;
+  label: string;
+  memberId: string;
+  memberName: string;
+  yearMonth: string;
+  note: string;
 }
 
 async function fetchProgress(month: string) {
@@ -57,6 +71,8 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingPrizes, setSavingPrizes] = useState(false);
+  const [draft, setDraft] = useState<AreaDraft | null>(null);
+  const [savingArea, setSavingArea] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const inflight = useMemo(() => new Set<string>(), []);
 
@@ -178,17 +194,29 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
 
   function standings(slot: IncentiveSlot, source: "auto" | "manual", yearMonth: string): Standing[] {
     const pack = packs[yearMonth];
-    const scores =
-      source === "auto"
-        ? pack?.auto[slot] ?? {}
-        : Object.fromEntries(
-            Object.entries(pack?.manual[slot] ?? {}).map(([id, value]) => [id, Number(value) || 0])
-          );
+    if (source === "manual") {
+      const picks = pack?.manual[slot] ?? {};
+      return members
+        .map((member) => {
+          const pick = picks[member.id];
+          return {
+            memberId: member.id,
+            name: member.full_name,
+            score: pick?.picked ? 1 : 0,
+            note: pick?.note ?? "",
+            picked: Boolean(pick?.picked),
+          };
+        })
+        .sort((a, b) => Number(b.picked) - Number(a.picked) || a.name.localeCompare(b.name));
+    }
+    const scores = pack?.auto[slot] ?? {};
     return members
       .map((member) => ({
         memberId: member.id,
         name: member.full_name,
         score: scores[member.id] ?? 0,
+        note: "",
+        picked: (scores[member.id] ?? 0) > 0,
       }))
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   }
@@ -228,23 +256,67 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
     setSavingPrizes(false);
   }
 
-  async function saveScore(slot: string, memberId: string, raw: string, yearMonth: string) {
-    const score = Number(raw);
-    if (!Number.isFinite(score) || score < 0) {
-      toast.error("Use a number, 0 or higher.");
+  function writePick(yearMonth: string, slot: string, memberId: string, pick: ManualPick | null) {
+    setPacks((current) => {
+      const monthPack = current[yearMonth];
+      if (!monthPack) return current;
+      const slotPicks = { ...(monthPack.manual[slot] ?? {}) };
+      if (pick) slotPicks[memberId] = pick;
+      else delete slotPicks[memberId];
+      return {
+        ...current,
+        [yearMonth]: {
+          ...monthPack,
+          manual: { ...monthPack.manual, [slot]: slotPicks },
+        },
+      };
+    });
+  }
+
+  async function saveArea() {
+    if (!draft) return;
+    const note = draft.note.trim();
+    if (!note) {
+      toast.error("Write the area first.");
       return;
     }
+    setSavingArea(true);
     const { error } = await supabase.from("incentive_scores").upsert(
       {
-        slot,
-        team_member_id: memberId,
-        year_month: yearMonth,
-        score,
+        slot: draft.slot,
+        team_member_id: draft.memberId,
+        year_month: draft.yearMonth,
+        score: 1,
+        note,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "slot,team_member_id,year_month" }
     );
-    if (error) toast.error(error.message);
+    setSavingArea(false);
+    if (error) {
+      toast.error(
+        /note/i.test(error.message)
+          ? "The area note is not ready yet. Run the incentive area SQL, then tick again."
+          : error.message
+      );
+      return;
+    }
+    writePick(draft.yearMonth, draft.slot, draft.memberId, { picked: true, note });
+    setDraft(null);
+  }
+
+  async function clearPick(slot: string, memberId: string, yearMonth: string) {
+    const { error } = await supabase
+      .from("incentive_scores")
+      .delete()
+      .eq("slot", slot)
+      .eq("team_member_id", memberId)
+      .eq("year_month", yearMonth);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    writePick(yearMonth, slot, memberId, null);
   }
 
   if (loadError) {
@@ -307,7 +379,7 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                       ? "Counted from the 5-star screenshots members save"
                       : slot.source === "auto"
                         ? "Counted from what members record in the month you pick"
-                        : "You type each member’s score below"}
+                        : "Tick a member, then write the area. You can edit that note later."}
                 </p>
               </div>
             </div>
@@ -330,8 +402,19 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
           const chosenMonth = sectionMonth[slot.slot] ?? nowMonth;
           const pack = packs[chosenMonth];
           const rows = standings(slot.slot, slot.source, chosenMonth);
+          const picks = rows.filter((row) => row.picked);
           const leader = rows.find((row) => row.score > 0);
           const top = leader?.score ?? 0;
+          const summary =
+            slot.source === "manual"
+              ? picks.length === 1
+                ? ` · ${picks[0].name}`
+                : picks.length > 1
+                  ? ` · ${picks.length} picked`
+                  : ""
+              : leader
+                ? ` · ${leader.name} is ahead`
+                : "";
           const starEvidence = pack?.stars ?? [];
           return (
             <article key={slot.slot} className="rounded-2xl border border-neutral-200 bg-white p-4">
@@ -340,7 +423,7 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                   <h3 className="font-semibold text-neutral-900">{slot.label}</h3>
                   <p className="text-sm font-medium text-[#7b1e3a]">
                     {prizes[slot.slot]?.trim() || "No prize yet"}
-                    {leader ? ` · ${leader.name} is ahead` : ""}
+                    {summary}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -391,15 +474,76 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
 
               {pack && top === 0 ? (
                 <p className="mt-3 text-sm text-neutral-500">
-                  {slot.slot === "five_stars"
-                    ? `No 5-star screenshots saved in ${monthLabel(chosenMonth)} yet.`
-                    : `No score recorded in ${monthLabel(chosenMonth)} yet.`}
+                  {slot.source === "manual"
+                    ? `No one picked in ${monthLabel(chosenMonth)} yet.`
+                    : slot.slot === "five_stars"
+                      ? `No 5-star screenshots saved in ${monthLabel(chosenMonth)} yet.`
+                      : `No score recorded in ${monthLabel(chosenMonth)} yet.`}
                 </p>
               ) : null}
 
               {pack ? (
                 <ul className="mt-3 space-y-2">
-                  {rows.map((row) => {
+                  {(slot.source === "manual" && readOnly ? rows.filter((row) => row.picked) : rows).map((row) => {
+                    if (slot.source === "manual") {
+                      return (
+                        <li key={row.memberId} className="flex items-start gap-3 rounded-lg px-1 py-1.5">
+                          {readOnly ? (
+                            <span className="mt-1 h-4 w-4 shrink-0 rounded-sm bg-[#7b1e3a]" aria-hidden />
+                          ) : (
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-4 w-4 shrink-0 accent-[#7b1e3a]"
+                              checked={row.picked}
+                              aria-label={`Pick ${row.name} for ${slot.label}`}
+                              onChange={(event) => {
+                                if (event.target.checked) {
+                                  setDraft({
+                                    slot: slot.slot,
+                                    label: slot.label,
+                                    memberId: row.memberId,
+                                    memberName: row.name,
+                                    yearMonth: chosenMonth,
+                                    note: "",
+                                  });
+                                  return;
+                                }
+                                void clearPick(slot.slot, row.memberId, chosenMonth);
+                              }}
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm ${row.picked ? "font-semibold text-[#7b1e3a]" : "text-neutral-700"}`}>
+                              {row.name}
+                            </p>
+                            {row.picked ? (
+                              <p className="mt-0.5 text-sm text-neutral-600">
+                                {row.note || "Add the area you saw."}
+                              </p>
+                            ) : null}
+                          </div>
+                          {!readOnly && row.picked ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setDraft({
+                                  slot: slot.slot,
+                                  label: slot.label,
+                                  memberId: row.memberId,
+                                  memberName: row.name,
+                                  yearMonth: chosenMonth,
+                                  note: row.note,
+                                })
+                              }
+                            >
+                              Edit
+                            </Button>
+                          ) : null}
+                        </li>
+                      );
+                    }
                     const width = top > 0 ? Math.max(4, Math.round((row.score / top) * 100)) : 0;
                     const ahead = leader?.memberId === row.memberId && row.score > 0;
                     return (
@@ -416,49 +560,17 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                             style={{ width: row.score > 0 ? `${width}%` : "0%" }}
                           />
                         </div>
-                        {slot.source === "manual" && !readOnly ? (
-                          <Input
-                            inputMode="decimal"
-                            value={pack.manual[slot.slot]?.[row.memberId] ?? ""}
-                            placeholder="0"
-                            className="h-8 text-right"
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setPacks((current) => {
-                                const monthPack = current[chosenMonth];
-                                if (!monthPack) return current;
-                                return {
-                                  ...current,
-                                  [chosenMonth]: {
-                                    ...monthPack,
-                                    manual: {
-                                      ...monthPack.manual,
-                                      [slot.slot]: {
-                                        ...monthPack.manual[slot.slot],
-                                        [row.memberId]: value,
-                                      },
-                                    },
-                                  },
-                                };
-                              });
-                            }}
-                            onBlur={(event) =>
-                              saveScore(slot.slot, row.memberId, event.target.value || "0", chosenMonth)
-                            }
-                          />
-                        ) : (
-                          <p className="whitespace-nowrap text-right text-xs tabular-nums text-neutral-500">
-                            {slot.unit === "$"
-                              ? `$${row.score.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                              : slot.slot === "top_accounts"
-                                ? `${row.score} this month · ${
-                                    standings(slot.slot, slot.source, shiftMonth(chosenMonth, -1)).find(
-                                      (item) => item.memberId === row.memberId
-                                    )?.score ?? 0
-                                  } last month`
-                                : `${row.score} ${slot.unit}`}
-                          </p>
-                        )}
+                        <p className="whitespace-nowrap text-right text-xs tabular-nums text-neutral-500">
+                          {slot.unit === "$"
+                            ? `$${row.score.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                            : slot.slot === "top_accounts"
+                              ? `${row.score} this month · ${
+                                  standings(slot.slot, slot.source, shiftMonth(chosenMonth, -1)).find(
+                                    (item) => item.memberId === row.memberId
+                                  )?.score ?? 0
+                                } last month`
+                              : `${row.score} ${slot.unit}`}
+                        </p>
                       </li>
                     );
                   })}
@@ -490,6 +602,60 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
           );
         })}
       </section>
+      {draft ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => {
+            if (!savingArea) setDraft(null);
+          }}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="area-title"
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !savingArea) setDraft(null);
+            }}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveArea();
+            }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#7b1e3a]">{draft.label}</p>
+            <h3 id="area-title" className="mt-1 text-lg font-semibold text-neutral-900">
+              {incentiveAreaPrompt(draft.slot)}
+            </h3>
+            <p className="mt-1 text-sm text-neutral-500">
+              {draft.memberName} · {monthLabel(draft.yearMonth)}
+            </p>
+            <Label htmlFor="area-note" className="mt-4 block">
+              Area
+            </Label>
+            <Textarea
+              id="area-note"
+              value={draft.note}
+              autoFocus
+              rows={4}
+              placeholder="The place you saw them improve"
+              className="mt-1.5"
+              onChange={(event) =>
+                setDraft((current) => (current ? { ...current, note: event.target.value } : current))
+              }
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" disabled={savingArea} onClick={() => setDraft(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={savingArea || draft.note.trim().length === 0}>
+                {savingArea ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Save
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

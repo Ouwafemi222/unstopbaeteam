@@ -13,6 +13,17 @@ export const INCENTIVE_SLOTS = [
 export type IncentiveSlot = (typeof INCENTIVE_SLOTS)[number]["slot"];
 export type IncentiveSource = (typeof INCENTIVE_SLOTS)[number]["source"];
 
+const AREA_PROMPTS: Record<string, string> = {
+  most_improved: "Which area did this person improve?",
+  well_behaved: "Where did you see this?",
+  most_learned: "What did this person learn?",
+  well_dressed: "What stood out?",
+};
+
 export function incentiveSlotMeta(slot: string) {
   return INCENTIVE_SLOTS.find((item) => item.slot === slot) ?? null;
+}
+
+export function incentiveAreaPrompt(slot: string) {
+  return AREA_PROMPTS[slot] ?? "What did you see?";
 }

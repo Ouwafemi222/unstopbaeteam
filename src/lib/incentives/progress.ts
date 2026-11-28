@@ -17,9 +17,14 @@ export interface StarEvidence {
   url: string | null;
 }
 
+export interface ManualPick {
+  picked: boolean;
+  note: string;
+}
+
 export interface MonthPack {
   auto: Record<string, Record<string, number>>;
-  manual: Record<string, Record<string, string>>;
+  manual: Record<string, Record<string, ManualPick>>;
   stars: StarEvidence[];
 }
 
@@ -63,6 +68,36 @@ async function loadRateTable(): Promise<Record<string, number> | null> {
     return body.rates ?? null;
   } catch {
     return null;
+  }
+}
+
+type ScoreRow = {
+  slot: string;
+  team_member_id: string;
+  score: number | null;
+  note: string | null;
+};
+
+async function loadScoreRows(db: SupabaseClient, yearMonth: string): Promise<ScoreRow[]> {
+  try {
+    return await fetchAll<ScoreRow>((from, to) =>
+      db
+        .from("incentive_scores")
+        .select("slot, team_member_id, score, note")
+        .eq("year_month", yearMonth)
+        .range(from, to)
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (!/note/i.test(message)) throw error;
+    const rows = await fetchAll<Omit<ScoreRow, "note">>((from, to) =>
+      db
+        .from("incentive_scores")
+        .select("slot, team_member_id, score")
+        .eq("year_month", yearMonth)
+        .range(from, to)
+    );
+    return rows.map((row) => ({ ...row, note: null }));
   }
 }
 
@@ -154,13 +189,7 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
           .lte("received_date", bounds.to)
           .range(from, to)
       ),
-      fetchAll<{ slot: string; team_member_id: string; score: number | null }>((from, to) =>
-        db
-          .from("incentive_scores")
-          .select("slot, team_member_id, score")
-          .eq("year_month", yearMonth)
-          .range(from, to)
-      ),
+      loadScoreRows(db, yearMonth),
       fetchAll<Omit<StarEvidence, "url">>((from, to) =>
         db
           .from("five_star_reviews")
@@ -207,13 +236,18 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
   const starCounts: Record<string, number> = {};
   for (const row of stars) add(starCounts, row.team_member_id, 1);
 
-  const manual: Record<string, Record<string, string>> = {};
+  const manual: Record<string, Record<string, ManualPick>> = {};
   for (const slot of INCENTIVE_SLOTS) {
     if (slot.source === "manual") manual[slot.slot] = {};
   }
   for (const row of scores) {
     if (!manual[row.slot]) manual[row.slot] = {};
-    manual[row.slot][row.team_member_id] = String(row.score ?? 0);
+    const picked = Number(row.score ?? 0) > 0;
+    if (!picked) continue;
+    manual[row.slot][row.team_member_id] = {
+      picked: true,
+      note: (row.note ?? "").trim(),
+    };
   }
 
   return {
