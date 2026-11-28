@@ -426,7 +426,11 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
               <div>
                 <p className="font-semibold text-neutral-900">{slot.label}</p>
                 <p className="text-xs text-neutral-500">
-                  {slot.slot === "top_accounts"
+                  {slot.slot === "prospects"
+                    ? "Read from the Prospects number members save. You do not pick anyone."
+                    : slot.slot === "office_prospects"
+                      ? "Read from the Office prospects number members save. Contacts are not counted."
+                    : slot.slot === "top_accounts"
                     ? "Opening date decides the month. This month and last month are counted apart."
                     : slot.slot === "top_earner"
                       ? "Dollars members keep. Fiverr’s 20% is already removed. Outside payments stay as recorded."
@@ -520,7 +524,11 @@ export function IncentiveBoard({ readOnly = false }: { readOnly?: boolean }) {
                   </Button>
                 </div>
               </div>
-              <p className="mt-2 text-xs text-neutral-500">Showing {monthLabel(chosenMonth)}</p>
+              <p className="mt-2 text-xs text-neutral-500">
+                Showing {monthLabel(chosenMonth)}
+                {slot.slot === "prospects" ? " · read from Prospects members save" : ""}
+                {slot.slot === "office_prospects" ? " · read from Office prospects members save" : ""}
+              </p>
               {!pack ? (
                 <div className="mt-3 flex items-center gap-2 text-sm text-neutral-500">
                   <Loader2 className="h-4 w-4 animate-spin" />

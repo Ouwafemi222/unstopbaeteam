@@ -1,5 +1,6 @@
 export const INCENTIVE_SLOTS = [
-  { slot: "office_prospects", label: "Most prospects in the office", source: "auto", unit: "prospects" },
+  { slot: "prospects", label: "Highest prospects", source: "auto", unit: "prospects" },
+  { slot: "office_prospects", label: "Highest prospects in the office", source: "auto", unit: "prospects" },
   { slot: "top_earner", label: "Top earner", source: "auto", unit: "$" },
   { slot: "most_improved", label: "Most well improved", source: "manual", unit: "points" },
   { slot: "well_dressed", label: "Most well dressed", source: "manual", unit: "points" },

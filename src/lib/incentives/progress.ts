@@ -134,10 +134,14 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
 
   const [prospects, earnings, orders, openedAccounts, createdAccounts, messages, scores, starPage] =
     await Promise.all([
-      fetchAll<{ team_member_id: string; office_prospects_count: number | null }>((from, to) =>
+      fetchAll<{
+        team_member_id: string;
+        prospects_count: number | null;
+        office_prospects_count: number | null;
+      }>((from, to) =>
         db
           .from("member_prospect_entries")
-          .select("team_member_id, office_prospects_count")
+          .select("team_member_id, prospects_count, office_prospects_count")
           .gte("logged_date", bounds.from)
           .lte("logged_date", bounds.to)
           .range(from, to)
@@ -207,8 +211,12 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
     if (!id) return;
     bucket[id] = (bucket[id] ?? 0) + amount;
   };
+  const loggedProspects: Record<string, number> = {};
   const office: Record<string, number> = {};
-  for (const row of prospects) add(office, row.team_member_id, Number(row.office_prospects_count ?? 0));
+  for (const row of prospects) {
+    add(loggedProspects, row.team_member_id, Number(row.prospects_count ?? 0));
+    add(office, row.team_member_id, Number(row.office_prospects_count ?? 0));
+  }
   const weeklyEarn: Record<string, number> = {};
   for (const row of earnings) {
     add(weeklyEarn, row.team_member_id, dollars(row.amount, row.currency, rates));
@@ -257,6 +265,7 @@ export async function loadMonthPack(db: SupabaseClient, yearMonth: string): Prom
 
   return {
     auto: {
+      prospects: loggedProspects,
       office_prospects: office,
       top_earner: earn,
       top_accounts: opened,
